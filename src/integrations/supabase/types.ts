@@ -451,6 +451,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_safe_ai_providers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          is_active: boolean
+          name: string
+          tenant_id: string
+          type: string
+        }[]
+      }
       get_user_tenant_id: {
         Args: Record<PropertyKey, never>
         Returns: string

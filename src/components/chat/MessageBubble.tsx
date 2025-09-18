@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Message } from './ChatInterface';
 import { SourceCitation } from './SourceCitation';
+import { AIProviderBadge } from './AIProviderBadge';
 import { AttachmentPreview } from './AttachmentPreview';
 import { MessageContent } from './MessageContent';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
@@ -110,6 +111,17 @@ export function MessageBubble({ message, onReaction, onReply, isReplying }: Mess
             {message.sources.map((source, index) => (
               <SourceCitation key={index} source={source} />
             ))}
+          </div>
+        )}
+
+        {/* AI Provider Badge for assistant messages */}
+        {!isUser && (
+          <div className="mt-1">
+            <AIProviderBadge 
+              provider="OpenAI" 
+              model="GPT-4" 
+              className="opacity-70"
+            />
           </div>
         )}
 

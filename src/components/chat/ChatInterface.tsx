@@ -51,7 +51,7 @@ export interface Message {
 }
 
 export function ChatInterface() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentConversation, setCurrentConversation] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -235,19 +235,43 @@ export function ChatInterface() {
           attachments.forEach(file => notifyFileUploaded(file.name));
         }
 
-        // Generate AI response (simplified for now)
-        setTimeout(async () => {
+        // Generate AI response via edge function
+        try {
+          const response = await fetch('https://onvnvlnxmilotkxkfddu.supabase.co/functions/v1/ai-chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              chatbot_id: null, // Default chatbot for now
+              message: content,
+              conversation_id: conversationId,
+              user_id: user?.id,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to get AI response');
+          }
+
+          const aiData = await response.json();
+          
+          // AI response is already saved by the edge function
+          setIsTyping(false);
+        } catch (error) {
+          console.error('AI response error:', error);
+          // Fallback response
           const botResponse = await conversationService.sendMessage(
             conversationId!,
-            `Thank you for your message: "${content}". I'm processing your request and will provide a detailed response.`,
+            'I apologize, but I encountered an issue processing your request. Please try again.',
             'assistant'
           );
-
+          
           if (botResponse) {
-            // Real-time subscription will handle adding the message
             setIsTyping(false);
           }
-        }, 1500);
+        }
       }
     } catch (error) {
       // Handle error
