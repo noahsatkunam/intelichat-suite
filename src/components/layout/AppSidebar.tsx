@@ -119,7 +119,11 @@ export function AppSidebar() {
 
   if (isCollapsed) {
     return (
-      <Sidebar className="w-16 border-r border-sidebar-border bg-sidebar" collapsible="icon">
+      <Sidebar
+        className="border-r border-sidebar-border bg-sidebar"
+        collapsible="icon"
+        style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
+      >
         <div className="p-2">
           <SidebarTrigger className="w-12 h-12 p-0 mx-auto flex items-center justify-center hover:bg-sidebar-accent rounded-lg transition-colors" />
         </div>
@@ -154,7 +158,11 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar className="w-80 border-r border-sidebar-border bg-sidebar" collapsible="icon">
+    <Sidebar
+      className="border-r border-sidebar-border bg-sidebar"
+      collapsible="icon"
+      style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
+    >
       <SidebarContent className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
