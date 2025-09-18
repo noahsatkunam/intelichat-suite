@@ -2,71 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Enterprise Chatbot Design System - All colors, gradients, fonts, etc defined here. 
-All colors MUST be HSL.
+/* Zyria Enterprise AI Platform - Design System
+All colors MUST be HSL format for proper theme switching.
 */
 
 @layer base {
   :root {
-    /* Base Colors */
-    --background: 248 250 252;
-    --foreground: 226 232 240;
+    /* Light Theme - Zyria Brand Colors */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
 
-    /* Enterprise Brand Colors */
-    --primary: 239 68% 68%;
+    /* Zyria Primary Brand - Professional Blue to Purple */
+    --primary: 234 89% 74%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 245 78% 85%;
+    --primary-dark: 234 89% 60%;
+    --primary-glow: 234 89% 85%;
     
-    --secondary: 226 50% 94%;
-    --secondary-foreground: 220 13% 46%;
+    /* Secondary Brand Colors */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
     
-    /* Chat Interface Colors */
-    --chat-background: 248 250 252;
+    /* Enterprise Interface Colors */
+    --chat-background: 0 0% 100%;
     --chat-surface: 0 0% 100%;
-    --chat-border: 220 13% 91%;
+    --chat-header: 0 0% 98%;
+    --chat-border: 214 32% 91%;
     
-    --user-message: 239 68% 68%;
+    /* Message Colors */
+    --user-message: 234 89% 74%;
     --user-message-foreground: 0 0% 100%;
-    --bot-message: 0 0% 100%;
-    --bot-message-foreground: 15 23% 42%;
+    --bot-message: 0 0% 97%;
+    --bot-message-foreground: 240 10% 3.9%;
     
     /* Status Colors */
-    --success: 142 71% 45%;
+    --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    /* UI Colors */
+    /* UI Elements */
     --card: 0 0% 100%;
-    --card-foreground: 15 23% 42%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 15 23% 42%;
-    --muted: 220 13% 95%;
-    --muted-foreground: 220 9% 55%;
-    --accent: 220 13% 95%;
-    --accent-foreground: 15 23% 42%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 239 68% 68%;
+    --popover-foreground: 240 10% 3.9%;
+    --muted: 210 40% 98%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 234 89% 74%;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(239 68% 68%), hsl(245 78% 85%));
-    --gradient-surface: linear-gradient(145deg, hsl(0 0% 100%), hsl(220 13% 98%));
-    --gradient-subtle: linear-gradient(180deg, hsl(248 250 252), hsl(241 245 249));
+    /* Zyria Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(234 89% 74%) 0%, hsl(270 91% 65%) 100%);
+    --gradient-surface: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(210 40% 98%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
     
-    /* Shadows */
-    --shadow-soft: 0 1px 3px hsl(220 13% 46% / 0.1), 0 1px 2px hsl(220 13% 46% / 0.06);
-    --shadow-medium: 0 4px 6px hsl(220 13% 46% / 0.07), 0 2px 4px hsl(220 13% 46% / 0.06);
-    --shadow-large: 0 10px 15px hsl(220 13% 46% / 0.1), 0 4px 6px hsl(220 13% 46% / 0.05);
-    --shadow-glow: 0 0 20px hsl(239 68% 68% / 0.3);
+    /* Enterprise Shadows */
+    --shadow-soft: 0 1px 3px hsla(240, 10%, 3.9%, 0.08);
+    --shadow-medium: 0 4px 12px hsla(240, 10%, 3.9%, 0.1);
+    --shadow-large: 0 8px 32px hsla(240, 10%, 3.9%, 0.12);
+    --shadow-glow: 0 0 24px hsla(234, 89%, 74%, 0.35);
     
-    /* Animation */
+    /* Animations */
     --animation-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --animation-bounce: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --animation-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     
-    --radius: 0.75rem;
+    --radius: 8px;
 
     --sidebar-background: 0 0% 98%;
 
@@ -86,46 +90,71 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Dark theme colors */
-    --background: 15 23% 4%;
-    --foreground: 210 40% 98%;
-    --primary: 239 68% 68%;
+    /* Dark Theme - Zyria Professional */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    /* Zyria Dark Brand Colors */
+    --primary: 234 89% 74%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 245 78% 85%;
-    --secondary: 217 32% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --chat-background: 15 23% 4%;
-    --chat-surface: 15 23% 6%;
-    --chat-border: 217 32% 17%;
-    --user-message: 239 68% 68%;
+    --primary-dark: 234 89% 65%;
+    --primary-glow: 234 89% 80%;
+    
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    
+    /* Dark Interface Colors */
+    --chat-background: 240 10% 3.9%;
+    --chat-surface: 240 6% 10%;
+    --chat-header: 240 5% 6%;
+    --chat-border: 240 4% 16%;
+    
+    /* Dark Message Colors */
+    --user-message: 234 89% 74%;
     --user-message-foreground: 0 0% 100%;
-    --bot-message: 217 32% 14%;
-    --bot-message-foreground: 210 40% 98%;
-    --success: 142 71% 45%;
+    --bot-message: 240 5% 6%;
+    --bot-message-foreground: 0 0% 98%;
+    
+    /* Dark Status Colors */
+    --success: 142 76% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 38 92% 60%;
     --warning-foreground: 0 0% 100%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --card: 217 32% 14%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217 32% 14%;
-    --popover-foreground: 210 40% 98%;
-    --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 32% 17%;
-    --accent-foreground: 210 40% 98%;
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
-    --ring: 239 68% 68%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* Dark UI Elements */
+    --card: 240 5% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 5% 6%;
+    --popover-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 234 89% 74%;
+
+    /* Dark Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(234 89% 74%) 0%, hsl(270 91% 65%) 100%);
+    --gradient-surface: linear-gradient(145deg, hsl(240 5% 6%) 0%, hsl(240 4% 16%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(240 10% 3.9%) 0%, hsl(240 5% 6%) 100%);
+    
+    /* Dark Shadows */
+    --shadow-soft: 0 1px 3px hsla(240, 10%, 3.9%, 0.5);
+    --shadow-medium: 0 4px 12px hsla(240, 10%, 3.9%, 0.7);
+    --shadow-large: 0 8px 32px hsla(240, 10%, 3.9%, 0.8);
+    --shadow-glow: 0 0 24px hsla(234, 89%, 74%, 0.4);
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 234 89% 74%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 234 89% 74%;
   }
 }
 
@@ -139,7 +168,7 @@ All colors MUST be HSL.
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Custom animations for chat interface */
+  /* Custom Zyria animations for enterprise interface */
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -162,12 +191,21 @@ All colors MUST be HSL.
     }
   }
 
-  @keyframes pulse-glow {
+  @keyframes glow-pulse {
     0%, 100% {
-      box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+      box-shadow: 0 0 20px hsla(234, 89%, 74%, 0.3);
     }
     50% {
-      box-shadow: 0 0 30px hsl(var(--primary) / 0.5);
+      box-shadow: 0 0 30px hsla(234, 89%, 74%, 0.5);
+    }
+  }
+
+  @keyframes theme-transition {
+    from {
+      opacity: 0.8;
+    }
+    to {
+      opacity: 1;
     }
   }
 
@@ -179,11 +217,20 @@ All colors MUST be HSL.
     animation: slide-up 0.4s ease-out;
   }
 
-  .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
   }
 
-  /* Smooth scrolling for chat */
+  .animate-theme-transition {
+    animation: theme-transition 0.3s ease-out;
+  }
+
+  /* Smooth theme transitions */
+  * {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Enhanced scrollbar for chat */
   .chat-scroll {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--muted)) transparent;
@@ -206,9 +253,20 @@ All colors MUST be HSL.
     background-color: hsl(var(--muted-foreground));
   }
 
-  /* Text selection styling */
+  /* Enterprise text selection styling */
   ::selection {
     background-color: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
+  }
+
+  /* Enhanced typography for enterprise feel */
+  .font-display {
+    letter-spacing: -0.025em;
+  }
+
+  /* Focus styles for accessibility */
+  .focus-ring:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }

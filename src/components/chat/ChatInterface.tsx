@@ -27,39 +27,39 @@ export interface Message {
 const mockMessages: Message[] = [
   {
     id: '1',
-    content: 'Hello! I\'m your AI assistant. How can I help you today?',
+    content: 'Hello! I\'m Zyria, your enterprise AI assistant. I can help you with complex queries, access our knowledge base, and provide detailed information with source citations. How can I assist you today?',
     sender: 'bot',
     timestamp: new Date(Date.now() - 10000),
     sources: [
       {
-        title: 'Enterprise AI Guidelines',
+        title: 'Zyria Enterprise Guidelines',
         url: '#',
-        snippet: 'Best practices for AI-powered customer support...'
+        snippet: 'Comprehensive guide to enterprise AI best practices and implementation strategies...'
       }
     ]
   },
   {
     id: '2',
-    content: 'Can you help me understand your knowledge base capabilities?',
+    content: 'Can you help me understand how your knowledge integration works?',
     sender: 'user',
     timestamp: new Date(Date.now() - 5000),
   },
   {
     id: '3',
-    content: 'Absolutely! I have access to comprehensive documentation, product guides, and troubleshooting resources. I can provide answers backed by verified sources and even suggest relevant documents for deeper reading.',
+    content: 'Absolutely! Zyria integrates with your enterprise knowledge base through advanced semantic search and retrieval. I provide real-time access to documentation, policies, and procedures with full source attribution. Every response includes verified citations so you can trust the information and explore deeper when needed.',
     sender: 'bot',
     timestamp: new Date(),
     reactions: ['👍', '💡'],
     sources: [
       {
-        title: 'Knowledge Base Overview',
+        title: 'Knowledge Integration Architecture',
         url: '#',
-        snippet: 'Our AI assistant leverages a curated knowledge base...'
+        snippet: 'Technical overview of Zyria\'s semantic search and retrieval system for enterprise data...'
       },
       {
-        title: 'Source Attribution System',
+        title: 'Source Attribution Framework',
         url: '#',
-        snippet: 'Every response includes verified source citations...'
+        snippet: 'How Zyria ensures accurate citations and maintains data provenance across all responses...'
       }
     ]
   }

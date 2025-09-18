@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        'sans': ['Inter', 'system-ui', 'sans-serif'],
+        'display': ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -22,6 +26,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          dark: "hsl(var(--primary-dark))",
           glow: "hsl(var(--primary-glow))",
         },
         secondary: {
@@ -51,6 +56,7 @@ export default {
         chat: {
           background: "hsl(var(--chat-background))",
           surface: "hsl(var(--chat-surface))",
+          header: "hsl(var(--chat-header))",
           border: "hsl(var(--chat-border))",
         },
         message: {
@@ -91,7 +97,7 @@ export default {
       },
       transitionTimingFunction: {
         smooth: "var(--animation-smooth)",
-        bounce: "var(--animation-bounce)",
+        spring: "var(--animation-spring)",
       },
       borderRadius: {
         lg: "var(--radius)",

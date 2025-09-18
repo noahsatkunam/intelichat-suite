@@ -79,8 +79,8 @@ export function MessageInput({ onSendMessage, onToggleFileUpload }: MessageInput
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Type your message..."
-            className="resize-none min-h-[44px] max-h-[120px] pr-12 bg-background border-input focus:border-ring focus:ring-1 focus:ring-ring"
+            placeholder="Type your message to Zyria..."
+            className="resize-none min-h-[44px] max-h-[120px] pr-12 bg-background border-input focus:border-ring focus:ring-1 focus:ring-ring transition-smooth focus-ring"
             rows={1}
           />
           
@@ -109,7 +109,7 @@ export function MessageInput({ onSendMessage, onToggleFileUpload }: MessageInput
         <Button
           type="submit"
           disabled={!message.trim() && attachments.length === 0}
-          className="h-11 w-11 p-0 bg-gradient-primary hover:shadow-glow transition-all duration-200 disabled:opacity-50"
+          className="h-11 w-11 p-0 bg-gradient-primary hover:shadow-glow transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
         >
           <Send className="w-4 h-4" />
         </Button>
