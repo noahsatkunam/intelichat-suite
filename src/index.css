@@ -533,4 +533,62 @@ All colors MUST be HSL format for proper theme switching.
     animation: glow-pulse 1s ease-in-out;
     background: hsla(var(--primary), 0.1);
   }
+
+  /* Custom Scrollbar Styles */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.3);
+    border-radius: 4px;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.5);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark mode scrollbar adjustments */
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.4);
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.6);
+  }
+
+  /* Auto-hide scrollbar effect */
+  .auto-hide-scrollbar {
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .auto-hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .auto-hide-scrollbar:hover {
+    scrollbar-width: thin;
+  }
+
+  .auto-hide-scrollbar:hover::-webkit-scrollbar {
+    display: block;
+    width: 8px;
+  }
 }
