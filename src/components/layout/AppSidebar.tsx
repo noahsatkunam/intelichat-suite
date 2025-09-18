@@ -20,7 +20,8 @@ import {
   Clock,
   Brain,
   Bot,
-  Mail
+  Mail,
+  LayoutDashboard
 } from 'lucide-react';
 import {
   Sidebar,
@@ -53,7 +54,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { conversationService } from '@/services/conversationService';
 
 const mainNavItems = [
-  { title: 'New Chat', url: '/dashboard', icon: MessageSquarePlus, variant: 'primary' as const },
+  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, variant: 'primary' as const },
+  { title: 'New Chat', url: '/chat', icon: MessageSquarePlus },
   { title: 'Chat History', url: '/history', icon: History },
   { title: 'Knowledge Base', url: '/knowledge', icon: BookOpen },
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
