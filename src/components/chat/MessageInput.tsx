@@ -2,13 +2,16 @@ import React, { useState, useRef } from 'react';
 import { Send, Paperclip, Mic, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Message } from './ChatInterface';
 
 interface MessageInputProps {
   onSendMessage: (content: string, attachments?: File[]) => void;
   onToggleFileUpload: () => void;
+  replyingTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
-export function MessageInput({ onSendMessage, onToggleFileUpload }: MessageInputProps) {
+export function MessageInput({ onSendMessage, onToggleFileUpload, replyingTo, onCancelReply }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
