@@ -15,7 +15,10 @@ import { Badge } from '@/components/ui/badge';
 import { ChatEmptyState } from '@/components/ui/empty-state';
 import { LoadingOverlay } from '@/components/ui/loading-spinner';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { DemoToggle } from '@/components/demo/DemoToggle';
+import { WelcomeScreen } from '@/components/demo/WelcomeScreen';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { demoService } from '@/services/demoService';
 import { ChevronDown, Search, Upload, BookOpen, MessageSquarePlus } from 'lucide-react';
 
 export interface Message {
@@ -96,7 +99,7 @@ const mockMessages: Message[] = [
 ];
 
 export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -110,6 +113,9 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [currentScenario, setCurrentScenario] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { notifyMessageSent, notifyMessageError, notifyFileUploaded } = useToastNotifications();
@@ -176,7 +182,6 @@ export function ChatInterface() {
     setReplyingTo(null);
     setIsTyping(true);
 
-    // Simulate message sending with enhanced feedback
     try {
       // Show sending feedback
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -193,28 +198,36 @@ export function ChatInterface() {
         attachments.forEach(file => notifyFileUploaded(file.name));
       }
 
-      // Simulate bot response with realistic delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        content: replyingTo 
-          ? `Regarding your message "${replyingTo.content.substring(0, 50)}..." - I understand your question and here's my detailed response with relevant sources.`
-          : "Thank you for your message! I'm processing your request and will provide a detailed response with relevant sources.",
-        sender: 'bot',
-        timestamp: new Date(),
-        status: 'sent',
-        replyTo: replyingTo?.id,
-        sources: [
-          {
-            title: 'Related Documentation',
-            url: '#',
-            snippet: 'Based on your query, here are the most relevant resources...',
-            confidence: 'high' as const,
-            type: 'PDF'
-          }
-        ]
-      };
+      let botResponse: Message;
+
+      // Use demo service if in demo mode
+      if (isDemoMode) {
+        const demoResponse = await demoService.generateDemoResponse(content, currentScenario);
+        botResponse = demoResponse;
+      } else {
+        // Default response for non-demo mode
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        botResponse = {
+          id: (Date.now() + 1).toString(),
+          content: replyingTo 
+            ? `Regarding your message "${replyingTo.content.substring(0, 50)}..." - I understand your question and here's my detailed response with relevant sources.`
+            : "Thank you for your message! I'm processing your request and will provide a detailed response with relevant sources.",
+          sender: 'bot',
+          timestamp: new Date(),
+          status: 'sent',
+          replyTo: replyingTo?.id,
+          sources: [
+            {
+              title: 'Related Documentation',
+              url: '#',
+              snippet: 'Based on your query, here are the most relevant resources...',
+              confidence: 'high' as const,
+              type: 'PDF'
+            }
+          ]
+        };
+      }
 
       setMessages(prev => [...prev, botResponse]);
       setIsTyping(false);
@@ -275,6 +288,36 @@ export function ChatInterface() {
     setSearchQuery('');
     setUnreadCount(0);
     setLastSeenMessageId(null);
+    setShowWelcome(false);
+  };
+
+  const handleStartDemo = (scenarioId: string) => {
+    setCurrentScenario(scenarioId);
+    setIsDemoMode(true);
+    setShowWelcome(false);
+    
+    // Load scenario messages
+    const scenarioMessages = demoService.getScenarioMessages(scenarioId);
+    setMessages(scenarioMessages);
+  };
+
+  const handleToggleDemoMode = (enabled: boolean) => {
+    setIsDemoMode(enabled);
+    demoService.toggleDemoMode(enabled);
+    
+    if (!enabled) {
+      setCurrentScenario(null);
+      setMessages([]);
+    }
+  };
+
+  const handleResetDemo = () => {
+    setMessages([]);
+    setCurrentScenario(null);
+    setReplyingTo(null);
+    setSearchQuery('');
+    setUnreadCount(0);
+    setLastSeenMessageId(null);
   };
 
   const filteredMessages = messages.filter(msg =>
@@ -282,12 +325,34 @@ export function ChatInterface() {
     msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Show welcome screen for new users
+  if (showWelcome && messages.length === 0) {
+    return (
+      <WelcomeScreen
+        onStartDemo={handleStartDemo}
+        onSkipToChat={() => setShowWelcome(false)}
+      />
+    );
+  }
+
   return (
     <LoadingOverlay isLoading={isLoading}>
       <div className="flex h-screen bg-chat-background">
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           <ChatHeader />
+          
+          {/* Demo Mode Toggle */}
+          {!showWelcome && (
+            <div className="px-4 py-2 border-b border-chat-border">
+              <DemoToggle
+                isDemoMode={isDemoMode}
+                onToggleDemoMode={handleToggleDemoMode}
+                currentScenario={currentScenario}
+                onResetDemo={handleResetDemo}
+              />
+            </div>
+          )}
           
           <MessageSearch 
             searchQuery={searchQuery}
