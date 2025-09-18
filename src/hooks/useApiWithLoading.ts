@@ -87,12 +87,16 @@ export function useApi<T = any>(
         return null;
       }
 
-      const responseData = response.data || response;
+      // Extract data from response - handle both ApiResponse<T> and direct T
+      const responseData: T = response && typeof response === 'object' && 'data' in response 
+        ? (response as ApiResponse<T>).data!
+        : response as T;
+      
       setData(responseData);
       setSuccess(true);
       retryCountRef.current = 0;
       
-      if (onSuccess) {
+      if (onSuccess && responseData) {
         onSuccess(responseData);
       }
       

@@ -1,89 +1,387 @@
-// Zyria API Service - Centralized client for frontend-only mock data management
-// This service provides a consistent API interface that can later be easily
-// switched to real backend endpoints when ready.
+// Zyria Production API Client - Enhanced service with environment config and auth management
+import { config, buildApiUrl, logApiCall } from '@/config/environment';
+import { authService } from '@/services/authService';
+import { ApiResponse, ApiError } from '@/types/api';
 
-import { Message } from '@/components/chat/ChatInterface';
-import { mockChatScenarios, mockKnowledgeBase, mockAnalytics, mockUsers, mockWorkflows } from '@/data/mockData';
-import { demoService } from './demoService';
+// API Error Classes
+export class NetworkError extends Error {
+  constructor(message: string, public status?: number) {
+    super(message);
+    this.name = 'NetworkError';
+  }
+}
 
-// Configuration
-const API_CONFIG = {
-  baseURL: '/api', // Will be configurable when real backend is connected
-  timeout: 10000,
-  retryAttempts: 3,
-  retryDelay: 1000,
-};
+export class ApiAuthError extends Error {
+  constructor(message: string = 'Authentication required') {
+    super(message);
+    this.name = 'ApiAuthError';
+  }
+}
 
-// Feature flags for mock vs real data
-const FEATURE_FLAGS = {
-  useMockAuth: true,
-  useMockChat: true,
-  useMockKnowledge: true,
-  useMockAnalytics: true,
-  useMockUsers: true,
-  useMockWorkflows: true,
-};
+export class ApiValidationError extends Error {
+  constructor(message: string, public errors: Record<string, string[]>) {
+    super(message);
+    this.name = 'ApiValidationError';
+  }
+}
 
+export class ApiServerError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'ApiServerError';
+  }
+}
+
+// Request/Response Interceptor Types
+interface RequestInterceptor {
+  onRequest?: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>;
+  onError?: (error: any) => any;
+}
+
+interface ResponseInterceptor {
+  onResponse?: (response: any) => any;
+  onError?: (error: any) => any;
+}
+
+interface RequestConfig {
+  url: string;
+  method: string;
+  headers?: Record<string, string>;
+  body?: any;
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+}
+
+// Enhanced API Service Class
 class ApiService {
-  private baseURL: string;
-  private authToken: string | null = null;
+  private requestInterceptors: RequestInterceptor[] = [];
+  private responseInterceptors: ResponseInterceptor[] = [];
+  private retryDelays = [1000, 2000, 4000]; // Progressive delays
 
   constructor() {
-    this.baseURL = API_CONFIG.baseURL;
-    // Initialize mock auth token for demo purposes
-    this.authToken = 'mock-jwt-token-demo';
+    this.setupDefaultInterceptors();
   }
 
-  // Authentication methods (currently mock)
-  async login(email: string, password: string): Promise<{ user: any; token: string }> {
-    if (FEATURE_FLAGS.useMockAuth) {
-      // Simulate API delay
-      await this.delay(1000);
+  // Interceptor Management
+  addRequestInterceptor(interceptor: RequestInterceptor): void {
+    this.requestInterceptors.push(interceptor);
+  }
+
+  addResponseInterceptor(interceptor: ResponseInterceptor): void {
+    this.responseInterceptors.push(interceptor);
+  }
+
+  private setupDefaultInterceptors(): void {
+    // Default request interceptor for authentication
+    this.addRequestInterceptor({
+      onRequest: async (config) => {
+        // Add authentication headers
+        const authHeaders = authService.getAuthHeader();
+        config.headers = {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+          ...config.headers,
+        };
+
+        // Refresh token if needed
+        if (authService.needsRefresh()) {
+          try {
+            await authService.refreshToken();
+            // Update headers with new token
+            const updatedAuthHeaders = authService.getAuthHeader();
+            config.headers = { ...config.headers, ...updatedAuthHeaders };
+          } catch (error) {
+            console.warn('Token refresh failed during request:', error);
+          }
+        }
+
+        return config;
+      },
+    });
+
+    // Default response interceptor for error handling
+    this.addResponseInterceptor({
+      onResponse: (response) => {
+        logApiCall(response.method || 'GET', response.url, response.data);
+        return response;
+      },
+      onError: async (error) => {
+        // Handle 401 errors by attempting token refresh
+        if (error.status === 401 && authService.isAuthenticated()) {
+          try {
+            await authService.refreshToken();
+            // Retry the original request
+            return this.makeRequest(error.config.method, error.config.url, error.config.body);
+          } catch (refreshError) {
+            // If refresh fails, redirect to login
+            authService.logout();
+            throw new ApiAuthError('Session expired. Please log in again.');
+          }
+        }
+        throw error;
+      },
+    });
+  }
+
+  // Core HTTP Methods
+  async get<T = any>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+    const url = this.buildUrlWithParams(endpoint, params);
+    return this.makeRequest('GET', url);
+  }
+
+  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest('POST', endpoint, data);
+  }
+
+  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest('PUT', endpoint, data);
+  }
+
+  async patch<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.makeRequest('PATCH', endpoint, data);
+  }
+
+  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.makeRequest('DELETE', endpoint);
+  }
+
+  // Enhanced request method with retry logic and error handling
+  private async makeRequest<T = any>(
+    method: string,
+    endpoint: string,
+    data?: any,
+    retryCount = 0
+  ): Promise<ApiResponse<T>> {
+    const url = buildApiUrl(endpoint);
+    
+    let requestConfig: RequestConfig = {
+      url,
+      method: method.toUpperCase(),
+      timeout: config.REQUEST_TIMEOUT,
+      retries: config.MAX_RETRY_ATTEMPTS,
+      retryDelay: config.RETRY_DELAY,
+    };
+
+    if (data) {
+      requestConfig.body = data;
+    }
+
+    // Apply request interceptors
+    for (const interceptor of this.requestInterceptors) {
+      if (interceptor.onRequest) {
+        try {
+          requestConfig = await interceptor.onRequest(requestConfig);
+        } catch (error) {
+          if (interceptor.onError) {
+            interceptor.onError(error);
+          }
+          throw error;
+        }
+      }
+    }
+
+    try {
+      // Log API call
+      logApiCall(method, url, data);
+
+      // Make the actual request
+      const response = await this.fetchWithRetry(requestConfig, retryCount);
       
-      // Mock authentication
-      const mockUser = {
-        id: 'user-1',
-        email,
-        name: 'Demo User',
-        role: 'admin',
-        avatar: '/placeholder.svg',
+      // Apply response interceptors
+      let processedResponse = response;
+      for (const interceptor of this.responseInterceptors) {
+        if (interceptor.onResponse) {
+          processedResponse = await interceptor.onResponse(processedResponse);
+        }
+      }
+
+      return processedResponse;
+    } catch (error) {
+      // Apply error interceptors
+      let processedError = error;
+      for (const interceptor of this.responseInterceptors) {
+        if (interceptor.onError) {
+          try {
+            processedError = await interceptor.onError(processedError);
+          } catch (interceptorError) {
+            processedError = interceptorError;
+          }
+        }
+      }
+
+      // Retry logic for certain types of errors
+      if (this.shouldRetry(processedError, retryCount)) {
+        const delay = this.retryDelays[retryCount] || config.RETRY_DELAY;
+        await this.delay(delay);
+        return this.makeRequest(method, endpoint, data, retryCount + 1);
+      }
+
+      throw this.transformError(processedError);
+    }
+  }
+
+  // Fetch with timeout and retry capabilities
+  private async fetchWithRetry(requestConfig: RequestConfig, retryCount: number): Promise<any> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), requestConfig.timeout);
+
+    try {
+      const fetchOptions: RequestInit = {
+        method: requestConfig.method,
+        headers: requestConfig.headers,
+        signal: controller.signal,
       };
+
+      if (requestConfig.body && requestConfig.method !== 'GET') {
+        fetchOptions.body = typeof requestConfig.body === 'string' 
+          ? requestConfig.body 
+          : JSON.stringify(requestConfig.body);
+      }
+
+      const response = await fetch(requestConfig.url, fetchOptions);
+      clearTimeout(timeoutId);
+
+      // Check if response is ok
+      if (!response.ok) {
+        const errorData = await response.text();
+        let parsedError;
+        try {
+          parsedError = JSON.parse(errorData);
+        } catch {
+          parsedError = { message: errorData || response.statusText };
+        }
+
+        throw {
+          status: response.status,
+          statusText: response.statusText,
+          data: parsedError,
+          config: requestConfig,
+        };
+      }
+
+      // Parse response
+      const responseData = await response.json();
+      return {
+        data: responseData,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        config: requestConfig,
+      };
+    } catch (error: any) {
+      clearTimeout(timeoutId);
       
-      const token = 'mock-jwt-token-' + Date.now();
-      this.authToken = token;
+      if (error.name === 'AbortError') {
+        throw {
+          message: 'Request timeout',
+          status: 408,
+          config: requestConfig,
+        };
+      }
       
-      // Store in localStorage for persistence
-      localStorage.setItem('zyria-auth-token', token);
-      localStorage.setItem('zyria-user', JSON.stringify(mockUser));
-      
-      return { user: mockUser, token };
+      throw error;
+    }
+  }
+
+  // Error handling utilities
+  private shouldRetry(error: any, retryCount: number): boolean {
+    if (retryCount >= config.MAX_RETRY_ATTEMPTS) {
+      return false;
+    }
+
+    // Retry on network errors or 5xx server errors
+    return (
+      !error.status || // Network error
+      error.status >= 500 || // Server error
+      error.status === 408 || // Timeout
+      error.status === 429 // Rate limit
+    );
+  }
+
+  private transformError(error: any): Error {
+    if (error.status === 401) {
+      return new ApiAuthError(error.data?.message || 'Authentication required');
     }
     
-    // Real API call would go here when backend is connected
-    throw new Error('Real authentication not yet configured');
+    if (error.status === 422) {
+      return new ApiValidationError(
+        error.data?.message || 'Validation failed',
+        error.data?.errors || {}
+      );
+    }
+    
+    if (error.status >= 500) {
+      return new ApiServerError(
+        error.data?.message || 'Server error occurred',
+        error.status
+      );
+    }
+    
+    if (!error.status) {
+      return new NetworkError('Network connection failed');
+    }
+    
+    return new Error(error.data?.message || error.message || 'An error occurred');
   }
 
-  async logout(): Promise<void> {
-    this.authToken = null;
-    localStorage.removeItem('zyria-auth-token');
-    localStorage.removeItem('zyria-user');
+  // Utility methods
+  private buildUrlWithParams(endpoint: string, params?: Record<string, any>): string {
+    if (!params) return endpoint;
+    
+    const url = new URL(buildApiUrl(endpoint));
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+    
+    return url.pathname + url.search;
   }
 
-  getCurrentUser(): any | null {
-    const userStr = localStorage.getItem('zyria-user');
-    return userStr ? JSON.parse(userStr) : null;
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Health check
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.get('/health');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Connection status
+  isOnline(): boolean {
+    return navigator.onLine;
+  }
+
+  // Authentication methods for compatibility
+  getCurrentUser() {
+    return authService.getCurrentUser();
   }
 
   isAuthenticated(): boolean {
-    return !!this.authToken || !!localStorage.getItem('zyria-auth-token');
+    return authService.isAuthenticated();
   }
 
-  // Chat API methods
+  async login(credentials: { email: string; password: string }): Promise<any> {
+    if (config.ENABLE_MOCK_DATA) {
+      return authService.mockLogin(credentials.email);
+    }
+    return authService.login(credentials);
+  }
+
+  async logout(): Promise<void> {
+    return authService.logout();
+  }
+
+  // Chat API methods (compatibility layer)
   async getConversations(userId?: string): Promise<any[]> {
-    if (FEATURE_FLAGS.useMockChat) {
-      await this.delay(500);
-      
-      // Return mock conversation history
+    if (config.ENABLE_MOCK_DATA) {
+      // Mock implementation
       return [
         {
           id: 'conv-1',
@@ -91,29 +389,25 @@ class ApiService {
           lastMessage: 'Thank you for the security policy clarification...',
           timestamp: new Date(Date.now() - 3600000),
           messageCount: 12,
-          participants: ['user-1', 'zyria-ai']
         },
         {
-          id: 'conv-2', 
+          id: 'conv-2',
           title: 'API Integration Help',
           lastMessage: 'The rate limiting issue should be resolved now...',
           timestamp: new Date(Date.now() - 7200000),
           messageCount: 8,
-          participants: ['user-1', 'zyria-ai']
         }
       ];
     }
-    
-    // Real API: GET /api/chat/conversations
-    return this.makeRequest('GET', '/chat/conversations', null, { userId });
+    return (this.get('/chat/conversations', { userId }) as Promise<any>).then(response => 
+      response.data || response
+    );
   }
 
-  async sendMessage(conversationId: string, content: string, attachments?: File[]): Promise<Message> {
-    if (FEATURE_FLAGS.useMockChat) {
+  async sendMessage(conversationId: string, content: string, attachments?: File[]): Promise<any> {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(800);
-      
-      // Create user message
-      const userMessage: Message = {
+      return {
         id: Date.now().toString(),
         content,
         sender: 'user',
@@ -125,25 +419,15 @@ class ApiService {
           url: URL.createObjectURL(file)
         }))
       };
-      
-      return userMessage;
     }
-    
-    // Real API: POST /api/chat/messages
-    return this.makeRequest('POST', `/chat/conversations/${conversationId}/messages`, {
+    return this.post(`/chat/conversations/${conversationId}/messages`, {
       content,
       attachments: attachments?.map(f => ({ name: f.name, type: f.type }))
     });
   }
 
-  async generateAIResponse(conversationId: string, userMessage: string): Promise<Message> {
-    if (FEATURE_FLAGS.useMockChat) {
-      // Use demo service for realistic responses
-      if (demoService.isDemoModeEnabled()) {
-        return demoService.generateDemoResponse(userMessage);
-      }
-      
-      // Default mock response
+  async generateAIResponse(conversationId: string, userMessage: string): Promise<any> {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(1500);
       return {
         id: (Date.now() + 1).toString(),
@@ -162,77 +446,133 @@ class ApiService {
         ]
       };
     }
-    
-    // Real API: POST /api/chat/ai-response
-    return this.makeRequest('POST', `/chat/conversations/${conversationId}/ai-response`, {
+    return this.post(`/chat/conversations/${conversationId}/ai-response`, {
       message: userMessage
     });
   }
 
   // Knowledge Base API methods
   async searchKnowledge(query: string, filters?: any): Promise<any[]> {
-    if (FEATURE_FLAGS.useMockKnowledge) {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(600);
-      return demoService.simulateKnowledgeSearch(query);
+      return [
+        {
+          id: '1',
+          title: 'Security Best Practices',
+          content: 'This document outlines enterprise security practices...',
+          type: 'PDF',
+          relevanceScore: 0.95,
+        },
+        {
+          id: '2',
+          title: 'API Integration Guide',
+          content: 'Learn how to integrate with our enterprise APIs...',
+          type: 'Documentation',
+          relevanceScore: 0.87,
+        }
+      ];
     }
-    
-    // Real API: GET /api/knowledge/search
-    return this.makeRequest('GET', '/knowledge/search', null, { query, ...filters });
+    return (this.get('/knowledge/search', { query, ...filters }) as Promise<any>).then(response => 
+      response.data || response
+    );
+  }
+
+  async getDocuments(filters?: any): Promise<any[]> {
+    if (config.ENABLE_MOCK_DATA) {
+      await this.delay(400);
+      return [
+        {
+          id: '1',
+          title: 'Enterprise Security Policy',
+          type: 'PDF',
+          uploadedAt: new Date(Date.now() - 86400000),
+          size: '2.4 MB',
+        },
+        {
+          id: '2',
+          title: 'API Documentation',
+          type: 'Documentation',
+          uploadedAt: new Date(Date.now() - 172800000),
+          size: '1.8 MB',
+        }
+      ];
+    }
+    return (this.get('/knowledge/documents', filters) as Promise<any>).then(response => 
+      response.data || response
+    );
   }
 
   async uploadDocument(file: File, metadata?: any): Promise<any> {
-    if (FEATURE_FLAGS.useMockKnowledge) {
-      // Simulate file upload with progress
-      return demoService.simulateDocumentProcessing(file.name);
+    if (config.ENABLE_MOCK_DATA) {
+      await this.delay(2000);
+      return {
+        id: Date.now().toString(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        status: 'uploaded',
+        uploadedAt: new Date(),
+      };
     }
-    
-    // Real API: POST /api/knowledge/documents
     const formData = new FormData();
     formData.append('document', file);
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
-    
-    return this.makeRequest('POST', '/knowledge/documents', formData);
-  }
-
-  async getDocuments(filters?: any): Promise<any[]> {
-    if (FEATURE_FLAGS.useMockKnowledge) {
-      await this.delay(400);
-      return mockKnowledgeBase;
-    }
-    
-    // Real API: GET /api/knowledge/documents  
-    return this.makeRequest('GET', '/knowledge/documents', null, filters);
+    return this.post('/knowledge/documents', formData);
   }
 
   // Analytics API methods
   async getAnalytics(startDate?: string, endDate?: string): Promise<any> {
-    if (FEATURE_FLAGS.useMockAnalytics) {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(700);
       return {
-        ...mockAnalytics,
-        realtime: demoService.generateRealtimeMetrics()
+        overview: {
+          totalConversations: 2847,
+          activeUsers: 156,
+          averageResponseTime: 1.2,
+          satisfactionScore: 94.8,
+        },
+        usage: [
+          { name: 'Knowledge Base Queries', count: 1245, percentage: 43.8 },
+          { name: 'Technical Support', count: 892, percentage: 31.3 },
+          { name: 'General Inquiries', count: 456, percentage: 16.0 },
+        ]
       };
     }
-    
-    // Real API: GET /api/analytics
-    return this.makeRequest('GET', '/analytics', null, { startDate, endDate });
+    return this.get('/analytics', { startDate, endDate });
   }
 
-  // User Management API methods  
+  // User Management API methods
   async getUsers(): Promise<any[]> {
-    if (FEATURE_FLAGS.useMockUsers) {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(500);
-      return mockUsers;
+      return [
+        {
+          id: '1',
+          name: 'John Smith',
+          email: 'john.smith@company.com',
+          role: 'Admin',
+          status: 'Active',
+          lastLogin: '2024-01-15 14:30',
+        },
+        {
+          id: '2',
+          name: 'Sarah Johnson',
+          email: 'sarah.j@company.com',
+          role: 'Manager',
+          status: 'Active',
+          lastLogin: '2024-01-15 09:15',
+        }
+      ];
     }
-    
-    // Real API: GET /api/users
-    return this.makeRequest('GET', '/users');
+    return (this.get('/users') as Promise<any>).then(response => 
+      response.data || response
+    );
   }
 
   async inviteUser(email: string, role: string): Promise<any> {
-    if (FEATURE_FLAGS.useMockUsers) {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(1000);
       return {
         id: `user-${Date.now()}`,
@@ -242,116 +582,71 @@ class ApiService {
         invitedAt: new Date()
       };
     }
-    
-    // Real API: POST /api/users/invite
-    return this.makeRequest('POST', '/users/invite', { email, role });
+    return this.post('/users/invite', { email, role });
   }
 
   // Workflow API methods
   async getWorkflows(): Promise<any[]> {
-    if (FEATURE_FLAGS.useMockWorkflows) {
+    if (config.ENABLE_MOCK_DATA) {
       await this.delay(400);
-      return mockWorkflows;
+      return [
+        {
+          id: 'workflow-1',
+          name: 'User Onboarding',
+          status: 'active',
+          triggers: 2,
+          lastRun: new Date(Date.now() - 3600000),
+        },
+        {
+          id: 'workflow-2',
+          name: 'Document Processing',
+          status: 'active',
+          triggers: 15,
+          lastRun: new Date(Date.now() - 1800000),
+        }
+      ];
     }
-    
-    // Real API: GET /api/workflows
-    return this.makeRequest('GET', '/workflows');
+    return (this.get('/workflows') as Promise<any>).then(response => 
+      response.data || response
+    );
   }
 
   async triggerWorkflow(workflowId: string, data?: any): Promise<any> {
-    if (FEATURE_FLAGS.useMockWorkflows) {
-      return demoService.simulateWorkflowExecution(workflowId);
+    if (config.ENABLE_MOCK_DATA) {
+      await this.delay(1200);
+      return {
+        id: `run-${Date.now()}`,
+        workflowId,
+        status: 'running',
+        startedAt: new Date(),
+        data,
+      };
     }
-    
-    // Real API: POST /api/workflows/trigger
-    return this.makeRequest('POST', `/workflows/${workflowId}/trigger`, data);
+    return this.post(`/workflows/${workflowId}/trigger`, data);
   }
 
-  // Core HTTP methods (ready for real API integration)
-  private async makeRequest(
-    method: string, 
-    endpoint: string, 
-    data?: any, 
-    params?: any
-  ): Promise<any> {
-    const url = new URL(endpoint, this.baseURL);
-    
-    // Add query parameters
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          url.searchParams.append(key, String(value));
-        }
-      });
-    }
+  // Simple compatibility method for existing components
+  setFeatureFlag(flag: string, enabled: boolean): void {
+    // Feature flags are now handled by environment configuration
+    console.log(`Feature flag ${flag} is managed by environment config`);
+  }
 
-    const config: RequestInit = {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.authToken && { Authorization: `Bearer ${this.authToken}` })
-      }
+  // Mock data methods (for development)
+  async mockLogin(email: string = 'admin@zyria.com'): Promise<any> {
+    if (!config.ENABLE_MOCK_DATA) {
+      return authService.login({ email, password: 'demo' });
+    }
+    return authService.mockLogin(email);
+  }
+
+  // Feature flag management
+  getFeatureFlags() {
+    return {
+      useMockData: config.ENABLE_MOCK_DATA,
+      environment: config.ENVIRONMENT,
+      debug: config.DEBUG_API_CALLS,
     };
-
-    if (data && method !== 'GET') {
-      if (data instanceof FormData) {
-        // Remove content-type header for FormData (browser will set it)
-        delete (config.headers as any)['Content-Type'];
-        config.body = data;
-      } else {
-        config.body = JSON.stringify(data);
-      }
-    }
-
-    try {
-      const response = await this.fetchWithRetry(url.toString(), config);
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-      
-      return response.json();
-    } catch (error) {
-      console.error('API Request failed:', error);
-      throw error;
-    }
-  }
-
-  private async fetchWithRetry(url: string, config: RequestInit, attempt = 1): Promise<Response> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.timeout);
-      
-      const response = await fetch(url, {
-        ...config,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      return response;
-      
-    } catch (error) {
-      if (attempt < API_CONFIG.retryAttempts) {
-        await this.delay(API_CONFIG.retryDelay * attempt);
-        return this.fetchWithRetry(url, config, attempt + 1);
-      }
-      throw error;
-    }
-  }
-
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  // Feature flag management (for easy switching to real APIs)
-  setFeatureFlag(flag: keyof typeof FEATURE_FLAGS, enabled: boolean): void {
-    FEATURE_FLAGS[flag] = enabled;
-  }
-
-  getFeatureFlags(): typeof FEATURE_FLAGS {
-    return { ...FEATURE_FLAGS };
   }
 }
 
-// Export singleton instance
 export const apiService = new ApiService();
