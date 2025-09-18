@@ -4,13 +4,13 @@ import { Points, PointMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
 function ParticleField() {
-  const ref = useRef<THREE.Points>(null);
+  const ref = useRef<THREE.Points>(null!);
   
   // Generate random positions for particles
   const particlesPosition = useMemo(() => {
-    const positions = new Float32Array(5000 * 3);
+    const positions = new Float32Array(3000 * 3);
     
-    for (let i = 0; i < 5000; i++) {
+    for (let i = 0; i < 3000; i++) {
       positions[i * 3] = (Math.random() - 0.5) * 10;
       positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
       positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
@@ -43,19 +43,19 @@ function ParticleField() {
 }
 
 function FloatingGeometry() {
-  const meshRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Group>(null!);
   
   const geometries = useMemo(() => {
     const temp = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 30; i++) {
       temp.push({
         position: [
           (Math.random() - 0.5) * 8,
           (Math.random() - 0.5) * 8,
           (Math.random() - 0.5) * 8
-        ],
+        ] as [number, number, number],
         scale: Math.random() * 0.3 + 0.1,
-        rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI]
+        rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI] as [number, number, number]
       });
     }
     return temp;
@@ -78,7 +78,7 @@ function FloatingGeometry() {
   return (
     <group ref={meshRef}>
       {geometries.map((props, i) => (
-        <mesh key={i} position={props.position as [number, number, number]} scale={props.scale}>
+        <mesh key={i} position={props.position} scale={props.scale}>
           <octahedronGeometry args={[1, 0]} />
           <meshBasicMaterial
             color="#8b5cf6"
@@ -93,7 +93,7 @@ function FloatingGeometry() {
 }
 
 function AnimatedBackground() {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<THREE.Group>(null!);
 
   useFrame((state) => {
     if (groupRef.current) {
