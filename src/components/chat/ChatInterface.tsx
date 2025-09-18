@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ChatHeader } from './ChatHeader';
@@ -11,7 +11,12 @@ import { KnowledgeSearchOverlay } from '@/components/knowledge/KnowledgeSearchOv
 import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
 import { KnowledgeBaseToggle } from '@/components/knowledge/KnowledgeBaseToggle';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Search, Upload, BookOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ChatEmptyState } from '@/components/ui/empty-state';
+import { LoadingOverlay } from '@/components/ui/loading-spinner';
+import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { useToastNotifications } from '@/hooks/useToastNotifications';
+import { ChevronDown, Search, Upload, BookOpen, MessageSquarePlus } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -101,16 +106,56 @@ export function ChatInterface() {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showRelatedDocs, setShowRelatedDocs] = useState(true);
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const { notifyMessageSent, notifyMessageError, notifyFileUploaded } = useToastNotifications();
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
+
+  const markMessagesAsRead = useCallback(() => {
+    if (messages.length > 0) {
+      const latestMessage = messages[messages.length - 1];
+      setLastSeenMessageId(latestMessage.id);
+      setUnreadCount(0);
+    }
+  }, [messages]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+    
+    // Update unread count when new messages arrive
+    if (messages.length > 0 && lastSeenMessageId) {
+      const lastSeenIndex = messages.findIndex(m => m.id === lastSeenMessageId);
+      if (lastSeenIndex !== -1) {
+        const newMessages = messages.slice(lastSeenIndex + 1);
+        setUnreadCount(newMessages.filter(m => m.sender === 'bot').length);
+      }
+    }
+  }, [messages, lastSeenMessageId, scrollToBottom]);
+
+  // Mark messages as read when user scrolls to bottom
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          markMessagesAsRead();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (messagesEndRef.current) {
+      observer.observe(messagesEndRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [markMessagesAsRead]);
 
   const handleSendMessage = async (content: string, attachments?: File[]) => {
     const newMessage: Message = {
@@ -131,44 +176,56 @@ export function ChatInterface() {
     setReplyingTo(null);
     setIsTyping(true);
 
-    // Simulate message sending with potential failure
+    // Simulate message sending with enhanced feedback
     try {
+      // Show sending feedback
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       // Update message status to sent
-      setTimeout(() => {
-        setMessages(prev => prev.map(msg => 
-          msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
-        ));
-      }, 500);
+      setMessages(prev => prev.map(msg => 
+        msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
+      ));
+      
+      notifyMessageSent();
 
-      // Simulate bot response
-      setTimeout(() => {
-        const botResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: replyingTo 
-            ? `Regarding your message "${replyingTo.content.substring(0, 50)}..." - I understand your question and here's my detailed response with relevant sources.`
-            : "Thank you for your message! I'm processing your request and will provide a detailed response with relevant sources.",
-          sender: 'bot',
-          timestamp: new Date(),
-          status: 'sent',
-          replyTo: replyingTo?.id,
-          sources: [
-            {
-              title: 'Related Documentation',
-              url: '#',
-              snippet: 'Based on your query, here are the most relevant resources...'
-            }
-          ]
-        };
+      // Notify about file uploads
+      if (attachments && attachments.length > 0) {
+        attachments.forEach(file => notifyFileUploaded(file.name));
+      }
 
-        setMessages(prev => [...prev, botResponse]);
-        setIsTyping(false);
-      }, 2000);
+      // Simulate bot response with realistic delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const botResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: replyingTo 
+          ? `Regarding your message "${replyingTo.content.substring(0, 50)}..." - I understand your question and here's my detailed response with relevant sources.`
+          : "Thank you for your message! I'm processing your request and will provide a detailed response with relevant sources.",
+        sender: 'bot',
+        timestamp: new Date(),
+        status: 'sent',
+        replyTo: replyingTo?.id,
+        sources: [
+          {
+            title: 'Related Documentation',
+            url: '#',
+            snippet: 'Based on your query, here are the most relevant resources...',
+            confidence: 'high' as const,
+            type: 'PDF'
+          }
+        ]
+      };
+
+      setMessages(prev => [...prev, botResponse]);
+      setIsTyping(false);
+      
     } catch (error) {
-      // Handle error state
+      // Enhanced error handling
       setMessages(prev => prev.map(msg => 
         msg.id === newMessage.id ? { ...msg, status: 'error' } : msg
       ));
       setIsTyping(false);
+      notifyMessageError();
     }
   };
 
@@ -192,12 +249,32 @@ export function ChatInterface() {
     setReplyingTo(message);
   };
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (chatContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current;
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
-      setShowNewMessageIndicator(!isAtBottom && messages.length > 0);
+      setShowNewMessageIndicator(!isAtBottom && unreadCount > 0);
+      
+      // Auto-mark as read when scrolled to bottom
+      if (isAtBottom) {
+        markMessagesAsRead();
+      }
     }
+  }, [unreadCount, markMessagesAsRead]);
+
+  const handleClearChat = () => {
+    setMessages([]);
+    setUnreadCount(0);
+    setLastSeenMessageId(null);
+    setShowClearConfirm(false);
+  };
+
+  const handleNewChat = () => {
+    setMessages([]);
+    setReplyingTo(null);
+    setSearchQuery('');
+    setUnreadCount(0);
+    setLastSeenMessageId(null);
   };
 
   const filteredMessages = messages.filter(msg =>
@@ -206,88 +283,129 @@ export function ChatInterface() {
   );
 
   return (
-    <div className="flex h-screen bg-chat-background">
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
-        <ChatHeader />
-        
-        <MessageSearch 
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          resultsCount={filteredMessages.length}
-        />
-        
-        {/* Knowledge Base Controls */}
-        <div className="px-4 py-3 bg-chat-header border-b border-chat-border">
-          <div className="flex items-center gap-4">
-            <KnowledgeBaseToggle
-              useKnowledgeBase={useKnowledgeBase}
-              onToggle={setUseKnowledgeBase}
-              className="flex-shrink-0"
-            />
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 hover:bg-accent"
-                onClick={() => setShowKnowledgeSearch(true)}
-              >
-                <Search className="w-4 h-4" />
-                Search KB
-              </Button>
+    <LoadingOverlay isLoading={isLoading}>
+      <div className="flex h-screen bg-chat-background">
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col">
+          <ChatHeader />
+          
+          <MessageSearch 
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            resultsCount={filteredMessages.length}
+          />
+          
+          {/* Enhanced Knowledge Base Controls */}
+          <div className="px-4 py-3 bg-chat-header border-b border-chat-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <KnowledgeBaseToggle
+                  useKnowledgeBase={useKnowledgeBase}
+                  onToggle={setUseKnowledgeBase}
+                  className="flex-shrink-0"
+                />
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 hover:bg-accent interactive-element"
+                    onClick={() => setShowKnowledgeSearch(true)}
+                  >
+                    <Search className="w-4 h-4" />
+                    Search KB
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 hover:bg-accent interactive-element"
+                    onClick={() => setShowDocumentUpload(true)}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload
+                  </Button>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 hover:bg-accent interactive-element"
+                    onClick={() => setShowRelatedDocs(!showRelatedDocs)}
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    Related Docs
+                  </Button>
+                </div>
+              </div>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 hover:bg-accent"
-                onClick={() => setShowDocumentUpload(true)}
-              >
-                <Upload className="w-4 h-4" />
-                Upload
-              </Button>
-              
-              <div className="ml-auto">
+              {/* Chat Actions */}
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="gap-2 hover:bg-accent"
-                  onClick={() => setShowRelatedDocs(!showRelatedDocs)}
+                  className="gap-2 hover:bg-accent interactive-element"
+                  onClick={handleNewChat}
                 >
-                  <BookOpen className="w-4 h-4" />
-                  Related Docs
+                  <MessageSquarePlus className="w-4 h-4" />
+                  New Chat
                 </Button>
+                
+                {messages.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 hover:bg-accent interactive-element"
+                    onClick={() => setShowClearConfirm(true)}
+                  >
+                    Clear
+                  </Button>
+                )}
+                
+                {unreadCount > 0 && (
+                  <Badge variant="secondary" className="unread-pulse bg-primary text-primary-foreground">
+                    {unreadCount} new
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
-        </div>
         
         <div className="flex-1 overflow-hidden relative">
-          <div 
-            ref={chatContainerRef}
-            className="h-full overflow-y-auto chat-scroll"
-            onScroll={handleScroll}
-          >
-            <MessageList 
-              messages={filteredMessages} 
-              onReaction={handleReaction}
-              onReply={handleReply}
-              replyingTo={replyingTo}
+          {filteredMessages.length === 0 && !searchQuery ? (
+            <ChatEmptyState
+              onAction={handleNewChat}
+              className="h-full"
             />
-            {isTyping && <TypingIndicator />}
-            <div ref={messagesEndRef} />
-          </div>
+          ) : (
+            <div 
+              ref={chatContainerRef}
+              className="h-full overflow-y-auto chat-scroll"
+              onScroll={handleScroll}
+            >
+              <MessageList 
+                messages={filteredMessages} 
+                onReaction={handleReaction}
+                onReply={handleReply}
+                replyingTo={replyingTo}
+              />
+              {isTyping && <TypingIndicator />}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
 
-          {/* New message indicator */}
+          {/* Enhanced new message indicator */}
           {showNewMessageIndicator && (
             <Button
               variant="secondary"
               size="sm"
-              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 shadow-large bg-primary text-primary-foreground hover:bg-primary-dark animate-slide-up"
-              onClick={() => scrollToBottom()}
+              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 shadow-large bg-primary text-primary-foreground hover:bg-primary-dark animate-bounce-subtle interactive-element"
+              onClick={() => {
+                scrollToBottom();
+                markMessagesAsRead();
+              }}
             >
               <ChevronDown className="w-4 h-4 mr-1" />
-              New messages
+              {unreadCount} new message{unreadCount !== 1 ? 's' : ''}
             </Button>
           )}
         </div>
@@ -347,6 +465,18 @@ export function ChatInterface() {
         isOpen={showDocumentUpload}
         onClose={() => setShowDocumentUpload(false)}
       />
-    </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleClearChat}
+        title="Clear chat history"
+        description="Are you sure you want to clear all messages? This action cannot be undone."
+        confirmText="Clear All"
+        variant="destructive"
+      />
+      </div>
+    </LoadingOverlay>
   );
 }

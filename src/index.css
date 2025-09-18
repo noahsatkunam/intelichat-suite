@@ -168,7 +168,7 @@ All colors MUST be HSL format for proper theme switching.
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Custom Zyria animations for enterprise interface */
+  /* Enhanced Zyria animations for enterprise interface */
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -177,6 +177,17 @@ All colors MUST be HSL format for proper theme switching.
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-scale {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
     }
   }
 
@@ -191,12 +202,83 @@ All colors MUST be HSL format for proper theme switching.
     }
   }
 
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes bounce-subtle {
+    0%, 20%, 50%, 80%, 100% {
+      transform: translateY(0);
+    }
+    40% {
+      transform: translateY(-4px);
+    }
+    60% {
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes typing-dots {
+    0%, 60%, 100% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-10px);
+    }
+  }
+
   @keyframes glow-pulse {
     0%, 100% {
       box-shadow: 0 0 20px hsla(234, 89%, 74%, 0.3);
     }
     50% {
       box-shadow: 0 0 30px hsla(234, 89%, 74%, 0.5);
+    }
+  }
+
+  @keyframes progress-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes shake {
+    0%, 100% {
+      transform: translateX(0);
+    }
+    10%, 30%, 50%, 70%, 90% {
+      transform: translateX(-2px);
+    }
+    20%, 40%, 60%, 80% {
+      transform: translateX(2px);
     }
   }
 
@@ -213,12 +295,44 @@ All colors MUST be HSL format for proper theme switching.
     animation: fade-in 0.3s ease-out;
   }
 
+  .animate-fade-in-scale {
+    animation: fade-in-scale 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   .animate-slide-up {
     animation: slide-up 0.4s ease-out;
   }
 
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 1s ease-in-out;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
+  }
+
+  .animate-typing-dots {
+    animation: typing-dots 1.4s ease-in-out infinite;
+  }
+
   .animate-glow-pulse {
     animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  .animate-progress {
+    animation: progress-indeterminate 1.5s linear infinite;
+  }
+
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
   }
 
   .animate-theme-transition {
@@ -268,5 +382,86 @@ All colors MUST be HSL format for proper theme switching.
   .focus-ring:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+
+  /* Enhanced interaction states */
+  .interactive-element {
+    transition: var(--animation-smooth);
+  }
+
+  .interactive-element:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-medium);
+  }
+
+  .interactive-element:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Loading shimmer effect */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Professional button enhancements */
+  .btn-primary {
+    background: var(--gradient-primary);
+    box-shadow: var(--shadow-soft);
+    transition: var(--animation-smooth);
+  }
+
+  .btn-primary:hover {
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Message status indicators */
+  .status-sending {
+    opacity: 0.7;
+  }
+
+  .status-sent {
+    opacity: 1;
+  }
+
+  .status-error {
+    opacity: 0.8;
+    color: hsl(var(--destructive));
+  }
+
+  /* Unread indicator pulse */
+  .unread-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Professional typography enhancements */
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Skeleton loading improvements */
+  .skeleton-text {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.1) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
   }
 }
