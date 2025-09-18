@@ -9,8 +9,9 @@ import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
+import About from "./pages/About";
 import LoginPage from "./pages/LoginPage";
-import SignUpPage from "./pages/SignUpPage";
+import ContactPage from "./pages/ContactPage";
 import ChatHistory from "./pages/ChatHistory";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
@@ -36,8 +37,9 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<HomePage />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignUpPage />} />
               
               {/* Protected Routes with Layout */}
               <Route path="/dashboard" element={<AppLayout><Index /></AppLayout>} />
