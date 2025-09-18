@@ -36,47 +36,52 @@ const providerTypes = [
     value: 'openai', 
     label: 'OpenAI', 
     description: 'GPT models for chat, completion, and embeddings',
-    fields: ['organization_id'] 
+    fields: ['organization_id'],
+    icon: 'openai'
   },
   { 
     value: 'anthropic', 
     label: 'Anthropic Claude', 
     description: 'Claude models for advanced reasoning and analysis',
-    fields: [] 
+    fields: [],
+    icon: 'anthropic'
   },
   { 
     value: 'google', 
     label: 'Google Gemini', 
     description: 'Gemini models for multimodal AI capabilities',
-    fields: ['project_id'] 
+    fields: ['project_id'],
+    icon: 'google'
   },
   { 
     value: 'mistral', 
     label: 'Mistral AI', 
     description: 'Open-source models for various AI tasks',
-    fields: [] 
+    fields: [],
+    icon: 'mistral'
   },
   { 
     value: 'custom', 
     label: 'Custom OpenAI-Compatible', 
     description: 'Custom API endpoints with OpenAI-compatible interface',
-    fields: ['base_url', 'custom_headers'] 
+    fields: ['base_url', 'custom_headers'],
+    icon: 'custom'
   },
   { 
     value: 'ollama', 
     label: 'Ollama (Local)', 
     description: 'Self-hosted local AI models',
-    fields: ['base_url'] 
+    fields: ['base_url'],
+    icon: 'ollama'
   }
 ];
 
 export default function AIProviders() {
   const navigate = useNavigate();
-  const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [providers, setProviders] = useState<Record<string, AIProvider>>({});
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [showApiKey, setShowApiKey] = useState(false);
   const { toast } = useToast();
 
@@ -100,13 +105,45 @@ export default function AIProviders() {
 
   const fetchProviders = async () => {
     try {
-      const { data, error } = await supabase
+      // Get all existing providers
+      const { data: existingProviders, error } = await supabase
         .from('ai_providers')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
 
       if (error) throw error;
-      setProviders(data || []);
+
+      // Create a map of existing providers by type
+      const providerMap: Record<string, AIProvider> = {};
+      existingProviders?.forEach(provider => {
+        providerMap[provider.type] = provider;
+      });
+
+      // Create missing providers for each type
+      const missingProviders = providerTypes.filter(type => !providerMap[type.value]);
+      
+      if (missingProviders.length > 0) {
+        const newProviders = missingProviders.map(type => ({
+          name: type.label,
+          type: type.value,
+          description: type.description,
+          is_active: false,
+          is_healthy: false
+        }));
+
+        const { data: createdProviders, error: createError } = await supabase
+          .from('ai_providers')
+          .insert(newProviders)
+          .select('*');
+
+        if (createError) throw createError;
+
+        // Add created providers to the map
+        createdProviders?.forEach(provider => {
+          providerMap[provider.type] = provider;
+        });
+      }
+
+      setProviders(providerMap);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -116,14 +153,6 @@ export default function AIProviders() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCreateProvider = () => {
-    form.reset();
-    setDialogMode('create');
-    setSelectedProvider(null);
-    setShowApiKey(false);
-    setIsDialogOpen(true);
   };
 
   const handleEditProvider = (provider: AIProvider) => {
@@ -138,10 +167,33 @@ export default function AIProviders() {
       custom_headers: provider.custom_headers ? JSON.stringify(provider.custom_headers, null, 2) : '{}',
       is_active: provider.is_active
     });
-    setDialogMode('edit');
     setSelectedProvider(provider);
     setShowApiKey(false);
     setIsDialogOpen(true);
+  };
+
+  const toggleProvider = async (provider: AIProvider) => {
+    try {
+      const { error } = await supabase
+        .from('ai_providers')
+        .update({ is_active: !provider.is_active })
+        .eq('id', provider.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `${provider.name} ${provider.is_active ? 'disabled' : 'enabled'}`,
+      });
+      
+      fetchProviders();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const onSubmit = async (data: any) => {
@@ -173,18 +225,6 @@ export default function AIProviders() {
         ...(data.api_key && data.api_key.trim() !== '' && { api_key_encrypted: data.api_key })
       };
 
-      if (dialogMode === 'create') {
-        const { error } = await supabase
-          .from('ai_providers')
-          .insert([providerData]);
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Success",
-          description: "API key created successfully"
-        });
-      } else {
         const { error } = await supabase
           .from('ai_providers')
           .update(providerData)
@@ -194,9 +234,8 @@ export default function AIProviders() {
         
         toast({
           title: "Success",
-          description: "API key updated successfully"
+          description: "Provider updated successfully"
         });
-      }
 
       setIsDialogOpen(false);
       fetchProviders();
@@ -279,104 +318,84 @@ export default function AIProviders() {
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">API Key Management</h1>
-              <p className="text-muted-foreground">Manage API keys for AI providers. Models are selected when creating chatbots.</p>
+              <h1 className="text-2xl font-display font-bold text-foreground">AI Provider Configuration</h1>
+              <p className="text-muted-foreground">Configure API keys and settings for AI providers. Models are selected when creating chatbots.</p>
             </div>
-            <Button onClick={handleCreateProvider} className="gap-2 bg-gradient-primary hover:shadow-glow">
-              <Plus className="w-4 h-4" />
-              Add API Key
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {providers.map((provider) => (
-            <Card key={provider.id} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ProviderLogo provider={provider.type} size="lg" />
-                    <div>
-                      <CardTitle className="text-lg">{provider.name}</CardTitle>
-                      <CardDescription className="capitalize">{provider.type}</CardDescription>
+        <div className="grid gap-4 max-w-4xl mx-auto">
+          {providerTypes.map((providerType) => {
+            const provider = providers[providerType.value];
+            const isConfigured = provider?.api_key_encrypted;
+            
+            return (
+              <Card key={providerType.value} className="relative">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <ProviderLogo provider={providerType.value} size="lg" />
+                      <div>
+                        <CardTitle className="text-xl">{providerType.label}</CardTitle>
+                        <CardDescription>{providerType.description}</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        {provider?.is_healthy ? (
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-red-500" />
+                        )}
+                        <span className={`text-xs px-2 py-1 rounded ${isConfigured ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {isConfigured ? '🔑 Configured' : '⚠️ Not Configured'}
+                        </span>
+                      </div>
+                      <Switch
+                        checked={provider?.is_active || false}
+                        onCheckedChange={() => provider && toggleProvider(provider)}
+                        disabled={!isConfigured}
+                      />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {provider.is_healthy ? (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => provider && handleEditProvider(provider)}
+                      className="flex-1"
+                    >
+                      <Edit className="w-3 h-3 mr-1" />
+                      {isConfigured ? 'Edit Configuration' : 'Configure'}
+                    </Button>
+                    {isConfigured && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/admin/ai-providers/test/${provider.id}`)}
+                        className="flex-1"
+                        disabled={!provider?.is_active}
+                      >
+                        <Settings className="w-3 h-3 mr-1" />
+                        Test
+                      </Button>
                     )}
-                    <Badge variant={provider.is_active ? "default" : "secondary"}>
-                      {provider.is_active ? "Active" : "Inactive"}
-                    </Badge>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>{provider.description || providerTypes.find(t => t.value === provider.type)?.description}</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-1 rounded ${provider.api_key_encrypted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {provider.api_key_encrypted ? '🔑 API Key Configured' : '⚠️ No API Key'}
-                    </span>
-                  </div>
-                  {provider.base_url && (
-                    <p className="font-mono text-xs">API: {provider.base_url}</p>
+                  {provider?.last_health_check && (
+                    <p className="text-xs text-muted-foreground">
+                      Last checked: {new Date(provider.last_health_check).toLocaleString()}
+                    </p>
                   )}
-                  {provider.last_health_check && (
-                    <p>Last checked: {new Date(provider.last_health_check).toLocaleString()}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditProvider(provider)}
-                    className="flex-1"
-                  >
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/admin/ai-providers/test/${provider.id}`)}
-                    className="flex-1"
-                  >
-                    <Settings className="w-3 h-3 mr-1" />
-                    Test
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteProvider(provider.id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
-
-        {providers.length === 0 && (
-          <div className="text-center py-12">
-            <Brain className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">No API Keys Configured</h3>
-            <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Add your first API key to start using AI providers. Each key can be used by multiple chatbots.
-            </p>
-            <Button onClick={handleCreateProvider} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Your First API Key
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Provider Configuration Dialog */}
@@ -384,13 +403,13 @@ export default function AIProviders() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
-              <ProviderLogo provider={form.watch('type')} size="lg" />
+              <ProviderLogo provider={selectedProvider?.type || 'custom'} size="lg" />
               <div>
                 <DialogTitle>
-                  {dialogMode === 'create' ? 'Add API Key' : 'Edit API Key'}
+                  Configure {selectedProvider?.name}
                 </DialogTitle>
                 <DialogDescription>
-                  Configure your API key and provider-specific settings. Models will be selected when creating chatbots.
+                  Set up your API key and provider-specific settings. Models will be selected when creating chatbots.
                 </DialogDescription>
               </div>
             </div>
@@ -398,49 +417,22 @@ export default function AIProviders() {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Key Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="OpenAI Production Key" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        A descriptive name for this API key
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Provider Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select provider type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {providerTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provider Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} disabled />
+                    </FormControl>
+                    <FormDescription>
+                      This is the standard name for this AI provider
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -469,7 +461,7 @@ export default function AIProviders() {
                       <div className="relative">
                         <Input 
                           type={showApiKey ? "text" : "password"} 
-                          placeholder={dialogMode === 'edit' ? "Current API key (leave unchanged or enter new key)" : "Enter API key"} 
+                          placeholder={selectedProvider?.api_key_encrypted ? "Current API key (leave unchanged or enter new key)" : "Enter API key"} 
                           {...field} 
                           className="pr-10"
                         />
@@ -489,7 +481,7 @@ export default function AIProviders() {
                       </div>
                     </FormControl>
                     <FormDescription>
-                      {dialogMode === 'edit' 
+                      {selectedProvider?.api_key_encrypted 
                         ? "Your API key is saved and secure. You can view it using the eye icon or replace it with a new key."
                         : "Your API key will be encrypted and stored securely."
                       }
@@ -501,7 +493,7 @@ export default function AIProviders() {
 
               {/* Provider-specific fields */}
               <div className="space-y-4">
-                {form.watch('type') === 'openai' && (
+                {selectedProvider?.type === 'openai' && (
                   <FormField
                     control={form.control}
                     name="organization_id"
@@ -520,7 +512,7 @@ export default function AIProviders() {
                   />
                 )}
                 
-                {form.watch('type') === 'google' && (
+                {selectedProvider?.type === 'google' && (
                   <FormField
                     control={form.control}
                     name="project_id"
@@ -539,19 +531,19 @@ export default function AIProviders() {
                   />
                 )}
                 
-                {(form.watch('type') === 'custom' || form.watch('type') === 'ollama') && (
+                {(selectedProvider?.type === 'custom' || selectedProvider?.type === 'ollama') && (
                   <FormField
                     control={form.control}
                     name="base_url"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          {form.watch('type') === 'ollama' ? 'Ollama URL' : 'API Base URL'}
+                          {selectedProvider?.type === 'ollama' ? 'Ollama URL' : 'API Base URL'}
                         </FormLabel>
                         <FormControl>
                           <Input 
                             placeholder={
-                              form.watch('type') === 'ollama' 
+                              selectedProvider?.type === 'ollama' 
                                 ? "http://localhost:11434" 
                                 : "https://api.custom-provider.com/v1"
                             } 
@@ -559,7 +551,7 @@ export default function AIProviders() {
                           />
                         </FormControl>
                         <FormDescription>
-                          {form.watch('type') === 'ollama' 
+                          {selectedProvider?.type === 'ollama' 
                             ? 'URL of your Ollama instance'
                             : 'Base URL for your custom API endpoint'
                           }
@@ -570,7 +562,7 @@ export default function AIProviders() {
                   />
                 )}
                 
-                {form.watch('type') === 'custom' && (
+                {selectedProvider?.type === 'custom' && (
                   <FormField
                     control={form.control}
                     name="custom_headers"
@@ -617,7 +609,7 @@ export default function AIProviders() {
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {dialogMode === 'create' ? 'Create API Key' : 'Update API Key'}
+                  Update Configuration
                 </Button>
               </div>
             </form>
