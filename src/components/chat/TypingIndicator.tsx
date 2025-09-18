@@ -4,8 +4,8 @@ import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
 export function TypingIndicator() {
   return (
     <div className="flex items-center gap-4 p-4 animate-fade-in">
-      <div className="w-9 h-9 rounded-xl bg-chat-surface border border-chat-border shadow-soft flex items-center justify-center">
-        <ZyriaLogo size="sm" />
+      <div className="w-9 h-9 rounded-xl bg-gradient-surface border border-chat-border shadow-soft flex items-center justify-center backdrop-blur-sm">
+        <ZyriaLogo size="xs" showText={false} />
       </div>
       
       <div className="bg-message-bot border border-chat-border rounded-2xl px-4 py-3 shadow-medium">

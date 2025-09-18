@@ -98,7 +98,9 @@ export function AppSidebar() {
         <SidebarContent className="px-2">
           {/* Collapsed Logo */}
           <div className="flex justify-center py-4">
-            <ZyriaLogo size="sm" />
+            <div className="p-2 rounded-lg bg-gradient-surface border border-sidebar-border shadow-soft hover:shadow-medium transition-all duration-300">
+              <ZyriaLogo size="sm" showText={false} />
+            </div>
           </div>
           
           {/* Main Navigation - Icons Only */}
@@ -126,11 +128,8 @@ export function AppSidebar() {
     <Sidebar className="w-80 border-r border-sidebar-border bg-sidebar" collapsible="icon">
       <SidebarContent className="p-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <ZyriaLogo size="md" />
-            <h1 className="font-display font-bold text-xl text-sidebar-foreground">Zyria</h1>
-          </div>
+        <div className="flex items-center justify-between mb-6 p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
+          <ZyriaLogo size="md" showText={true} variant="default" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <SidebarTrigger className="p-2 hover:bg-sidebar-accent rounded-lg transition-colors" />

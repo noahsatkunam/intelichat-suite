@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         'sans': ['Inter', 'system-ui', 'sans-serif'],
         'display': ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
+        'brand': ['Lexend', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",

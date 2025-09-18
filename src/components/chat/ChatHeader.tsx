@@ -16,10 +16,10 @@ export function ChatHeader() {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-medium backdrop-blur-sm">
-              <ZyriaLogo size="sm" className="text-primary-foreground" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-medium backdrop-blur-sm border border-primary/20">
+              <ZyriaLogo size="sm" showText={false} className="text-primary-foreground" />
             </div>
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border-2 border-chat-header"></div>
+            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-success rounded-full border-2 border-chat-header animate-pulse-soft"></div>
           </div>
           <div>
             <h1 className="font-display font-semibold text-lg text-foreground">Zyria</h1>

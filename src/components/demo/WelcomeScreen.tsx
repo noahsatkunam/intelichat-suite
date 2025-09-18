@@ -72,15 +72,7 @@ export function WelcomeScreen({ onStartDemo, onSkipToChat }: WelcomeScreenProps)
         {/* Header */}
         <div className="text-center space-y-6">
           <div className="flex items-center justify-center gap-4">
-            <ZyriaLogo className="w-12 h-12" />
-            <div>
-              <h1 className="text-4xl font-bold font-display text-gradient">
-                {welcomeContent.hero.title}
-              </h1>
-              <p className="text-xl text-muted-foreground font-medium">
-                {welcomeContent.hero.subtitle}
-              </p>
-            </div>
+            <ZyriaLogo size="xl" showText={true} variant="full" className="animate-fade-in-scale" />
           </div>
           
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">

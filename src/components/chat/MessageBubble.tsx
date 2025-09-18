@@ -52,7 +52,7 @@ export function MessageBubble({ message, onReaction, onReply, isReplying }: Mess
         {isUser ? (
           <User className="w-4 h-4 text-primary-foreground" />
         ) : (
-          <ZyriaLogo size="sm" />
+          <ZyriaLogo size="xs" showText={false} />
         )}
       </div>
 
