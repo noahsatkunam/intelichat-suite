@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
+  userProfile: any | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -17,8 +18,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to fetch user profile data
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (!error && profile) {
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setUserProfile(null);
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener
@@ -26,6 +48,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Fetch profile data when user signs in
+        if (session?.user) {
+          setTimeout(() => {
+            fetchUserProfile(session.user.id);
+          }, 0);
+        } else {
+          setUserProfile(null);
+        }
+        
         setLoading(false);
 
         if (event === 'SIGNED_IN') {
@@ -40,6 +72,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
+      
       setLoading(false);
     });
 
@@ -139,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = {
     user,
+    userProfile,
     session,
     loading,
     signIn,

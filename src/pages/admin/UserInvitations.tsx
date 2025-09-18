@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 interface Invitation {
   id: string;
   email: string;
-  role: 'admin' | 'moderator' | 'user';
+  role: 'global_admin' | 'tenant_admin' | 'user' | 'admin' | 'moderator'; // Include legacy roles for backward compatibility
   status: string;
   created_at: string;
   expires_at: string;
@@ -32,7 +32,7 @@ const UserInvitations = () => {
   
   // Invite form state
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'moderator' | 'user'>('user');
+  const [role, setRole] = useState<'global_admin' | 'tenant_admin' | 'user'>('user');
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -228,14 +228,14 @@ const UserInvitations = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={(value: 'admin' | 'moderator' | 'user') => setRole(value)}>
+                <Select value={role} onValueChange={(value: 'global_admin' | 'tenant_admin' | 'user') => setRole(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="moderator">Moderator</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                        <SelectItem value="global_admin">Global Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -63,13 +63,13 @@ const mainNavItems = [
 ];
 
 const adminNavItems = [
-  { title: 'AI Providers', url: '/admin/ai-providers', icon: Brain },
-  { title: 'Chatbot Management', url: '/admin/chatbot-management', icon: Bot },
-  { title: 'User Invitations', url: '/admin/invitations', icon: Mail },
-  { title: 'Tenant Management', url: '/admin/tenants', icon: Building2 },
-  { title: 'User Management', url: '/admin/users', icon: Users },
-  { title: 'Workflow Automation', url: '/admin/workflows', icon: Workflow },
-  { title: 'API Settings', url: '/admin/api', icon: Key },
+  { title: 'AI Providers', url: '/admin/ai-providers', icon: Brain, roles: ['global_admin', 'tenant_admin'] },
+  { title: 'Chatbot Management', url: '/admin/chatbot-management', icon: Bot, roles: ['global_admin', 'tenant_admin'] },
+  { title: 'User Invitations', url: '/admin/invitations', icon: Mail, roles: ['global_admin', 'tenant_admin'] },
+  { title: 'Tenant Management', url: '/admin/tenants', icon: Building2, roles: ['global_admin'] },
+  { title: 'User Management', url: '/admin/users', icon: Users, roles: ['global_admin', 'tenant_admin'] },
+  { title: 'Workflow Automation', url: '/admin/workflows', icon: Workflow, roles: ['global_admin', 'tenant_admin'] },
+  { title: 'API Settings', url: '/admin/api', icon: Key, roles: ['global_admin', 'tenant_admin'] },
 ];
 
 const recentChats = [
@@ -81,7 +81,7 @@ const recentChats = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
-  const { user, signOut } = useAuth();
+  const { user, userProfile, signOut } = useAuth();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [showRecentChats, setShowRecentChats] = useState(true);
@@ -89,6 +89,14 @@ export function AppSidebar() {
   
   const isCollapsed = state === 'collapsed';
   const isActive = (path: string) => location.pathname === path;
+
+  // Get user role from profile data
+  const userRole = userProfile?.role || 'user';
+
+  // Filter admin nav items based on user role
+  const allowedAdminItems = adminNavItems.filter(item => 
+    item.roles.includes(userRole)
+  );
 
   // Load recent conversations
   useEffect(() => {
@@ -272,25 +280,31 @@ export function AppSidebar() {
         <Separator className="my-4 bg-sidebar-border" />
 
         {/* Administration */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground font-medium">
-            Administration
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {adminNavItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink to={item.url} className={getNavClassName(item.url)}>
-                      <item.icon className="w-5 h-5 mr-3" />
-                      <span className="font-medium">{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {allowedAdminItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-sidebar-foreground font-medium">
+              Administration
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {userRole === 'global_admin' ? 'Global Admin' : 
+                 userRole === 'tenant_admin' ? 'Tenant Admin' : 'User'}
+              </Badge>
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {allowedAdminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <NavLink to={item.url} className={getNavClassName(item.url)}>
+                        <item.icon className="w-5 h-5 mr-3" />
+                        <span className="font-medium">{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* User Profile */}
         <div className="mt-auto pt-4">
