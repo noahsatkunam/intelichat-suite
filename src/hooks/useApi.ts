@@ -61,16 +61,31 @@ export function useApi<T>(
 
 // Authentication hooks
 export function useAuth() {
-  const [user, setUser] = useState(apiService.getCurrentUser());
-  const [isAuthenticated, setIsAuthenticated] = useState(apiService.isAuthenticated());
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { showSuccess, showError } = useToastNotifications();
+
+  // Initialize auth state
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const currentUser = await apiService.getCurrentUser();
+        const authStatus = await apiService.isAuthenticated();
+        setUser(currentUser);
+        setIsAuthenticated(authStatus);
+      } catch (error) {
+        console.error('Failed to initialize auth state:', error);
+      }
+    };
+    initAuth();
+  }, []);
 
   const login = async (email: string, password: string) => {
     try {
       const result = await apiService.login({ email, password });
       setUser(result.user);
       setIsAuthenticated(true);
-      showSuccess('Welcome back!', `Logged in as ${result.user.firstName || result.user.email}`);
+      showSuccess('Welcome back!', `Logged in as ${result.user?.email || email}`);
       return result;
     } catch (error) {
       showError('Login failed', 'Please check your credentials and try again');

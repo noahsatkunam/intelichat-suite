@@ -1,7 +1,7 @@
 // Zyria Production API Client - Enhanced service with environment config and auth management
 import { config, buildApiUrl, logApiCall } from '@/config/environment';
-import { authService } from '@/services/authService';
 import { ApiResponse, ApiError } from '@/types/api';
+import { supabase } from '@/integrations/supabase/client';
 
 // API Error Classes
 export class NetworkError extends Error {
@@ -76,24 +76,19 @@ class ApiService {
     // Default request interceptor for authentication
     this.addRequestInterceptor({
       onRequest: async (config) => {
-        // Add authentication headers
-        const authHeaders = authService.getAuthHeader();
-        config.headers = {
-          'Content-Type': 'application/json',
-          ...authHeaders,
-          ...config.headers,
-        };
-
-        // Refresh token if needed
-        if (authService.needsRefresh()) {
-          try {
-            await authService.refreshToken();
-            // Update headers with new token
-            const updatedAuthHeaders = authService.getAuthHeader();
-            config.headers = { ...config.headers, ...updatedAuthHeaders };
-          } catch (error) {
-            console.warn('Token refresh failed during request:', error);
-          }
+        // Add authentication headers using Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          config.headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            ...config.headers,
+          };
+        } else {
+          config.headers = {
+            'Content-Type': 'application/json',
+            ...config.headers,
+          };
         }
 
         return config;
@@ -107,17 +102,9 @@ class ApiService {
         return response;
       },
       onError: async (error) => {
-        // Handle 401 errors by attempting token refresh
-        if (error.status === 401 && authService.isAuthenticated()) {
-          try {
-            await authService.refreshToken();
-            // Retry the original request
-            return this.makeRequest(error.config.method, error.config.url, error.config.body);
-          } catch (refreshError) {
-            // If refresh fails, redirect to login
-            authService.logout();
-            throw new ApiAuthError('Session expired. Please log in again.');
-          }
+        // Handle 401 errors
+        if (error.status === 401) {
+          throw new ApiAuthError('Session expired. Please log in again.');
         }
         throw error;
       },
@@ -359,23 +346,24 @@ class ApiService {
   }
 
   // Authentication methods for compatibility
-  getCurrentUser() {
-    return authService.getCurrentUser();
+  async getCurrentUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user;
   }
 
-  isAuthenticated(): boolean {
-    return authService.isAuthenticated();
+  async isAuthenticated(): Promise<boolean> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return !!session;
   }
 
   async login(credentials: { email: string; password: string }): Promise<any> {
-    if (config.ENABLE_MOCK_DATA) {
-      return authService.mockLogin(credentials.email);
-    }
-    return authService.login(credentials);
+    const { data, error } = await supabase.auth.signInWithPassword(credentials);
+    if (error) throw error;
+    return data;
   }
 
   async logout(): Promise<void> {
-    return authService.logout();
+    await supabase.auth.signOut();
   }
 
   // Chat API methods (compatibility layer)
@@ -631,12 +619,16 @@ class ApiService {
     console.log(`Feature flag ${flag} is managed by environment config`);
   }
 
-  // Mock data methods (for development)
+  // Mock data methods (for development) 
   async mockLogin(email: string = 'admin@zyria.com'): Promise<any> {
     if (!config.ENABLE_MOCK_DATA) {
-      return authService.login({ email, password: 'demo' });
+      return this.login({ email, password: 'demo' });
     }
-    return authService.mockLogin(email);
+    // Mock login for development
+    return {
+      user: { id: '1', email, name: 'Demo User' },
+      token: 'mock-token'
+    };
   }
 
   // Feature flag management
