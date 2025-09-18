@@ -32,7 +32,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="zyria-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="zyria-theme">
       <ErrorBoundary>
         <TooltipProvider>
           <Toaster />

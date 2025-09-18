@@ -25,8 +25,7 @@ export function CodeBlock({ children, language = 'text', className }: CodeBlockP
     }
   };
 
-  const isDark = theme === 'dark' || 
-    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark = theme === 'dark';
 
   return (
     <div className="relative group">
