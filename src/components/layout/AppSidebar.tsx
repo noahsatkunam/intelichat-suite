@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   MessageSquarePlus,
@@ -46,9 +46,11 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { useAuth } from '@/contexts/AuthContext';
+import { conversationService } from '@/services/conversationService';
 
 const mainNavItems = [
-  { title: 'New Chat', url: '/', icon: MessageSquarePlus, variant: 'primary' as const },
+  { title: 'New Chat', url: '/dashboard', icon: MessageSquarePlus, variant: 'primary' as const },
   { title: 'Chat History', url: '/history', icon: History },
   { title: 'Knowledge Base', url: '/knowledge', icon: BookOpen },
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
@@ -71,12 +73,31 @@ const recentChats = [
 
 export function AppSidebar() {
   const { state } = useSidebar();
+  const { user, signOut } = useAuth();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   const [showRecentChats, setShowRecentChats] = useState(true);
+  const [recentConversations, setRecentConversations] = useState([]);
   
   const isCollapsed = state === 'collapsed';
   const isActive = (path: string) => location.pathname === path;
+
+  // Load recent conversations
+  useEffect(() => {
+    const loadConversations = async () => {
+      const conversations = await conversationService.getConversations();
+      setRecentConversations(conversations.slice(0, 4)); // Show only latest 4
+    };
+    loadConversations();
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  const getUserInitials = (email: string) => {
+    return email?.split('@')[0]?.substring(0, 2).toUpperCase() || 'U';
+  };
   
   const getNavClassName = (path: string, variant?: 'primary') => {
     const baseClasses = "w-full justify-start transition-all duration-200 hover:bg-accent hover:text-accent-foreground";
@@ -145,12 +166,12 @@ export function AppSidebar() {
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} className={getNavClassName(item.url, item.variant)}>
                       <item.icon className="w-5 h-5 mr-3" />
-                      <span className="font-medium">{item.title}</span>
-                      {item.title === 'Chat History' && (
-                        <Badge variant="secondary" className="ml-auto text-xs">
-                          {recentChats.filter(chat => chat.unread).length}
-                        </Badge>
-                      )}
+                       <span className="font-medium">{item.title}</span>
+                       {item.title === 'Chat History' && recentConversations.length > 0 && (
+                         <Badge variant="secondary" className="ml-auto text-xs">
+                           {recentConversations.length}
+                         </Badge>
+                       )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -195,35 +216,38 @@ export function AppSidebar() {
 
               {/* Chat List */}
               <SidebarMenu className="space-y-1">
-                {recentChats
-                  .filter(chat => 
+                {recentConversations
+                  .filter(conversation => 
                     searchQuery === '' || 
-                    chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+                    conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
                   )
-                  .map((chat) => (
-                    <SidebarMenuItem key={chat.id}>
+                  .map((conversation) => (
+                    <SidebarMenuItem key={conversation.id}>
                       <SidebarMenuButton asChild>
                         <NavLink 
-                          to={`/chat/${chat.id}`} 
+                          to={`/chat/${conversation.id}`} 
                           className="flex items-start gap-3 p-3 hover:bg-sidebar-accent rounded-lg transition-colors group"
                         >
                           <FolderOpen className="w-4 h-4 mt-0.5 text-muted-foreground group-hover:text-sidebar-foreground" />
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-sidebar-foreground truncate">
-                              {chat.title}
+                              {conversation.title}
                             </p>
                             <div className="flex items-center gap-1 mt-1">
                               <Clock className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">{chat.timestamp}</span>
-                              {chat.unread && (
-                                <Badge variant="default" className="ml-auto w-2 h-2 p-0 bg-primary"></Badge>
-                              )}
+                              <span className="text-xs text-muted-foreground">{new Date(conversation.updated_at).toLocaleDateString()}</span>
                             </div>
                           </div>
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
+                {recentConversations.length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p className="text-sm">No conversations yet</p>
+                    <p className="text-xs">Start a new chat to get started</p>
+                  </div>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           )}
@@ -262,14 +286,14 @@ export function AppSidebar() {
                 className="w-full justify-start p-3 hover:bg-sidebar-accent transition-colors"
               >
                 <Avatar className="w-8 h-8 mr-3">
-                  <AvatarImage src="/placeholder-avatar.png" alt="User Avatar" />
+                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="User Avatar" />
                   <AvatarFallback className="bg-gradient-primary text-primary-foreground text-sm font-medium">
-                    JD
+                    {getUserInitials(user?.email || '')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 text-left min-w-0">
-                  <p className="font-medium text-sm text-sidebar-foreground">John Doe</p>
-                  <p className="text-xs text-muted-foreground truncate">john.doe@enterprise.com</p>
+                  <p className="font-medium text-sm text-sidebar-foreground">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
               </Button>
@@ -286,7 +310,7 @@ export function AppSidebar() {
                 Notifications
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>

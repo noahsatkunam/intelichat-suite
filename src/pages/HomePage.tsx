@@ -135,7 +135,7 @@ const HomePage = () => {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" onClick={() => navigate('/login')}>
+            <Button variant="ghost" onClick={() => navigate('/auth')}>
               Login
             </Button>
           </div>
@@ -161,7 +161,7 @@ const HomePage = () => {
               <Link to="/about" className="block text-muted-foreground hover:text-foreground transition-colors">About</Link>
               <Link to="/contact" className="block text-muted-foreground hover:text-foreground transition-colors">Contact</Link>
               <div className="pt-4">
-                <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+                <Button variant="outline" className="w-full" onClick={() => navigate('/auth')}>
                   Login
                 </Button>
               </div>
