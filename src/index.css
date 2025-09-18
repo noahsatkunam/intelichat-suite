@@ -168,7 +168,7 @@ All colors MUST be HSL format for proper theme switching.
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Enhanced Zyria animations for enterprise interface */
+/* Enhanced Zyria animations for enterprise interface */
   @keyframes fade-in {
     from {
       opacity: 0;
@@ -291,6 +291,29 @@ All colors MUST be HSL format for proper theme switching.
     }
   }
 
+  /* Onboarding highlight animation */
+  @keyframes highlight-pulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 hsla(234, 89%, 74%, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 8px hsla(234, 89%, 74%, 0.1);
+    }
+  }
+
+  /* Mobile touch feedback */
+  @keyframes tap-feedback {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(0.98);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
   .animate-fade-in {
     animation: fade-in 0.3s ease-out;
   }
@@ -337,6 +360,18 @@ All colors MUST be HSL format for proper theme switching.
 
   .animate-theme-transition {
     animation: theme-transition 0.3s ease-out;
+  }
+
+  /* Onboarding and interaction animations */
+  .onboarding-highlight {
+    animation: highlight-pulse 2s infinite;
+    border: 2px solid hsl(var(--primary));
+    border-radius: 8px;
+    position: relative;
+  }
+
+  .tap-feedback:active {
+    animation: tap-feedback 0.1s ease-out;
   }
 
   /* Smooth theme transitions */
@@ -463,5 +498,39 @@ All colors MUST be HSL format for proper theme switching.
       hsl(var(--muted)) 75%
     );
     background-size: 200% 100%;
+  }
+
+  /* Mobile-optimized touch targets */
+  @media (max-width: 768px) {
+    .interactive-element {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    .mobile-touch {
+      padding: 12px;
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+  }
+
+  /* Enhanced focus states for accessibility */
+  .focus-visible\:ring-2 {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Progressive disclosure animation */
+  .disclosure-content {
+    transition: all 0.2s ease-out;
+  }
+
+  .disclosure-trigger:hover {
+    background: hsl(var(--accent));
+  }
+
+  /* Quick action highlight */
+  .quick-action-highlight {
+    animation: glow-pulse 1s ease-in-out;
+    background: hsla(var(--primary), 0.1);
   }
 }

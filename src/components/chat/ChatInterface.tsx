@@ -12,11 +12,15 @@ import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
 import { KnowledgeBaseToggle } from '@/components/knowledge/KnowledgeBaseToggle';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChatEmptyState } from '@/components/ui/empty-state';
+import { EnhancedEmptyState } from '@/components/ui/enhanced-empty-state';
 import { LoadingOverlay } from '@/components/ui/loading-spinner';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 import { DemoToggle } from '@/components/demo/DemoToggle';
 import { WelcomeScreen } from '@/components/demo/WelcomeScreen';
+import { OnboardingTour, useOnboarding } from '@/components/onboarding/OnboardingTour';
+import { QuickActionsModal } from '@/components/ui/quick-actions';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { KeyboardShortcutsHelp } from '@/components/ui/keyboard-shortcuts-help';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
 import { demoService } from '@/services/demoService';
 import { ChevronDown, Search, Upload, BookOpen, MessageSquarePlus } from 'lucide-react';
@@ -119,6 +123,10 @@ export function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { notifyMessageSent, notifyMessageError, notifyFileUploaded } = useToastNotifications();
+  
+  // UX Enhancement Hooks
+  const { showOnboarding, completeOnboarding, skipOnboarding } = useOnboarding();
+  const { shortcuts, showHelp, setShowHelp, getShortcutDisplay } = useKeyboardShortcuts();
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -437,8 +445,9 @@ export function ChatInterface() {
         
         <div className="flex-1 overflow-hidden relative">
           {filteredMessages.length === 0 && !searchQuery ? (
-            <ChatEmptyState
-              onAction={handleNewChat}
+            <EnhancedEmptyState
+              variant="chat"
+              onPrimaryAction={handleNewChat}
               className="h-full"
             />
           ) : (
@@ -540,6 +549,23 @@ export function ChatInterface() {
         description="Are you sure you want to clear all messages? This action cannot be undone."
         confirmText="Clear All"
         variant="destructive"
+      />
+
+      {/* Enhanced UX Components */}
+      {showOnboarding && (
+        <OnboardingTour
+          onComplete={completeOnboarding}
+          onSkip={skipOnboarding}
+        />
+      )}
+      
+      <QuickActionsModal />
+      
+      <KeyboardShortcutsHelp
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+        shortcuts={shortcuts}
+        getShortcutDisplay={getShortcutDisplay}
       />
       </div>
     </LoadingOverlay>
