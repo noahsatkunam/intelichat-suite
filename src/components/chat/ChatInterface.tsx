@@ -15,15 +15,16 @@ import { Badge } from '@/components/ui/badge';
 import { EnhancedEmptyState } from '@/components/ui/enhanced-empty-state';
 import { LoadingOverlay } from '@/components/ui/loading-spinner';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
-import { DemoToggle } from '@/components/demo/DemoToggle';
-import { WelcomeScreen } from '@/components/demo/WelcomeScreen';
 import { OnboardingTour, useOnboarding } from '@/components/onboarding/OnboardingTour';
 import { QuickActionsModal } from '@/components/ui/quick-actions';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { KeyboardShortcutsHelp } from '@/components/ui/keyboard-shortcuts-help';
 import { useToastNotifications } from '@/hooks/useToastNotifications';
-import { demoService } from '@/services/demoService';
+import { conversationService, type Message as DBMessage } from '@/services/conversationService';
+import { analyticsService } from '@/services/analyticsService';
+import { useAuth } from '@/contexts/AuthContext';
 import { ChevronDown, Search, Upload, BookOpen, MessageSquarePlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 export interface Message {
   id: string;
@@ -32,7 +33,7 @@ export interface Message {
   timestamp: Date;
   reactions?: string[];
   replies?: Message[];
-  replyTo?: string; // ID of message being replied to
+  replyTo?: string;
   status?: 'sending' | 'sent' | 'error';
   sources?: {
     title: string;
@@ -49,61 +50,10 @@ export interface Message {
   }[];
 }
 
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    content: 'Hello! I am Zyria, your enterprise AI assistant. I can help you with complex queries, access our knowledge base, and provide detailed information with source citations. How can I assist you today?\n\nHere is an example of code syntax highlighting:\n\n```javascript\nfunction greetUser(name) {\n  return `Hello, ${name}! Welcome to Zyria.`;\n}\n\nconsole.log(greetUser("Enterprise User"));\n```',
-    sender: 'bot',
-    timestamp: new Date(Date.now() - 10000),
-    status: 'sent',
-    sources: [
-      {
-        title: 'Zyria Enterprise Guidelines',
-        url: '#',
-        snippet: 'Comprehensive guide to enterprise AI best practices and implementation strategies...',
-        confidence: 'high',
-        type: 'PDF',
-        isKnowledgeBase: true
-      }
-    ]
-  },
-  {
-    id: '2',
-    content: 'Can you help me understand our security compliance requirements for the new project?',
-    sender: 'user',
-    timestamp: new Date(Date.now() - 5000),
-    status: 'sent'
-  },
-  {
-    id: '3',
-    content: 'Based on your enterprise documentation, I can provide comprehensive information about your security compliance requirements. Your organization follows SOC 2 Type II standards with additional ISO 27001 controls.\n\nKey requirements include:\n- Multi-factor authentication for all systems\n- Data encryption in transit and at rest\n- Regular security audits and penetration testing\n- Incident response procedures\n\nI have found several relevant documents that provide detailed implementation guidance.',
-    sender: 'bot',
-    timestamp: new Date(),
-    status: 'sent',
-    reactions: ['👍', '💡'],
-    sources: [
-      {
-        title: 'Enterprise Security Policy',
-        url: '#',
-        snippet: 'Complete security policy framework including SOC 2 Type II compliance requirements and implementation guidelines...',
-        confidence: 'high',
-        type: 'PDF',
-        isKnowledgeBase: true
-      },
-      {
-        title: 'ISO 27001 Implementation Guide',
-        url: '#',
-        snippet: 'Step-by-step implementation guide for ISO 27001 information security management system controls...',
-        confidence: 'high',
-        type: 'DOCX',
-        isKnowledgeBase: true
-      }
-    ]
-  }
-];
-
 export function ChatInterface() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -117,9 +67,6 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
-  const [currentScenario, setCurrentScenario] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { notifyMessageSent, notifyMessageError, notifyFileUploaded } = useToastNotifications();
@@ -140,10 +87,73 @@ export function ChatInterface() {
     }
   }, [messages]);
 
+  // Convert DB message to UI message format
+  const convertDbMessageToUiMessage = (dbMessage: DBMessage): Message => ({
+    id: dbMessage.id,
+    content: dbMessage.content,
+    sender: dbMessage.role === 'user' ? 'user' : 'bot',
+    timestamp: new Date(dbMessage.timestamp),
+    status: 'sent',
+    replyTo: dbMessage.metadata?.replyTo,
+    reactions: dbMessage.metadata?.reactions || [],
+    sources: dbMessage.metadata?.sources || []
+  });
+
+  // Load conversation messages
+  const loadMessages = useCallback(async (conversationId: string) => {
+    try {
+      setIsLoading(true);
+      const dbMessages = await conversationService.getMessages(conversationId);
+      const uiMessages = dbMessages.map(convertDbMessageToUiMessage);
+      setMessages(uiMessages);
+    } catch (error) {
+      toast.error('Failed to load conversation');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Create new conversation
+  const createNewConversation = async () => {
+    try {
+      const conversation = await conversationService.createConversation('New Chat');
+      if (conversation) {
+        setCurrentConversation(conversation.id);
+        setMessages([]);
+        return conversation.id;
+      }
+    } catch (error) {
+      toast.error('Failed to create conversation');
+    }
+    return null;
+  };
+
+  // Real-time message subscription
+  useEffect(() => {
+    if (!currentConversation) return;
+
+    const subscription = conversationService.subscribeToMessages(
+      currentConversation,
+      (newMessage) => {
+        const uiMessage = convertDbMessageToUiMessage(newMessage);
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.find(m => m.id === uiMessage.id)) return prev;
+          return [...prev, uiMessage];
+        });
+      }
+    );
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
+  }, [currentConversation]);
+
   useEffect(() => {
     scrollToBottom();
     
-    // Update unread count when new messages arrive
     if (messages.length > 0 && lastSeenMessageId) {
       const lastSeenIndex = messages.findIndex(m => m.id === lastSeenMessageId);
       if (lastSeenIndex !== -1) {
@@ -172,8 +182,19 @@ export function ChatInterface() {
   }, [markMessagesAsRead]);
 
   const handleSendMessage = async (content: string, attachments?: File[]) => {
+    if (!user) return;
+
+    // Create conversation if it doesn't exist
+    let conversationId = currentConversation;
+    if (!conversationId) {
+      conversationId = await createNewConversation();
+      if (!conversationId) return;
+    }
+
+    // Create optimistic UI message
+    const tempId = `temp-${Date.now()}`;
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: tempId,
       content,
       sender: 'user',
       timestamp: new Date(),
@@ -191,59 +212,47 @@ export function ChatInterface() {
     setIsTyping(true);
 
     try {
-      // Show sending feedback
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Update message status to sent
-      setMessages(prev => prev.map(msg => 
-        msg.id === newMessage.id ? { ...msg, status: 'sent' } : msg
-      ));
-      
-      notifyMessageSent();
+      // Send message to database
+      const dbMessage = await conversationService.sendMessage(
+        conversationId,
+        content,
+        'user'
+      );
 
-      // Notify about file uploads
-      if (attachments && attachments.length > 0) {
-        attachments.forEach(file => notifyFileUploaded(file.name));
+      if (dbMessage) {
+        // Replace temp message with real one
+        setMessages(prev => prev.map(msg =>
+          msg.id === tempId ? convertDbMessageToUiMessage(dbMessage) : msg
+        ));
+
+        // Track analytics
+        await analyticsService.trackMetric('message_sent', 1);
+
+        notifyMessageSent();
+
+        // Handle file uploads
+        if (attachments && attachments.length > 0) {
+          attachments.forEach(file => notifyFileUploaded(file.name));
+        }
+
+        // Generate AI response (simplified for now)
+        setTimeout(async () => {
+          const botResponse = await conversationService.sendMessage(
+            conversationId!,
+            `Thank you for your message: "${content}". I'm processing your request and will provide a detailed response.`,
+            'assistant'
+          );
+
+          if (botResponse) {
+            // Real-time subscription will handle adding the message
+            setIsTyping(false);
+          }
+        }, 1500);
       }
-
-      let botResponse: Message;
-
-      // Use demo service if in demo mode
-      if (isDemoMode) {
-        const demoResponse = await demoService.generateDemoResponse(content, currentScenario);
-        botResponse = demoResponse;
-      } else {
-        // Default response for non-demo mode
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        botResponse = {
-          id: (Date.now() + 1).toString(),
-          content: replyingTo 
-            ? `Regarding your message "${replyingTo.content.substring(0, 50)}..." - I understand your question and here's my detailed response with relevant sources.`
-            : "Thank you for your message! I'm processing your request and will provide a detailed response with relevant sources.",
-          sender: 'bot',
-          timestamp: new Date(),
-          status: 'sent',
-          replyTo: replyingTo?.id,
-          sources: [
-            {
-              title: 'Related Documentation',
-              url: '#',
-              snippet: 'Based on your query, here are the most relevant resources...',
-              confidence: 'high' as const,
-              type: 'PDF'
-            }
-          ]
-        };
-      }
-
-      setMessages(prev => [...prev, botResponse]);
-      setIsTyping(false);
-      
     } catch (error) {
-      // Enhanced error handling
-      setMessages(prev => prev.map(msg => 
-        msg.id === newMessage.id ? { ...msg, status: 'error' } : msg
+      // Handle error
+      setMessages(prev => prev.map(msg =>
+        msg.id === tempId ? { ...msg, status: 'error' } : msg
       ));
       setIsTyping(false);
       notifyMessageError();
@@ -276,56 +285,32 @@ export function ChatInterface() {
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
       setShowNewMessageIndicator(!isAtBottom && unreadCount > 0);
       
-      // Auto-mark as read when scrolled to bottom
       if (isAtBottom) {
         markMessagesAsRead();
       }
     }
   }, [unreadCount, markMessagesAsRead]);
 
-  const handleClearChat = () => {
+  const handleClearChat = async () => {
+    if (currentConversation) {
+      await conversationService.deleteConversation(currentConversation);
+    }
     setMessages([]);
+    setCurrentConversation(null);
     setUnreadCount(0);
     setLastSeenMessageId(null);
     setShowClearConfirm(false);
   };
 
-  const handleNewChat = () => {
-    setMessages([]);
-    setReplyingTo(null);
-    setSearchQuery('');
-    setUnreadCount(0);
-    setLastSeenMessageId(null);
-    setShowWelcome(false);
-  };
-
-  const handleStartDemo = (scenarioId: string) => {
-    setCurrentScenario(scenarioId);
-    setIsDemoMode(true);
-    setShowWelcome(false);
-    
-    // Load scenario messages
-    const scenarioMessages = demoService.getScenarioMessages(scenarioId);
-    setMessages(scenarioMessages);
-  };
-
-  const handleToggleDemoMode = (enabled: boolean) => {
-    setIsDemoMode(enabled);
-    demoService.toggleDemoMode(enabled);
-    
-    if (!enabled) {
-      setCurrentScenario(null);
+  const handleNewChat = async () => {
+    const newConversationId = await createNewConversation();
+    if (newConversationId) {
       setMessages([]);
+      setReplyingTo(null);
+      setSearchQuery('');
+      setUnreadCount(0);
+      setLastSeenMessageId(null);
     }
-  };
-
-  const handleResetDemo = () => {
-    setMessages([]);
-    setCurrentScenario(null);
-    setReplyingTo(null);
-    setSearchQuery('');
-    setUnreadCount(0);
-    setLastSeenMessageId(null);
   };
 
   const filteredMessages = messages.filter(msg =>
@@ -333,34 +318,12 @@ export function ChatInterface() {
     msg.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Show welcome screen for new users
-  if (showWelcome && messages.length === 0) {
-    return (
-      <WelcomeScreen
-        onStartDemo={handleStartDemo}
-        onSkipToChat={() => setShowWelcome(false)}
-      />
-    );
-  }
-
   return (
     <LoadingOverlay isLoading={isLoading}>
       <div className="flex h-screen bg-chat-background">
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           <ChatHeader />
-          
-          {/* Demo Mode Toggle */}
-          {!showWelcome && (
-            <div className="px-4 py-2 border-b border-chat-border">
-              <DemoToggle
-                isDemoMode={isDemoMode}
-                onToggleDemoMode={handleToggleDemoMode}
-                currentScenario={currentScenario}
-                onResetDemo={handleResetDemo}
-              />
-            </div>
-          )}
           
           <MessageSearch 
             searchQuery={searchQuery}
@@ -494,80 +457,78 @@ export function ChatInterface() {
 
         <MessageInput 
           onSendMessage={handleSendMessage}
-          onToggleFileUpload={() => setShowFileUpload(!showFileUpload)}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          onToggleFileUpload={() => setShowFileUpload(!showFileUpload)}
         />
-      </div>
+        </div>
 
-      {/* Related Documents Sidebar */}
-      {showRelatedDocs && (
-        <div className="w-80 border-l border-chat-border bg-chat-surface">
-          <div className="h-full overflow-hidden">
+        {/* Side Panel for Related Documents */}
+        {showRelatedDocs && (
+          <div className="w-80 border-l border-chat-border bg-knowledge-panel">
             <RelatedDocuments 
               documents={[]}
-              onDocumentSelect={(doc) => {
-                // Handle document selection
-                console.log('Selected document:', doc);
-              }}
+              onDocumentSelect={(doc) => console.log('Selected document:', doc)}
             />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Modals */}
+      {/* Modals and Overlays */}
       {showFileUpload && (
         <FileUpload 
           onClose={() => setShowFileUpload(false)}
           onUpload={(files) => {
-            handleSendMessage("", files);
+            console.log('Files uploaded:', files);
             setShowFileUpload(false);
           }}
         />
       )}
 
-      <KnowledgeSearchOverlay
-        isOpen={showKnowledgeSearch}
-        onClose={() => setShowKnowledgeSearch(false)}
-        onSelectDocument={(doc) => {
-          // Handle document selection for insertion
-          setShowKnowledgeSearch(false);
-        }}
-      />
+      {showKnowledgeSearch && (
+        <KnowledgeSearchOverlay 
+          isOpen={showKnowledgeSearch}
+          onClose={() => setShowKnowledgeSearch(false)}
+          onSelectDocument={(doc) => console.log('Selected document:', doc)}
+        />
+      )}
 
-      <DocumentUpload
-        isOpen={showDocumentUpload}
-        onClose={() => setShowDocumentUpload(false)}
-      />
+      {showDocumentUpload && (
+        <DocumentUpload 
+          isOpen={showDocumentUpload}
+          onClose={() => setShowDocumentUpload(false)} 
+        />
+      )}
 
-      {/* Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={handleClearChat}
-        title="Clear chat history"
-        description="Are you sure you want to clear all messages? This action cannot be undone."
-        confirmText="Clear All"
-        variant="destructive"
-      />
+      {showClearConfirm && (
+        <ConfirmationModal
+          isOpen={showClearConfirm}
+          onClose={() => setShowClearConfirm(false)}
+          onConfirm={handleClearChat}
+          title="Clear Chat"
+          description="Are you sure you want to clear this chat? This action cannot be undone."
+          confirmText="Clear Chat"
+          cancelText="Cancel"
+        />
+      )}
 
-      {/* Enhanced UX Components */}
       {showOnboarding && (
         <OnboardingTour
           onComplete={completeOnboarding}
           onSkip={skipOnboarding}
         />
       )}
-      
+
       <QuickActionsModal />
-      
-      <KeyboardShortcutsHelp
-        isOpen={showHelp}
-        onClose={() => setShowHelp(false)}
-        shortcuts={shortcuts}
-        getShortcutDisplay={getShortcutDisplay}
-      />
-      </div>
+
+      {showHelp && (
+        <KeyboardShortcutsHelp
+          isOpen={showHelp}
+          shortcuts={shortcuts}
+          onClose={() => setShowHelp(false)}
+          getShortcutDisplay={getShortcutDisplay}
+        />
+      )}
     </LoadingOverlay>
   );
 }

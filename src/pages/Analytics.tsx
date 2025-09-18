@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart3, 
   Users, 
@@ -8,7 +8,8 @@ import {
   TrendingDown,
   Activity,
   Calendar,
-  Download
+  Download,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,95 +23,115 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const mockAnalytics = {
-  overview: {
-    totalConversations: 2847,
-    activeUsers: 156,
-    averageResponseTime: 1.2,
-    satisfactionScore: 94.8,
-    trends: {
-      conversations: 12.5,
-      users: 8.3,
-      responseTime: -15.2,
-      satisfaction: 2.1
-    }
-  },
-  usage: [
-    { name: 'Knowledge Base Queries', count: 1245, percentage: 43.8, color: 'bg-blue-500' },
-    { name: 'Technical Support', count: 892, percentage: 31.3, color: 'bg-green-500' },
-    { name: 'General Inquiries', count: 456, percentage: 16.0, color: 'bg-purple-500' },
-    { name: 'API Documentation', count: 254, percentage: 8.9, color: 'bg-orange-500' },
-  ],
-  topicsToday: [
-    { topic: 'Database Integration', mentions: 23, trend: 'up' },
-    { topic: 'Security Compliance', mentions: 18, trend: 'up' },
-    { topic: 'Performance Issues', mentions: 15, trend: 'down' },
-    { topic: 'API Rate Limits', mentions: 12, trend: 'up' },
-    { topic: 'User Management', mentions: 9, trend: 'stable' },
-  ]
-};
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { analyticsService, type AnalyticsData } from '@/services/analyticsService';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Analytics() {
-  const { overview, usage, topicsToday } = mockAnalytics;
+  const { user } = useAuth();
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedPeriod, setSelectedPeriod] = useState('7days');
 
-  const getTrendIcon = (trend: string) => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
-      case 'down':
-        return <TrendingDown className="w-4 h-4 text-red-500" />;
-      default:
-        return <Activity className="w-4 h-4 text-gray-500" />;
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
+
+  const loadAnalytics = async () => {
+    try {
+      setLoading(true);
+      const data = await analyticsService.getAnalyticsData();
+      setAnalyticsData(data);
+    } catch (error) {
+      console.error('Failed to load analytics:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatTrend = (value: number) => {
-    const isPositive = value > 0;
-    return {
-      value: Math.abs(value),
-      isPositive,
-      color: isPositive ? 'text-green-600' : 'text-red-600',
-      icon: isPositive ? TrendingUp : TrendingDown
+  // Real-time analytics updates
+  useEffect(() => {
+    const subscription = analyticsService.subscribeToAnalytics(() => {
+      loadAnalytics(); // Refresh data when new analytics come in
+    });
+
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
+  }, []);
+
+  const handleExportData = () => {
+    // Export analytics data as CSV
+    if (!analyticsData) return;
+    
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Total Messages', analyticsData.totalMessages],
+      ['Total Conversations', analyticsData.totalConversations],
+      ['Total Documents', analyticsData.totalDocuments],
+      ['Active Users', analyticsData.activeUsers],
+    ];
+
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'analytics-data.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!analyticsData) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold mb-2">No Analytics Data</h2>
+          <p className="text-muted-foreground">Start using the platform to see analytics</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">Analytics Dashboard</h1>
-              <p className="text-muted-foreground">Monitor usage, performance, and user engagement</p>
+              <h1 className="text-2xl font-display font-bold text-foreground">Analytics & Insights</h1>
+              <p className="text-muted-foreground">Monitor your AI assistant's performance and usage patterns</p>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="date"
-                className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                defaultValue="2024-01-08"
-              />
-              <span className="flex items-center text-muted-foreground">to</span>
-              <input
-                type="date"
-                className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                defaultValue="2024-01-15"
-              />
-              <Select defaultValue="7d">
+            <div className="flex items-center gap-4">
+              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-32">
-                  <Calendar className="w-4 h-4 mr-1" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="24h">Last 24h</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="90d">Last 90 days</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
+                  <SelectItem value="7days">Last 7 days</SelectItem>
+                  <SelectItem value="30days">Last 30 days</SelectItem>
+                  <SelectItem value="90days">Last 90 days</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={handleExportData}
+              >
                 <Download className="w-4 h-4" />
                 Export Data
               </Button>
@@ -122,128 +143,127 @@ export default function Analytics() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="usage">Usage</TabsTrigger>
+            <TabsTrigger value="conversations">Conversations</TabsTrigger>
+            <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Key Metrics */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-border bg-card">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Conversations
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
                   <MessageCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">
-                    {overview.totalConversations.toLocaleString()}
-                  </div>
-                  <div className="flex items-center text-xs text-green-600 mt-1">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    +{overview.trends.conversations}% from last period
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsData.totalMessages.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    Messages exchanged
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card className="border-border bg-card">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Active Users
-                  </CardTitle>
+                  <CardTitle className="text-sm font-medium">Conversations</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">
-                    {overview.activeUsers}
-                  </div>
-                  <div className="flex items-center text-xs text-green-600 mt-1">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    +{overview.trends.users}% from last period
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsData.totalConversations.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <Activity className="inline h-3 w-3 mr-1" />
+                    Total conversations
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card className="border-border bg-card">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Avg Response Time
-                  </CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Knowledge Base</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">
-                    {overview.averageResponseTime}s
-                  </div>
-                  <div className="flex items-center text-xs text-green-600 mt-1">
-                    <TrendingDown className="w-3 h-3 mr-1" />
-                    {Math.abs(overview.trends.responseTime)}% faster
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsData.totalDocuments.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    Documents indexed
+                  </p>
                 </CardContent>
               </Card>
 
-              <Card className="border-border bg-card">
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Satisfaction Score
-                  </CardTitle>
-                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-foreground">
-                    {overview.satisfactionScore}%
-                  </div>
-                  <div className="flex items-center text-xs text-green-600 mt-1">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    +{overview.trends.satisfaction}% from last period
-                  </div>
+                  <div className="text-2xl font-bold">{analyticsData.activeUsers.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <Users className="inline h-3 w-3 mr-1" />
+                    Currently active
+                  </p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Usage Breakdown */}
+            {/* Trends */}
             <div className="grid gap-6 md:grid-cols-2">
-              <Card className="border-border bg-card">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-foreground">Query Categories</CardTitle>
+                  <CardTitle className="text-lg">Message Trends</CardTitle>
+                  <p className="text-sm text-muted-foreground">Messages over the last 7 days</p>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {usage.map((item, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium text-foreground">{item.name}</span>
-                        <span className="text-muted-foreground">{item.count}</span>
+                <CardContent>
+                  <div className="space-y-4">
+                    {analyticsData.messagesTrend.map((day, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(day.date).toLocaleDateString()}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 bg-secondary rounded-full h-2">
+                            <div 
+                              className="bg-primary h-2 rounded-full" 
+                              style={{ 
+                                width: `${Math.max((day.count / Math.max(...analyticsData.messagesTrend.map(d => d.count))) * 100, 5)}%` 
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium w-8">{day.count}</span>
+                        </div>
                       </div>
-                      <Progress 
-                        value={item.percentage} 
-                        className="h-2"
-                      />
-                      <div className="text-xs text-muted-foreground text-right">
-                        {item.percentage}% of total
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="border-border bg-card">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-foreground">Trending Topics Today</CardTitle>
+                  <CardTitle className="text-lg">Conversation Trends</CardTitle>
+                  <p className="text-sm text-muted-foreground">New conversations over the last 7 days</p>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {topicsToday.map((topic, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-accent/50">
-                        <div className="flex items-center gap-3">
-                          {getTrendIcon(topic.trend)}
-                          <span className="font-medium text-foreground">{topic.topic}</span>
+                  <div className="space-y-4">
+                    {analyticsData.conversationsTrend.map((day, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(day.date).toLocaleDateString()}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 bg-secondary rounded-full h-2">
+                            <div 
+                              className="bg-green-500 h-2 rounded-full" 
+                              style={{ 
+                                width: `${Math.max((day.count / Math.max(...analyticsData.conversationsTrend.map(d => d.count))) * 100, 5)}%` 
+                              }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium w-8">{day.count}</span>
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {topic.mentions} mentions
-                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -252,24 +272,58 @@ export default function Analytics() {
             </div>
           </TabsContent>
 
-          <TabsContent value="usage" className="space-y-6">
-            <div className="text-center py-12">
-              <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Usage Analytics</h3>
-              <p className="text-muted-foreground">
-                Detailed usage analytics and user behavior insights will be displayed here.
-              </p>
-            </div>
+          <TabsContent value="conversations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Conversation Analytics</CardTitle>
+                <p className="text-sm text-muted-foreground">Detailed conversation metrics and patterns</p>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <MessageCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Conversation Analytics</h3>
+                  <p className="text-muted-foreground">
+                    Detailed conversation analytics will be available as you use the platform more.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="knowledge" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Knowledge Base Analytics</CardTitle>
+                <p className="text-sm text-muted-foreground">Document usage and search patterns</p>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Knowledge Base Analytics</h3>
+                  <p className="text-muted-foreground">
+                    Upload documents to see detailed knowledge base analytics and usage patterns.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="performance" className="space-y-6">
-            <div className="text-center py-12">
-              <Activity className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Performance Metrics</h3>
-              <p className="text-muted-foreground">
-                System performance metrics and optimization recommendations will be shown here.
-              </p>
-            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance Metrics</CardTitle>
+                <p className="text-sm text-muted-foreground">System performance and response times</p>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-12">
+                  <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Performance Analytics</h3>
+                  <p className="text-muted-foreground">
+                    Performance metrics will be available as the system processes more requests.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
