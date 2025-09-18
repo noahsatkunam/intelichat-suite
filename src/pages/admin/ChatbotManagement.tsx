@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,6 +22,9 @@ interface Chatbot {
   primary_ai_provider_id: string | null;
   fallback_ai_provider_id: string | null;
   model_name: string | null;
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
   is_active: boolean;
   tenant_id: string;
   created_at: string;
@@ -32,13 +36,24 @@ interface AIProvider {
   id: string;
   name: string;
   type: string;
-  config: any;
   is_active: boolean;
+}
+
+interface ProviderModel {
+  id: string;
+  provider_type: string;
+  model_name: string;
+  display_name: string;
+  description: string | null;
+  max_context_length: number | null;
+  supports_vision: boolean;
+  supports_function_calling: boolean;
 }
 
 export default function ChatbotManagement() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [providers, setProviders] = useState<AIProvider[]>([]);
+  const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,13 +68,20 @@ export default function ChatbotManagement() {
       primary_ai_provider_id: '',
       fallback_ai_provider_id: '',
       model_name: '',
+      temperature: 0.7,
+      max_tokens: 1000,
+      top_p: 1.0,
       is_active: true
     }
   });
 
+  const selectedProviderType = providers.find(p => p.id === form.watch('primary_ai_provider_id'))?.type;
+  const modelsForProvider = availableModels.filter(m => m.provider_type === selectedProviderType);
+
   useEffect(() => {
     fetchChatbots();
     fetchProviders();
+    fetchProviderModels();
   }, []);
 
   const fetchChatbots = async () => {
@@ -90,7 +112,7 @@ export default function ChatbotManagement() {
     try {
       const { data, error } = await supabase
         .from('ai_providers')
-        .select('id, name, type, config, is_active')
+        .select('id, name, type, is_active')
         .eq('is_active', true)
         .order('name');
 
@@ -105,8 +127,35 @@ export default function ChatbotManagement() {
     }
   };
 
+  const fetchProviderModels = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('provider_models')
+        .select('*')
+        .eq('is_deprecated', false)
+        .order('provider_type', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (error) throw error;
+      setAvailableModels(data || []);
+    } catch (error: any) {
+      console.error('Error fetching models:', error);
+    }
+  };
+
   const handleCreateChatbot = () => {
-    form.reset();
+    form.reset({
+      name: '',
+      description: '',
+      system_prompt: '',
+      primary_ai_provider_id: '',
+      fallback_ai_provider_id: '',
+      model_name: '',
+      temperature: 0.7,
+      max_tokens: 1000,
+      top_p: 1.0,
+      is_active: true
+    });
     setDialogMode('create');
     setSelectedChatbot(null);
     setIsDialogOpen(true);
@@ -120,6 +169,9 @@ export default function ChatbotManagement() {
       primary_ai_provider_id: chatbot.primary_ai_provider_id || '',
       fallback_ai_provider_id: chatbot.fallback_ai_provider_id || '',
       model_name: chatbot.model_name || '',
+      temperature: chatbot.temperature || 0.7,
+      max_tokens: chatbot.max_tokens || 1000,
+      top_p: chatbot.top_p || 1.0,
       is_active: chatbot.is_active
     });
     setDialogMode('edit');
@@ -143,6 +195,9 @@ export default function ChatbotManagement() {
         primary_ai_provider_id: data.primary_ai_provider_id || null,
         fallback_ai_provider_id: data.fallback_ai_provider_id || null,
         model_name: data.model_name || null,
+        temperature: data.temperature,
+        max_tokens: data.max_tokens,
+        top_p: data.top_p,
         is_active: data.is_active,
         tenant_id: profile?.tenant_id
       };
@@ -230,7 +285,7 @@ export default function ChatbotManagement() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-display font-bold text-foreground">Chatbot Management</h1>
-              <p className="text-muted-foreground">Create and manage AI-powered chatbots</p>
+              <p className="text-muted-foreground">Create and manage AI-powered chatbots with custom models and parameters</p>
             </div>
             <Button onClick={handleCreateChatbot} className="gap-2 bg-gradient-primary hover:shadow-glow">
               <Plus className="w-4 h-4" />
@@ -267,7 +322,7 @@ export default function ChatbotManagement() {
                     <div className="flex items-center gap-2 text-sm">
                       <span>{getProviderIcon(chatbot.ai_providers.type)}</span>
                       <span className="text-muted-foreground">
-                        Powered by {chatbot.ai_providers.name}
+                        {chatbot.ai_providers.name}
                       </span>
                     </div>
                   )}
@@ -276,6 +331,9 @@ export default function ChatbotManagement() {
                       Model: {chatbot.model_name}
                     </div>
                   )}
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>Temp: {chatbot.temperature} | Tokens: {chatbot.max_tokens}</div>
+                  </div>
                   {chatbot.fallback_providers && !chatbot.fallback_providers.error && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>{getProviderIcon(chatbot.fallback_providers.type)}</span>
@@ -312,7 +370,7 @@ export default function ChatbotManagement() {
             <MessageSquare className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">No Chatbots</h3>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Create your first AI-powered chatbot with custom prompts and provider selection.
+              Create your first AI-powered chatbot. Choose from your configured API keys and select specific models.
             </p>
             <Button onClick={handleCreateChatbot} className="gap-2">
               <Plus className="w-4 h-4" />
@@ -324,13 +382,13 @@ export default function ChatbotManagement() {
 
       {/* Chatbot Configuration Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === 'create' ? 'Create Chatbot' : 'Edit Chatbot'}
             </DialogTitle>
             <DialogDescription>
-              Configure your chatbot with AI provider selection and custom prompts.
+              Configure your chatbot with specific AI models and parameters.
             </DialogDescription>
           </DialogHeader>
           
@@ -390,45 +448,91 @@ export default function ChatbotManagement() {
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="primary_ai_provider_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Primary AI Provider</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select provider" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {providers.map((provider) => (
-                            <SelectItem key={provider.id} value={provider.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{getProviderIcon(provider.type)}</span>
-                                {provider.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Provider and Model Selection */}
+              <div className="space-y-4 border rounded-lg p-4">
+                <h3 className="text-lg font-semibold">AI Provider & Model</h3>
                 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="primary_ai_provider_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary API Key</FormLabel>
+                        <Select onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue('model_name', ''); // Reset model when provider changes
+                        }} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select API key" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {providers.map((provider) => (
+                              <SelectItem key={provider.id} value={provider.id}>
+                                <div className="flex items-center gap-2">
+                                  <span>{getProviderIcon(provider.type)}</span>
+                                  {provider.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="model_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Model</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProviderType}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={selectedProviderType ? "Select model" : "Select provider first"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {modelsForProvider.map((model) => (
+                              <SelectItem key={model.id} value={model.model_name}>
+                                <div className="space-y-1">
+                                  <div className="font-medium">{model.display_name}</div>
+                                  {model.description && (
+                                    <div className="text-xs text-muted-foreground">{model.description}</div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground flex gap-2">
+                                    {model.max_context_length && <span>{model.max_context_length.toLocaleString()} tokens</span>}
+                                    {model.supports_vision && <span>Vision</span>}
+                                    {model.supports_function_calling && <span>Functions</span>}
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Available models for the selected provider
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
                   name="fallback_ai_provider_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fallback Provider</FormLabel>
+                      <FormLabel>Fallback Provider (Optional)</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select fallback" />
+                            <SelectValue placeholder="Select fallback API key" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -444,7 +548,7 @@ export default function ChatbotManagement() {
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Used when primary provider fails
+                        Used when primary provider fails (will use default model)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -452,22 +556,81 @@ export default function ChatbotManagement() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="model_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Model Override (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="gpt-4o, claude-3-opus-20240229, etc." {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Override the provider's default model
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Model Parameters */}
+              <div className="space-y-4 border rounded-lg p-4">
+                <h3 className="text-lg font-semibold">Model Parameters</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="temperature"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Temperature: {field.value}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={2}
+                            step={0.1}
+                            value={[field.value]}
+                            onValueChange={(values) => field.onChange(values[0])}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Controls randomness (0 = focused, 2 = creative)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="max_tokens"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Tokens</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            min={1} 
+                            max={32000}
+                            {...field} 
+                            onChange={(e) => field.onChange(parseInt(e.target.value))} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Maximum response length
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="top_p"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Top P: {field.value}</FormLabel>
+                      <FormControl>
+                        <Slider
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={[field.value]}
+                          onValueChange={(values) => field.onChange(values[0])}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Nucleus sampling parameter (0.1 = focused, 1.0 = diverse)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

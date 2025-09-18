@@ -3,8 +3,7 @@ import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit } from 'l
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +17,11 @@ interface AIProvider {
   id: string;
   name: string;
   type: string;
-  config: any;
+  description: string | null;
+  base_url: string | null;
+  organization_id: string | null;
+  project_id: string | null;
+  custom_headers: any;
   is_active: boolean;
   is_healthy: boolean;
   last_health_check: string | null;
@@ -26,12 +29,42 @@ interface AIProvider {
 }
 
 const providerTypes = [
-  { value: 'openai', label: 'OpenAI', models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
-  { value: 'anthropic', label: 'Anthropic Claude', models: ['claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'] },
-  { value: 'google', label: 'Google Gemini', models: ['gemini-pro', 'gemini-pro-vision', 'gemini-ultra'] },
-  { value: 'mistral', label: 'Mistral AI', models: ['mistral-large', 'mistral-medium', 'mistral-small'] },
-  { value: 'custom', label: 'Custom OpenAI-Compatible', models: [] },
-  { value: 'ollama', label: 'Ollama (Local)', models: [] }
+  { 
+    value: 'openai', 
+    label: 'OpenAI', 
+    description: 'GPT models for chat, completion, and embeddings',
+    fields: ['organization_id'] 
+  },
+  { 
+    value: 'anthropic', 
+    label: 'Anthropic Claude', 
+    description: 'Claude models for advanced reasoning and analysis',
+    fields: [] 
+  },
+  { 
+    value: 'google', 
+    label: 'Google Gemini', 
+    description: 'Gemini models for multimodal AI capabilities',
+    fields: ['project_id'] 
+  },
+  { 
+    value: 'mistral', 
+    label: 'Mistral AI', 
+    description: 'Open-source models for various AI tasks',
+    fields: [] 
+  },
+  { 
+    value: 'custom', 
+    label: 'Custom OpenAI-Compatible', 
+    description: 'Custom API endpoints with OpenAI-compatible interface',
+    fields: ['base_url', 'custom_headers'] 
+  },
+  { 
+    value: 'ollama', 
+    label: 'Ollama (Local)', 
+    description: 'Self-hosted local AI models',
+    fields: ['base_url'] 
+  }
 ];
 
 export default function AIProviders() {
@@ -46,15 +79,12 @@ export default function AIProviders() {
     defaultValues: {
       name: '',
       type: 'openai',
+      description: '',
       api_key: '',
-      config: {
-        model: '',
-        max_tokens: 1000,
-        temperature: 0.7,
-        endpoint_url: '',
-        organization_id: '',
-        project_id: ''
-      },
+      base_url: '',
+      organization_id: '',
+      project_id: '',
+      custom_headers: '{}',
       is_active: true
     }
   });
@@ -94,8 +124,12 @@ export default function AIProviders() {
     form.reset({
       name: provider.name,
       type: provider.type,
+      description: provider.description || '',
       api_key: '',
-      config: provider.config,
+      base_url: provider.base_url || '',
+      organization_id: provider.organization_id || '',
+      project_id: provider.project_id || '',
+      custom_headers: provider.custom_headers ? JSON.stringify(provider.custom_headers, null, 2) : '{}',
       is_active: provider.is_active
     });
     setDialogMode('edit');
@@ -105,10 +139,29 @@ export default function AIProviders() {
 
   const onSubmit = async (data: any) => {
     try {
+      // Parse custom headers if provided
+      let customHeaders = {};
+      if (data.custom_headers) {
+        try {
+          customHeaders = JSON.parse(data.custom_headers);
+        } catch (e) {
+          toast({
+            title: "Error",
+            description: "Invalid JSON format for custom headers",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       const providerData = {
         name: data.name,
         type: data.type,
-        config: data.config,
+        description: data.description || null,
+        base_url: data.base_url || null,
+        organization_id: data.organization_id || null,
+        project_id: data.project_id || null,
+        custom_headers: customHeaders,
         is_active: data.is_active,
         ...(data.api_key && { api_key_encrypted: data.api_key })
       };
@@ -122,7 +175,7 @@ export default function AIProviders() {
         
         toast({
           title: "Success",
-          description: "AI provider created successfully"
+          description: "API key created successfully"
         });
       } else {
         const { error } = await supabase
@@ -134,7 +187,7 @@ export default function AIProviders() {
         
         toast({
           title: "Success",
-          description: "AI provider updated successfully"
+          description: "API key updated successfully"
         });
       }
 
@@ -160,7 +213,7 @@ export default function AIProviders() {
 
       toast({
         title: "Success",
-        description: "AI provider deleted successfully"
+        description: "API key deleted successfully"
       });
       
       fetchProviders();
@@ -219,12 +272,12 @@ export default function AIProviders() {
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">AI Providers</h1>
-              <p className="text-muted-foreground">Manage AI providers and model configurations</p>
+              <h1 className="text-2xl font-display font-bold text-foreground">API Key Management</h1>
+              <p className="text-muted-foreground">Manage API keys for AI providers. Models are selected when creating chatbots.</p>
             </div>
             <Button onClick={handleCreateProvider} className="gap-2 bg-gradient-primary hover:shadow-glow">
               <Plus className="w-4 h-4" />
-              Add Provider
+              Add API Key
             </Button>
           </div>
         </div>
@@ -257,8 +310,11 @@ export default function AIProviders() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-sm text-muted-foreground">
-                  <p>Model: {provider.config?.model || 'Not configured'}</p>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>{provider.description || providerTypes.find(t => t.value === provider.type)?.description}</p>
+                  {provider.base_url && (
+                    <p className="font-mono text-xs">API: {provider.base_url}</p>
+                  )}
                   {provider.last_health_check && (
                     <p>Last checked: {new Date(provider.last_health_check).toLocaleString()}</p>
                   )}
@@ -299,13 +355,13 @@ export default function AIProviders() {
         {providers.length === 0 && (
           <div className="text-center py-12">
             <Brain className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">No AI Providers</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">No API Keys Configured</h3>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Get started by adding your first AI provider. Configure OpenAI, Anthropic, or other providers.
+              Add your first API key to start using AI providers. Each key can be used by multiple chatbots.
             </p>
             <Button onClick={handleCreateProvider} className="gap-2">
               <Plus className="w-4 h-4" />
-              Add Your First Provider
+              Add Your First API Key
             </Button>
           </div>
         )}
@@ -316,10 +372,10 @@ export default function AIProviders() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === 'create' ? 'Add AI Provider' : 'Edit AI Provider'}
+              {dialogMode === 'create' ? 'Add API Key' : 'Edit API Key'}
             </DialogTitle>
             <DialogDescription>
-              Configure your AI provider settings and API credentials.
+              Configure your API key and provider-specific settings. Models will be selected when creating chatbots.
             </DialogDescription>
           </DialogHeader>
           
@@ -331,10 +387,13 @@ export default function AIProviders() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Provider Name</FormLabel>
+                      <FormLabel>Key Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="My OpenAI Provider" {...field} />
+                        <Input placeholder="OpenAI Production Key" {...field} />
                       </FormControl>
+                      <FormDescription>
+                        A descriptive name for this API key
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -368,6 +427,23 @@ export default function AIProviders() {
 
               <FormField
                 control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Production OpenAI key for customer chatbots..."
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="api_key"
                 render={({ field }) => (
                   <FormItem>
@@ -387,115 +463,100 @@ export default function AIProviders() {
                 )}
               />
 
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="basic">Basic Settings</TabsTrigger>
-                  <TabsTrigger value="advanced">Advanced</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="basic" className="space-y-4">
+              {/* Provider-specific fields */}
+              <div className="space-y-4">
+                {form.watch('type') === 'openai' && (
                   <FormField
                     control={form.control}
-                    name="config.model"
+                    name="organization_id"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Default Model</FormLabel>
+                        <FormLabel>Organization ID (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="gpt-4o" {...field} />
+                          <Input placeholder="org-..." {...field} />
                         </FormControl>
+                        <FormDescription>
+                          For OpenAI organization accounts
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="config.max_tokens"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Tokens</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} onChange={(e) => field.onChange(parseInt(e.target.value))} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="config.temperature"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Temperature</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number" 
-                              step="0.1" 
-                              min="0" 
-                              max="2" 
-                              {...field} 
-                              onChange={(e) => field.onChange(parseFloat(e.target.value))} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </TabsContent>
+                )}
                 
-                <TabsContent value="advanced" className="space-y-4">
-                  {form.watch('type') === 'custom' && (
-                    <FormField
-                      control={form.control}
-                      name="config.endpoint_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>API Endpoint URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://api.custom-provider.com/v1" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  
-                  {form.watch('type') === 'openai' && (
-                    <FormField
-                      control={form.control}
-                      name="config.organization_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Organization ID (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="org-..." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  
-                  {form.watch('type') === 'google' && (
-                    <FormField
-                      control={form.control}
-                      name="config.project_id"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project ID</FormLabel>
-                          <FormControl>
-                            <Input placeholder="your-project-id" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </TabsContent>
-              </Tabs>
+                {form.watch('type') === 'google' && (
+                  <FormField
+                    control={form.control}
+                    name="project_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="your-google-project-id" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Your Google Cloud project ID
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                {(form.watch('type') === 'custom' || form.watch('type') === 'ollama') && (
+                  <FormField
+                    control={form.control}
+                    name="base_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {form.watch('type') === 'ollama' ? 'Ollama URL' : 'API Base URL'}
+                        </FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder={
+                              form.watch('type') === 'ollama' 
+                                ? "http://localhost:11434" 
+                                : "https://api.custom-provider.com/v1"
+                            } 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {form.watch('type') === 'ollama' 
+                            ? 'URL of your Ollama instance'
+                            : 'Base URL for your custom API endpoint'
+                          }
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                {form.watch('type') === 'custom' && (
+                  <FormField
+                    control={form.control}
+                    name="custom_headers"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Custom Headers (JSON)</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder='{"X-Custom-Header": "value"}'
+                            rows={3}
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Additional headers in JSON format
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
 
               <FormField
                 control={form.control}
@@ -505,7 +566,7 @@ export default function AIProviders() {
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Active Provider</FormLabel>
                       <FormDescription>
-                        Enable this provider for use in chatbots
+                        Enable this API key for use in chatbots
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -520,7 +581,7 @@ export default function AIProviders() {
                   Cancel
                 </Button>
                 <Button type="submit">
-                  {dialogMode === 'create' ? 'Create Provider' : 'Update Provider'}
+                  {dialogMode === 'create' ? 'Create API Key' : 'Update API Key'}
                 </Button>
               </div>
             </form>

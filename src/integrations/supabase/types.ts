@@ -52,42 +52,54 @@ export type Database = {
       ai_providers: {
         Row: {
           api_key_encrypted: string | null
-          config: Json
+          base_url: string | null
           created_at: string
           created_by: string | null
+          custom_headers: Json | null
+          description: string | null
           id: string
           is_active: boolean
           is_healthy: boolean
           last_health_check: string | null
           name: string
+          organization_id: string | null
+          project_id: string | null
           tenant_id: string | null
           type: string
           updated_at: string
         }
         Insert: {
           api_key_encrypted?: string | null
-          config?: Json
+          base_url?: string | null
           created_at?: string
           created_by?: string | null
+          custom_headers?: Json | null
+          description?: string | null
           id?: string
           is_active?: boolean
           is_healthy?: boolean
           last_health_check?: string | null
           name: string
+          organization_id?: string | null
+          project_id?: string | null
           tenant_id?: string | null
           type: string
           updated_at?: string
         }
         Update: {
           api_key_encrypted?: string | null
-          config?: Json
+          base_url?: string | null
           created_at?: string
           created_by?: string | null
+          custom_headers?: Json | null
+          description?: string | null
           id?: string
           is_active?: boolean
           is_healthy?: boolean
           last_health_check?: string | null
           name?: string
+          organization_id?: string | null
+          project_id?: string | null
           tenant_id?: string | null
           type?: string
           updated_at?: string
@@ -197,13 +209,18 @@ export type Database = {
           created_by: string | null
           description: string | null
           fallback_ai_provider_id: string | null
+          frequency_penalty: number | null
           id: string
           is_active: boolean
+          max_tokens: number | null
           model_name: string | null
           name: string
+          presence_penalty: number | null
           primary_ai_provider_id: string | null
           system_prompt: string | null
+          temperature: number | null
           tenant_id: string
+          top_p: number | null
           updated_at: string
         }
         Insert: {
@@ -211,13 +228,18 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          frequency_penalty?: number | null
           id?: string
           is_active?: boolean
+          max_tokens?: number | null
           model_name?: string | null
           name: string
+          presence_penalty?: number | null
           primary_ai_provider_id?: string | null
           system_prompt?: string | null
+          temperature?: number | null
           tenant_id: string
+          top_p?: number | null
           updated_at?: string
         }
         Update: {
@@ -225,13 +247,18 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          frequency_penalty?: number | null
           id?: string
           is_active?: boolean
+          max_tokens?: number | null
           model_name?: string | null
           name?: string
+          presence_penalty?: number | null
           primary_ai_provider_id?: string | null
           system_prompt?: string | null
+          temperature?: number | null
           tenant_id?: string
+          top_p?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -418,6 +445,101 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      provider_models: {
+        Row: {
+          cost_per_1k_input_tokens: number | null
+          cost_per_1k_output_tokens: number | null
+          created_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_deprecated: boolean | null
+          max_context_length: number | null
+          model_name: string
+          provider_type: string
+          supports_function_calling: boolean | null
+          supports_vision: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          cost_per_1k_input_tokens?: number | null
+          cost_per_1k_output_tokens?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_deprecated?: boolean | null
+          max_context_length?: number | null
+          model_name: string
+          provider_type: string
+          supports_function_calling?: boolean | null
+          supports_vision?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          cost_per_1k_input_tokens?: number | null
+          cost_per_1k_output_tokens?: number | null
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_deprecated?: boolean | null
+          max_context_length?: number | null
+          model_name?: string
+          provider_type?: string
+          supports_function_calling?: boolean | null
+          supports_vision?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      provider_usage_stats: {
+        Row: {
+          created_at: string | null
+          date: string
+          failed_requests: number | null
+          id: string
+          provider_id: string | null
+          successful_requests: number | null
+          total_cost: number | null
+          total_requests: number | null
+          total_tokens: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          failed_requests?: number | null
+          id?: string
+          provider_id?: string | null
+          successful_requests?: number | null
+          total_cost?: number | null
+          total_requests?: number | null
+          total_tokens?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          failed_requests?: number | null
+          id?: string
+          provider_id?: string | null
+          successful_requests?: number | null
+          total_cost?: number | null
+          total_requests?: number | null
+          total_tokens?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_usage_stats_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
             referencedColumns: ["id"]
           },
         ]
