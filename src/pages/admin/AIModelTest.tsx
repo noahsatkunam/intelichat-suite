@@ -34,6 +34,7 @@ export default function AIModelTest() {
   
   const [provider, setProvider] = useState<AIProvider | null>(null);
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -66,11 +67,45 @@ export default function AIModelTest() {
       
       setProvider(data);
       
-      // Set default model for the provider type
-      const models = providerModels[data.type as keyof typeof providerModels];
-      if (models && models.length > 0) {
-        setSelectedModel(models[0].id);
+      // Get available models for this provider by running a health check
+      try {
+        const { data: healthData, error: healthError } = await supabase.functions.invoke('ai-provider-health-check', {
+          body: { provider_id: providerId }
+        });
+
+        if (healthError) {
+          console.error('Health check failed:', healthError);
+          // Fall back to default models from providerModels
+          const fallbackModels = providerModels[data.type as keyof typeof providerModels] || [];
+          setAvailableModels(fallbackModels.map(m => m.id));
+          if (fallbackModels.length > 0) {
+            setSelectedModel(fallbackModels[0].id);
+          }
+        } else {
+          // Use available models from health check
+          const models = healthData.available_models || [];
+          if (models.length > 0) {
+            setAvailableModels(models);
+            setSelectedModel(models[0]);
+          } else {
+            // Fall back to default models if no models returned
+            const fallbackModels = providerModels[data.type as keyof typeof providerModels] || [];
+            setAvailableModels(fallbackModels.map(m => m.id));
+            if (fallbackModels.length > 0) {
+              setSelectedModel(fallbackModels[0].id);
+            }
+          }
+        }
+      } catch (healthError) {
+        console.error('Health check error:', healthError);
+        // Fall back to default models
+        const fallbackModels = providerModels[data.type as keyof typeof providerModels] || [];
+        setAvailableModels(fallbackModels.map(m => m.id));
+        if (fallbackModels.length > 0) {
+          setSelectedModel(fallbackModels[0].id);
+        }
       }
+      
     } catch (error: any) {
       toast({
         title: "Error",
@@ -167,7 +202,7 @@ export default function AIModelTest() {
     );
   }
 
-  const availableModels = providerModels[provider.type as keyof typeof providerModels] || [];
+  const staticModels = providerModels[provider.type as keyof typeof providerModels] || [];
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -218,14 +253,20 @@ export default function AIModelTest() {
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
             <SelectContent>
-              {availableModels.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium">{model.name}</span>
-                    <span className="text-xs text-muted-foreground">{model.description}</span>
-                  </div>
-                </SelectItem>
-              ))}
+              {availableModels.map((modelId) => {
+                // Try to find model details from static data first
+                const modelDetails = staticModels.find(m => m.id === modelId);
+                return (
+                  <SelectItem key={modelId} value={modelId}>
+                    <div className="flex flex-col gap-1">
+                      <span className="font-medium">{modelDetails?.name || modelId}</span>
+                      {modelDetails?.description && (
+                        <span className="text-xs text-muted-foreground">{modelDetails.description}</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit, Eye, EyeOff } from 'lucide-react';
+import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -94,6 +94,7 @@ export default function AIProviders() {
   const navigate = useNavigate();
   const [providers, setProviders] = useState<Record<string, AIProvider>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -296,7 +297,7 @@ export default function AIProviders() {
 
       toast({
         title: "Health Check",
-        description: data.healthy ? "Provider is healthy" : "Provider health check failed",
+        description: data.healthy ? "Provider is healthy" : `Health check failed: ${data.error_message || 'Unknown error'}`,
         variant: data.healthy ? "default" : "destructive"
       });
       
@@ -307,6 +308,53 @@ export default function AIProviders() {
         description: error.message,
         variant: "destructive"
       });
+    }
+  };
+
+  const handleRefreshAll = async () => {
+    setRefreshing(true);
+    try {
+      // Get all configured providers
+      const configuredProviders = Object.values(providers).filter(p => p.api_key_encrypted);
+      
+      toast({
+        title: "Refreshing",
+        description: `Running health checks for ${configuredProviders.length} configured providers...`,
+      });
+
+      // Run health checks for all configured providers
+      const healthCheckPromises = configuredProviders.map(async (provider) => {
+        try {
+          const result = await supabase.functions.invoke('ai-provider-health-check', {
+            body: { provider_id: provider.id }
+          });
+          return { success: !result.error, healthy: result.data?.healthy, provider: provider.name, error: result.error };
+        } catch (error) {
+          return { success: false, healthy: false, provider: provider.name, error };
+        }
+      });
+
+      const results = await Promise.all(healthCheckPromises);
+      
+      // Count successful and failed checks
+      const successful = results.filter(r => r.success && r.healthy).length;
+      const failed = results.length - successful;
+
+      toast({
+        title: "Refresh Complete",
+        description: `${successful} providers healthy, ${failed} failed`,
+        variant: failed > 0 ? "destructive" : "default"
+      });
+      
+      fetchProviders();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -335,6 +383,15 @@ export default function AIProviders() {
               <h1 className="text-2xl font-display font-bold text-foreground">AI Provider Configuration</h1>
               <p className="text-muted-foreground">Configure API keys and settings for AI providers. Models are selected when creating chatbots.</p>
             </div>
+            <Button
+              onClick={handleRefreshAll}
+              disabled={refreshing}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Checking...' : 'Refresh All'}
+            </Button>
           </div>
         </div>
       </div>
@@ -364,8 +421,18 @@ export default function AIProviders() {
                         ) : (
                           <AlertCircle className="w-4 h-4 text-red-500" />
                         )}
-                        <span className={`text-xs px-2 py-1 rounded ${isConfigured ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                          {isConfigured ? '🔑 Configured' : '⚠️ Not Configured'}
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          isConfigured 
+                            ? provider?.is_healthy 
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' 
+                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                        }`}>
+                          {isConfigured 
+                            ? provider?.is_healthy 
+                              ? '✅ Healthy' 
+                              : '⚠️ Configured (Unhealthy)'
+                            : '❌ Not Configured'}
                         </span>
                       </div>
                       <Switch
