@@ -30,8 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (event === 'SIGNED_IN') {
           toast.success('Successfully signed in!');
-          // Redirect to dashboard after successful sign-in
-          window.location.href = '/dashboard';
         } else if (event === 'SIGNED_OUT') {
           toast.success('Successfully signed out!');
         }
