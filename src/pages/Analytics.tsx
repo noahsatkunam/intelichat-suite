@@ -86,6 +86,17 @@ export default function Analytics() {
               <p className="text-muted-foreground">Monitor usage, performance, and user engagement</p>
             </div>
             <div className="flex gap-2">
+              <input
+                type="date"
+                className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                defaultValue="2024-01-08"
+              />
+              <span className="flex items-center text-muted-foreground">to</span>
+              <input
+                type="date"
+                className="px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                defaultValue="2024-01-15"
+              />
               <Select defaultValue="7d">
                 <SelectTrigger className="w-32">
                   <Calendar className="w-4 h-4 mr-1" />
@@ -96,11 +107,12 @@ export default function Analytics() {
                   <SelectItem value="7d">Last 7 days</SelectItem>
                   <SelectItem value="30d">Last 30 days</SelectItem>
                   <SelectItem value="90d">Last 90 days</SelectItem>
+                  <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2">
                 <Download className="w-4 h-4" />
-                Export
+                Export Data
               </Button>
             </div>
           </div>
