@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
 import About from "./pages/About";
 import AuthPage from "./pages/AuthPage";
+import InviteAcceptPage from "./pages/InviteAcceptPage";
 import ContactPage from "./pages/ContactPage";
 import ChatHistory from "./pages/ChatHistory";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -26,6 +27,7 @@ import AuditLogs from "./pages/admin/AuditLogs";
 import SystemMonitoring from "./pages/admin/SystemMonitoring";
 import AIProviders from "./pages/admin/AIProviders";
 import ChatbotManagement from "./pages/admin/ChatbotManagement";
+import UserInvitations from "./pages/admin/UserInvitations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +47,7 @@ const App = () => (
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/invite/:token" element={<InviteAcceptPage />} />
                 
                 {/* Protected Routes with Layout */}
                 <Route path="/dashboard" element={
@@ -110,6 +113,11 @@ const App = () => (
                 <Route path="/admin/chatbot-management" element={
                   <ProtectedRoute>
                     <AppLayout><ChatbotManagement /></AppLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/invitations" element={
+                  <ProtectedRoute>
+                    <AppLayout><UserInvitations /></AppLayout>
                   </ProtectedRoute>
                 } />
                 

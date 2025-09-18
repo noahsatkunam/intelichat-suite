@@ -1,26 +1,24 @@
 import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Navigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 
-export default function AuthPage() {
-  const { user, signIn, signUp } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false);
+const AuthPage = () => {
+  const { user, signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Redirect if already authenticated
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,10 +26,9 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        await signUp(email, password, name);
-      } else {
-        await signIn(email, password);
+      const { error } = await signIn(email, password);
+      if (error) {
+        console.error('Sign in error:', error);
       }
     } finally {
       setLoading(false);
@@ -39,112 +36,122 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
+      <Card className="w-full max-w-md shadow-xl border-border/50">
+        <CardHeader className="space-y-4 text-center">
+          <div className="flex justify-center">
             <ZyriaLogo size="lg" />
           </div>
-          <CardTitle className="text-2xl font-display">
-            {isSignUp ? 'Create Account' : 'Welcome Back'}
-          </CardTitle>
-          <CardDescription>
-            {isSignUp 
-              ? 'Sign up to start using Zyria' 
-              : 'Sign in to your account'
-            }
-          </CardDescription>
+          <div>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-muted-foreground mt-2">
+              Sign in to your Zyria account
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10"
-                    required={isSignUp}
-                  />
-                </div>
-              </div>
-            )}
-
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
-              </div>
+              <Label htmlFor="email" className="text-sm font-medium text-foreground">
+                Email Address
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full"
+                autoComplete="email"
+              />
             </div>
-
+            
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-medium text-foreground">
+                Password
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
                   required
+                  className="w-full pr-10"
+                  autoComplete="current-password"
                 />
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOffIcon className="h-4 w-4" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <EyeIcon className="h-4 w-4" />
                   )}
-                </Button>
+                </button>
               </div>
             </div>
 
             <Button
               type="submit"
-              className="w-full bg-gradient-primary hover:shadow-glow"
+              className="w-full"
               disabled={loading}
             >
-              {loading ? 'Please wait...' : (isSignUp ? 'Create Account' : 'Sign In')}
+              {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
-          <Separator className="my-6" />
-
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm"
+          <div className="mt-4">
+            <Link 
+              to="/forgot-password" 
+              className="text-sm text-primary hover:text-primary/80 transition-colors"
             >
-              {isSignUp 
-                ? 'Already have an account? Sign in' 
-                : "Don't have an account? Sign up"
-              }
-            </Button>
+              Forgot your password?
+            </Link>
+          </div>
+
+          <Separator className="my-6" />
+          
+          <div className="space-y-4 text-center">
+            <div className="bg-muted/50 p-4 rounded-lg border border-border/50">
+              <h3 className="font-semibold text-foreground mb-2">
+                Account Access by Invitation Only
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Zyria accounts are created through secure invitations from your organization administrator.
+              </p>
+              <div className="space-y-2 text-xs text-muted-foreground">
+                <p>
+                  <strong>Existing users:</strong> Contact your administrator for account access
+                </p>
+                <p>
+                  <strong>New organizations:</strong> Contact Zyria sales for enterprise setup
+                </p>
+              </div>
+            </div>
+            
+            <div className="text-xs text-muted-foreground">
+              <p>
+                Need help? Contact{' '}
+                <Link 
+                  to="/contact" 
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
+                  support@zyria.com
+                </Link>
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
   );
-}
+};
+
+export default AuthPage;

@@ -8,9 +8,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  acceptInvitation: (token: string, password: string, name?: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -61,27 +61,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, name?: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          name: name || email.split('@')[0],
+  const acceptInvitation = async (token: string, password: string, name?: string) => {
+    try {
+      // First verify the invitation token
+      const { data: invitation, error: inviteError } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .eq('token', token)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+      if (inviteError || !invitation) {
+        const error = new Error('Invalid or expired invitation token');
+        toast.error(error.message);
+        return { error };
+      }
+
+      // Create the user account
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: invitation.email,
+        password,
+        options: {
+          data: {
+            name: name || invitation.email.split('@')[0],
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
+      if (signUpError) {
+        toast.error(signUpError.message);
+        return { error: signUpError };
+      }
+
+      if (authData.user) {
+        // Update the invitation status and user profile
+        const { error: updateError } = await supabase
+          .from('user_invitations')
+          .update({
+            status: 'accepted',
+            accepted_at: new Date().toISOString(),
+          })
+          .eq('token', token);
+
+        if (updateError) {
+          console.error('Error updating invitation:', updateError);
+        }
+
+        toast.success('Account created successfully! Please check your email to verify your account.');
+      }
+
+      return { error: null };
+    } catch (error: any) {
       toast.error(error.message);
-    } else {
-      toast.success('Check your email for verification link!');
+      return { error };
     }
-
-    return { error };
   };
 
   const signOut = async () => {
@@ -110,9 +144,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signIn,
-    signUp,
     signOut,
     resetPassword,
+    acceptInvitation,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

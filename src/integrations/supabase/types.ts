@@ -381,6 +381,8 @@ export type Database = {
           created_at: string | null
           email: string
           id: string
+          invitation_accepted_at: string | null
+          invited_by: string | null
           name: string | null
           role: Database["public"]["Enums"]["app_role"] | null
           tenant_id: string | null
@@ -391,6 +393,8 @@ export type Database = {
           created_at?: string | null
           email: string
           id: string
+          invitation_accepted_at?: string | null
+          invited_by?: string | null
           name?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           tenant_id?: string | null
@@ -401,6 +405,8 @@ export type Database = {
           created_at?: string | null
           email?: string
           id?: string
+          invitation_accepted_at?: string | null
+          invited_by?: string | null
           name?: string | null
           role?: Database["public"]["Enums"]["app_role"] | null
           tenant_id?: string | null
@@ -446,11 +452,68 @@ export type Database = {
         }
         Relationships: []
       }
+      user_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          metadata: Json | null
+          role: Database["public"]["Enums"]["app_role"]
+          status: string
+          tenant_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          metadata?: Json | null
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id: string
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          metadata?: Json | null
+          role?: Database["public"]["Enums"]["app_role"]
+          status?: string
+          tenant_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_public_profiles: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          avatar_url: string
+          created_at: string
+          id: string
+          name: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string
+          updated_at: string
+        }[]
+      }
       get_safe_ai_providers: {
         Args: Record<PropertyKey, never>
         Returns: {
