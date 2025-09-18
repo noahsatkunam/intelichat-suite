@@ -409,8 +409,6 @@ const HomePage = () => {
               <ul className="space-y-2">
                 <li><a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a></li>
                 <li><a href="#solutions" className="text-muted-foreground hover:text-foreground transition-colors">Solutions</a></li>
-                <li><Link to="/integrations" className="text-muted-foreground hover:text-foreground transition-colors">Integrations</Link></li>
-                <li><Link to="/api" className="text-muted-foreground hover:text-foreground transition-colors">API Documentation</Link></li>
               </ul>
             </div>
             
@@ -419,7 +417,6 @@ const HomePage = () => {
               <ul className="space-y-2">
                 <li><Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
                 <li><Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
-                <li><Link to="/careers" className="text-muted-foreground hover:text-foreground transition-colors">Careers</Link></li>
               </ul>
             </div>
             
@@ -428,14 +425,13 @@ const HomePage = () => {
               <ul className="space-y-2">
                 <li><Link to="/help" className="text-muted-foreground hover:text-foreground transition-colors">Help Center</Link></li>
                 <li><Link to="/docs" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</Link></li>
-                <li><Link to="/status" className="text-muted-foreground hover:text-foreground transition-colors">Status</Link></li>
                 <li><Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
               </ul>
             </div>
           </div>
           
           <div className="border-t border-border mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2024 Zyria. All rights reserved.</p>
+            <p>&copy; 2025 Zyria. All rights reserved.</p>
           </div>
         </div>
       </footer>

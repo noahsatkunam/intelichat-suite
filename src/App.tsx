@@ -20,6 +20,7 @@ import ChatHistory from "./pages/ChatHistory";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TenantManagement from "./pages/admin/TenantManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import WorkflowAutomation from "./pages/admin/WorkflowAutomation";
@@ -48,6 +49,7 @@ const App = () => (
                 <Route path="/" element={<HomePage />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/auth" element={<AuthPage />} />
                 <Route path="/login" element={<AuthPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
