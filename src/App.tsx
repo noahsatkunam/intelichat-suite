@@ -24,6 +24,8 @@ import WorkflowAutomation from "./pages/admin/WorkflowAutomation";
 import APISettings from "./pages/admin/APISettings";
 import AuditLogs from "./pages/admin/AuditLogs";
 import SystemMonitoring from "./pages/admin/SystemMonitoring";
+import AIProviders from "./pages/admin/AIProviders";
+import ChatbotManagement from "./pages/admin/ChatbotManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

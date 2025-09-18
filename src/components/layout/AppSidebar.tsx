@@ -17,7 +17,9 @@ import {
   Bell,
   LogOut,
   FolderOpen,
-  Clock
+  Clock,
+  Brain,
+  Bot
 } from 'lucide-react';
 import {
   Sidebar,
@@ -58,6 +60,8 @@ const mainNavItems = [
 ];
 
 const adminNavItems = [
+  { title: 'AI Providers', url: '/admin/ai-providers', icon: Brain },
+  { title: 'Chatbot Management', url: '/admin/chatbot-management', icon: Bot },
   { title: 'Tenant Management', url: '/admin/tenants', icon: Building2 },
   { title: 'User Management', url: '/admin/users', icon: Users },
   { title: 'Workflow Automation', url: '/admin/workflows', icon: Workflow },
