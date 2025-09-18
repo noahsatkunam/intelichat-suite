@@ -32,12 +32,14 @@ export function KnowledgeBaseToggle({ useKnowledgeBase, onToggle, className = ''
           </Label>
           
           <Tooltip>
-            <TooltipTrigger>
-              <Switch
-                id="knowledge-base-toggle"
-                checked={useKnowledgeBase}
-                onCheckedChange={onToggle}
-              />
+            <TooltipTrigger asChild>
+              <div className="inline-flex">
+                <Switch
+                  id="knowledge-base-toggle"
+                  checked={useKnowledgeBase}
+                  onCheckedChange={onToggle}
+                />
+              </div>
             </TooltipTrigger>
             <TooltipContent>
               <p>{useKnowledgeBase ? 'Disable' : 'Enable'} knowledge base integration</p>

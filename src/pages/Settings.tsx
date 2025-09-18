@@ -1,59 +1,202 @@
 import React from 'react';
-import { User, Bell, Shield, Palette, Globe, Key } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FeatureFlagToggle } from '@/components/ui/feature-flag-toggle';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Settings as SettingsIcon, User, Bell, Shield, Palette, Database, Code } from 'lucide-react';
 
 export default function Settings() {
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="p-6 space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="p-6">
-          <h1 className="text-2xl font-display font-bold text-foreground">Settings</h1>
-          <p className="text-muted-foreground">Manage your account preferences and platform settings</p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold font-display">Settings</h1>
+        <p className="text-muted-foreground mt-1">
+          Configure your Zyria platform preferences and development options
+        </p>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full max-w-lg grid-cols-3 bg-muted">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="space-y-6">
-            <div className="text-center py-12">
-              <User className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Profile Settings</h3>
-              <p className="text-muted-foreground">
-                User profile management and preferences will be configured here.
-              </p>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* User Preferences */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              User Preferences
+            </CardTitle>
+            <CardDescription>
+              Manage your account settings and personal preferences
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Theme</h4>
+                <p className="text-sm text-muted-foreground">Choose light or dark mode</p>
+              </div>
+              <ThemeToggle />
             </div>
-          </TabsContent>
-
-          <TabsContent value="notifications" className="space-y-6">
-            <div className="text-center py-12">
-              <Bell className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Notification Settings</h3>
-              <p className="text-muted-foreground">
-                Configure notification preferences and alert settings.
-              </p>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Notifications</h4>
+                <p className="text-sm text-muted-foreground">Email notifications for important events</p>
+              </div>
+              <Badge variant="secondary">Coming Soon</Badge>
             </div>
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-6">
-            <div className="text-center py-12">
-              <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Security Settings</h3>
-              <p className="text-muted-foreground">
-                Manage security settings, passwords, and authentication methods.
-              </p>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Language</h4>
+                <p className="text-sm text-muted-foreground">Interface language preference</p>
+              </div>
+              <Badge variant="outline">English</Badge>
             </div>
-          </TabsContent>
-        </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Security Settings */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Security & Privacy
+            </CardTitle>
+            <CardDescription>
+              Security settings and privacy controls
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Two-Factor Authentication</h4>
+                <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+              </div>
+              <Button variant="outline" size="sm">
+                Setup 2FA
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Session Management</h4>
+                <p className="text-sm text-muted-foreground">Manage active sessions</p>
+              </div>
+              <Button variant="outline" size="sm">
+                View Sessions
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Data Export</h4>
+                <p className="text-sm text-muted-foreground">Download your conversation history</p>
+              </div>
+              <Button variant="outline" size="sm">
+                Export Data
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Appearance */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5 text-primary" />
+              Appearance
+            </CardTitle>
+            <CardDescription>
+              Customize the look and feel of your interface
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Compact Mode</h4>
+                <p className="text-sm text-muted-foreground">Reduce spacing for more content</p>
+              </div>
+              <Badge variant="secondary">Coming Soon</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Message Density</h4>
+                <p className="text-sm text-muted-foreground">Adjust message spacing</p>
+              </div>
+              <Badge variant="outline">Normal</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Animations</h4>
+                <p className="text-sm text-muted-foreground">Enable smooth transitions</p>
+              </div>
+              <Badge variant="default">Enabled</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Development Settings */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="w-5 h-5 text-primary" />
+              Developer Options
+            </CardTitle>
+            <CardDescription>
+              Development and debugging options
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Debug Mode</h4>
+                <p className="text-sm text-muted-foreground">Show detailed logs and information</p>
+              </div>
+              <Badge variant="secondary">Available in Dev</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Performance Monitoring</h4>
+                <p className="text-sm text-muted-foreground">Track app performance metrics</p>
+              </div>
+              <Badge variant="outline">Enabled</Badge>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Data Source Configuration */}
+      <FeatureFlagToggle />
+
+      {/* About */}
+      <Card className="interactive-element">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-primary" />
+            About Zyria
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center">
+              <h4 className="font-semibold text-lg">Version</h4>
+              <p className="text-muted-foreground">1.0.0-demo</p>
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-lg">Build</h4>
+              <p className="text-muted-foreground">Enterprise Demo</p>
+            </div>
+            <div className="text-center">
+              <h4 className="font-semibold text-lg">Environment</h4>
+              <Badge variant="secondary">Development</Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
