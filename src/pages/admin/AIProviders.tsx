@@ -27,6 +27,7 @@ interface AIProvider {
   is_healthy: boolean;
   last_health_check: string | null;
   created_at: string;
+  api_key_encrypted: string | null;
 }
 
 const providerTypes = [
@@ -128,7 +129,7 @@ export default function AIProviders() {
       name: provider.name,
       type: provider.type,
       description: provider.description || '',
-      api_key: '',
+      api_key: provider.api_key_encrypted || '',
       base_url: provider.base_url || '',
       organization_id: provider.organization_id || '',
       project_id: provider.project_id || '',
@@ -167,7 +168,7 @@ export default function AIProviders() {
         project_id: data.project_id || null,
         custom_headers: customHeaders,
         is_active: data.is_active,
-        ...(data.api_key && { api_key_encrypted: data.api_key })
+        ...(data.api_key && data.api_key.trim() !== '' && { api_key_encrypted: data.api_key })
       };
 
       if (dialogMode === 'create') {
@@ -316,6 +317,11 @@ export default function AIProviders() {
               <CardContent className="space-y-4">
                 <div className="text-sm text-muted-foreground space-y-1">
                   <p>{provider.description || providerTypes.find(t => t.value === provider.type)?.description}</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-1 rounded ${provider.api_key_encrypted ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {provider.api_key_encrypted ? '🔑 API Key Configured' : '⚠️ No API Key'}
+                    </span>
+                  </div>
                   {provider.base_url && (
                     <p className="font-mono text-xs">API: {provider.base_url}</p>
                   )}
@@ -461,7 +467,7 @@ export default function AIProviders() {
                       <div className="relative">
                         <Input 
                           type={showApiKey ? "text" : "password"} 
-                          placeholder={dialogMode === 'edit' ? "Leave blank to keep existing key" : "Enter API key"} 
+                          placeholder={dialogMode === 'edit' ? "Current API key (leave unchanged or enter new key)" : "Enter API key"} 
                           {...field} 
                           className="pr-10"
                         />
@@ -481,7 +487,10 @@ export default function AIProviders() {
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Your API key will be encrypted and stored securely.
+                      {dialogMode === 'edit' 
+                        ? "Your API key is saved and secure. You can view it using the eye icon or replace it with a new key."
+                        : "Your API key will be encrypted and stored securely."
+                      }
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
