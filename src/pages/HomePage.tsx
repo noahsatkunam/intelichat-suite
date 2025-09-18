@@ -70,52 +70,46 @@ const HomePage = () => {
     }
   ];
 
-  const pricingTiers = [
+  const solutions = [
     {
-      name: 'Starter',
-      price: '$99',
-      period: '/month',
-      description: 'Perfect for small teams getting started',
+      name: 'Customer Support',
+      description: 'AI-powered customer service automation',
+      icon: MessageCircle,
       features: [
-        '1 chatbot deployment',
-        '10,000 messages/month',
-        'Basic knowledge base',
-        'Email support',
-        'Standard integrations'
+        '24/7 automated responses',
+        'Multi-channel integration',
+        'Escalation workflows',
+        'Performance analytics',
+        'Knowledge base integration'
       ],
-      highlighted: false
+      useCases: ['Help desk automation', 'FAQ management', 'Ticket routing']
     },
     {
-      name: 'Professional',
-      price: '$299',
-      period: '/month',
-      description: 'Advanced features for growing businesses',
+      name: 'Internal Operations',
+      description: 'Streamline internal processes and workflows',
+      icon: Building,
       features: [
-        '5 chatbot deployments',
-        '100,000 messages/month',
-        'Advanced knowledge base',
-        'Priority support',
-        'Custom integrations',
-        'Workflow automation',
-        'Analytics dashboard'
+        'Employee self-service',
+        'Process automation',
+        'Document retrieval',
+        'Policy guidance',
+        'Training assistance'
       ],
+      useCases: ['HR automation', 'IT support', 'Compliance guidance'],
       highlighted: true
     },
     {
-      name: 'Enterprise',
-      price: 'Custom',
-      period: '',
-      description: 'Tailored solutions for large organizations',
+      name: 'Multi-Tenant Deployment',
+      description: 'Serve multiple organizations from one platform',
+      icon: Users,
       features: [
-        'Unlimited deployments',
-        'Unlimited messages',
-        'Advanced security',
-        'Dedicated support',
-        'White-label options',
-        'Custom development',
-        'SLA guarantees'
+        'Isolated tenant data',
+        'Custom branding per tenant',
+        'Centralized management',
+        'Scalable architecture',
+        'White-label options'
       ],
-      highlighted: false
+      useCases: ['SaaS providers', 'Franchise operations', 'Partner networks']
     }
   ];
 
@@ -125,17 +119,17 @@ const HomePage = () => {
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-8">
-            <Link to="/" className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center">
               <ZyriaLogo className="w-8 h-8" />
-              <span className="text-xl font-bold text-foreground">Zyria</span>
             </Link>
             
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center space-x-6">
               <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+              <a href="#solutions" className="text-muted-foreground hover:text-foreground transition-colors">Solutions</a>
               <a href="#testimonials" className="text-muted-foreground hover:text-foreground transition-colors">Customers</a>
               <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link>
+              <Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link>
             </nav>
           </div>
 
@@ -143,9 +137,6 @@ const HomePage = () => {
           <div className="hidden md:flex items-center space-x-4">
             <Button variant="ghost" onClick={() => navigate('/login')}>
               Login
-            </Button>
-            <Button onClick={() => navigate('/signup')} className="bg-gradient-primary hover:shadow-glow">
-              Get Started
             </Button>
           </div>
 
@@ -165,15 +156,13 @@ const HomePage = () => {
           <div className="md:hidden border-t border-border bg-background">
             <nav className="container mx-auto px-4 py-4 space-y-4">
               <a href="#features" className="block text-muted-foreground hover:text-foreground transition-colors">Features</a>
-              <a href="#pricing" className="block text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+              <a href="#solutions" className="block text-muted-foreground hover:text-foreground transition-colors">Solutions</a>
               <a href="#testimonials" className="block text-muted-foreground hover:text-foreground transition-colors">Customers</a>
               <Link to="/about" className="block text-muted-foreground hover:text-foreground transition-colors">About</Link>
-              <div className="pt-4 space-y-2">
+              <Link to="/contact" className="block text-muted-foreground hover:text-foreground transition-colors">Contact</Link>
+              <div className="pt-4">
                 <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
                   Login
-                </Button>
-                <Button className="w-full bg-gradient-primary" onClick={() => navigate('/signup')}>
-                  Get Started
                 </Button>
               </div>
             </nav>
@@ -202,18 +191,18 @@ const HomePage = () => {
               <Button 
                 size="lg" 
                 className="bg-gradient-primary hover:shadow-glow text-lg px-8 py-6"
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate('/contact')}
               >
-                Start Free Trial
+                Request Demo
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
               <Button 
                 size="lg" 
                 variant="outline" 
                 className="text-lg px-8 py-6"
-                onClick={() => navigate('/demo')}
+                onClick={() => navigate('/contact')}
               >
-                Request Demo
+                Contact Sales
               </Button>
             </div>
 
@@ -305,49 +294,61 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-background">
+      {/* Solutions Section */}
+      <section id="solutions" className="py-20 bg-background">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Simple, transparent pricing
+              Solutions for every use case
             </h2>
             <p className="text-xl text-muted-foreground">
-              Choose the plan that fits your organization's needs
+              Deploy Zyria across different scenarios and business needs
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {pricingTiers.map((tier, index) => (
-              <Card key={index} className={`relative ${tier.highlighted ? 'border-primary shadow-lg scale-105' : 'border-border'}`}>
-                {tier.highlighted && (
+            {solutions.map((solution, index) => (
+              <Card key={index} className={`relative ${solution.highlighted ? 'border-primary shadow-lg scale-105' : 'border-border'}`}>
+                {solution.highlighted && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-primary text-primary-foreground">Most Popular</Badge>
                   </div>
                 )}
                 <CardHeader className="text-center">
-                  <CardTitle className="text-2xl font-bold">{tier.name}</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-foreground">{tier.price}</span>
-                    <span className="text-muted-foreground">{tier.period}</span>
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-accent/10 mb-4 mx-auto">
+                    <solution.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <p className="text-muted-foreground mt-2">{tier.description}</p>
+                  <CardTitle className="text-2xl font-bold">{solution.name}</CardTitle>
+                  <p className="text-muted-foreground mt-2">{solution.description}</p>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3 mb-6">
-                    {tier.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
-                        <span className="text-sm text-muted-foreground">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-foreground mb-3">Key Features:</h4>
+                    <ul className="space-y-2">
+                      {solution.features.map((feature, featureIndex) => (
+                        <li key={featureIndex} className="flex items-center">
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-3 flex-shrink-0" />
+                          <span className="text-sm text-muted-foreground">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-foreground mb-3">Use Cases:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {solution.useCases.map((useCase, caseIndex) => (
+                        <Badge key={caseIndex} variant="secondary" className="text-xs">
+                          {useCase}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                   <Button 
-                    className={`w-full ${tier.highlighted ? 'bg-gradient-primary hover:shadow-glow' : ''}`}
-                    variant={tier.highlighted ? 'default' : 'outline'}
-                    onClick={() => navigate(tier.name === 'Enterprise' ? '/contact' : '/signup')}
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => navigate('/contact')}
                   >
-                    {tier.name === 'Enterprise' ? 'Contact Sales' : 'Get Started'}
+                    Contact Sales
                   </Button>
                 </CardContent>
               </Card>
@@ -363,15 +364,15 @@ const HomePage = () => {
             Ready to transform your business with AI?
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of companies already using Zyria to automate their processes and delight their customers.
+            Contact our sales team to discuss your enterprise AI automation needs and get a customized solution.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
               size="lg" 
               className="bg-gradient-primary hover:shadow-glow text-lg px-8 py-6"
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate('/contact')}
             >
-              Start Your Free Trial
+              Request Demo
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button 
@@ -380,7 +381,7 @@ const HomePage = () => {
               className="text-lg px-8 py-6"
               onClick={() => navigate('/contact')}
             >
-              Talk to Sales
+              Contact Sales
             </Button>
           </div>
         </div>
@@ -391,9 +392,8 @@ const HomePage = () => {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <div className="flex items-center space-x-2 mb-4">
+              <div className="flex items-center mb-4">
                 <ZyriaLogo className="w-8 h-8" />
-                <span className="text-xl font-bold text-foreground">Zyria</span>
               </div>
               <p className="text-muted-foreground mb-4">
                 Enterprise AI chatbot platform for intelligent automation and customer engagement.
@@ -404,9 +404,9 @@ const HomePage = () => {
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-2">
                 <li><a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a></li>
-                <li><a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a></li>
+                <li><a href="#solutions" className="text-muted-foreground hover:text-foreground transition-colors">Solutions</a></li>
                 <li><Link to="/integrations" className="text-muted-foreground hover:text-foreground transition-colors">Integrations</Link></li>
-                <li><Link to="/api" className="text-muted-foreground hover:text-foreground transition-colors">API</Link></li>
+                <li><Link to="/api" className="text-muted-foreground hover:text-foreground transition-colors">API Documentation</Link></li>
               </ul>
             </div>
             
@@ -416,7 +416,6 @@ const HomePage = () => {
                 <li><Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
                 <li><Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
                 <li><Link to="/careers" className="text-muted-foreground hover:text-foreground transition-colors">Careers</Link></li>
-                <li><Link to="/blog" className="text-muted-foreground hover:text-foreground transition-colors">Blog</Link></li>
               </ul>
             </div>
             
@@ -426,7 +425,7 @@ const HomePage = () => {
                 <li><Link to="/help" className="text-muted-foreground hover:text-foreground transition-colors">Help Center</Link></li>
                 <li><Link to="/docs" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</Link></li>
                 <li><Link to="/status" className="text-muted-foreground hover:text-foreground transition-colors">Status</Link></li>
-                <li><Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy</Link></li>
+                <li><Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
               </ul>
             </div>
           </div>
