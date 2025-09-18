@@ -29,6 +29,7 @@ import AIProviders from "./pages/admin/AIProviders";
 import ChatbotManagement from "./pages/admin/ChatbotManagement";
 import UserInvitations from "./pages/admin/UserInvitations";
 import NotFound from "./pages/NotFound";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,8 @@ const App = () => (
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/auth" element={<AuthPage />} />
+                <Route path="/login" element={<AuthPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/invite/:token" element={<InviteAcceptPage />} />
                 
                 {/* Protected Routes with Layout */}
