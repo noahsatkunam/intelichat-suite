@@ -14,6 +14,94 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_provider_audit_log: {
+        Row: {
+          action: string
+          details: Json | null
+          id: string
+          provider_id: string | null
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          id?: string
+          provider_id?: string | null
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          id?: string
+          provider_id?: string | null
+          timestamp?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_audit_log_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_providers: {
+        Row: {
+          api_key_encrypted: string | null
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          is_healthy: boolean
+          last_health_check: string | null
+          name: string
+          tenant_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_healthy?: boolean
+          last_health_check?: string | null
+          name: string
+          tenant_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          is_healthy?: boolean
+          last_health_check?: string | null
+          name?: string
+          tenant_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_providers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics: {
         Row: {
           id: string
@@ -42,6 +130,127 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "analytics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_usage: {
+        Row: {
+          ai_provider_id: string | null
+          chatbot_id: string | null
+          error_message: string | null
+          id: string
+          model_used: string | null
+          response_time_ms: number | null
+          success: boolean
+          timestamp: string
+          tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          ai_provider_id?: string | null
+          chatbot_id?: string | null
+          error_message?: string | null
+          id?: string
+          model_used?: string | null
+          response_time_ms?: number | null
+          success?: boolean
+          timestamp?: string
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          ai_provider_id?: string | null
+          chatbot_id?: string | null
+          error_message?: string | null
+          id?: string
+          model_used?: string | null
+          response_time_ms?: number | null
+          success?: boolean
+          timestamp?: string
+          tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_usage_ai_provider_id_fkey"
+            columns: ["ai_provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_usage_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fallback_ai_provider_id: string | null
+          id: string
+          is_active: boolean
+          model_name: string | null
+          name: string
+          primary_ai_provider_id: string | null
+          system_prompt: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fallback_ai_provider_id?: string | null
+          id?: string
+          is_active?: boolean
+          model_name?: string | null
+          name: string
+          primary_ai_provider_id?: string | null
+          system_prompt?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fallback_ai_provider_id?: string | null
+          id?: string
+          is_active?: boolean
+          model_name?: string | null
+          name?: string
+          primary_ai_provider_id?: string | null
+          system_prompt?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbots_fallback_ai_provider_id_fkey"
+            columns: ["fallback_ai_provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbots_primary_ai_provider_id_fkey"
+            columns: ["primary_ai_provider_id"]
+            isOneToOne: false
+            referencedRelation: "ai_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbots_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

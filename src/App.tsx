@@ -100,6 +100,16 @@ const App = () => (
                     <AppLayout><SystemMonitoring /></AppLayout>
                   </ProtectedRoute>
                 } />
+                <Route path="/admin/ai-providers" element={
+                  <ProtectedRoute>
+                    <AppLayout><AIProviders /></AppLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/chatbot-management" element={
+                  <ProtectedRoute>
+                    <AppLayout><ChatbotManagement /></AppLayout>
+                  </ProtectedRoute>
+                } />
                 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />

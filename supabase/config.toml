@@ -1,1 +1,7 @@
 project_id = "onvnvlnxmilotkxkfddu"
+
+[functions.ai-provider-health-check]
+verify_jwt = true
+
+[functions.ai-chat]
+verify_jwt = true
