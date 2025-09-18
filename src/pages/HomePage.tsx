@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
+import { DarkVeilBackground } from '@/components/ui/DarkVeilBackground';
 import { Link, useNavigate } from 'react-router-dom';
 
 const HomePage = () => {
@@ -114,7 +115,10 @@ const HomePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Dark Veil Background */}
+      <DarkVeilBackground />
+      
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -171,7 +175,7 @@ const HomePage = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 lg:py-32 bg-gradient-to-br from-background via-accent/5 to-primary/5">
+      <section className="py-20 lg:py-32 relative bg-gradient-to-br from-background/80 via-accent/5 to-primary/5 backdrop-blur-sm">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center">
             <Badge className="mb-6 bg-primary/10 text-primary border-primary/20">
@@ -226,7 +230,7 @@ const HomePage = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-background">
+      <section id="features" className="py-20 bg-background/90 backdrop-blur-sm relative">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -260,7 +264,7 @@ const HomePage = () => {
       </section>
 
       {/* Testimonials Section */}
-      <section id="testimonials" className="py-20 bg-accent/5">
+      <section id="testimonials" className="py-20 bg-accent/5 backdrop-blur-sm relative">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -295,7 +299,7 @@ const HomePage = () => {
       </section>
 
       {/* Solutions Section */}
-      <section id="solutions" className="py-20 bg-background">
+      <section id="solutions" className="py-20 bg-background/90 backdrop-blur-sm relative">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
@@ -358,7 +362,7 @@ const HomePage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary/10 via-primary/5 to-purple-500/10">
+      <section className="py-20 bg-gradient-to-r from-primary/10 via-primary/5 to-purple-500/10 backdrop-blur-sm relative">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             Ready to transform your business with AI?
@@ -388,7 +392,7 @@ const HomePage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-card border-t border-border">
+      <footer className="bg-card/90 border-t border-border backdrop-blur-sm relative">
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
