@@ -28,6 +28,17 @@ export const providerModels = {
     { id: 'mistral-tiny', name: 'Mistral Tiny', description: 'Lightweight model' },
     { id: 'codestral-latest', name: 'Codestral', description: 'Code generation specialist' }
   ],
+  meta: [
+    { id: 'llama-3.1-405b-instruct', name: 'Llama 3.1 405B', description: 'Meta\'s largest and most capable model' },
+    { id: 'llama-3.1-70b-instruct', name: 'Llama 3.1 70B', description: 'High-performance balanced model' },
+    { id: 'llama-3.1-8b-instruct', name: 'Llama 3.1 8B', description: 'Fast and efficient model' },
+    { id: 'llama-3.2-90b-vision-instruct', name: 'Llama 3.2 90B Vision', description: 'Vision-capable model' },
+    { id: 'llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision', description: 'Smaller vision model' }
+  ],
+  xai: [
+    { id: 'grok-beta', name: 'Grok Beta', description: 'xAI\'s flagship conversational AI' },
+    { id: 'grok-vision-beta', name: 'Grok Vision Beta', description: 'Grok with vision capabilities' }
+  ],
   ollama: [
     { id: 'llama3.1:8b', name: 'Llama 3.1 8B', description: 'Meta\'s latest 8B model' },
     { id: 'llama3.1:70b', name: 'Llama 3.1 70B', description: 'Meta\'s latest 70B model' },

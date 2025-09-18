@@ -61,6 +61,20 @@ const providerTypes = [
     icon: 'mistral'
   },
   { 
+    value: 'meta', 
+    label: 'Meta Llama', 
+    description: 'Meta\'s Llama models for various AI tasks',
+    fields: [],
+    icon: 'meta'
+  },
+  { 
+    value: 'xai', 
+    label: 'xAI Grok', 
+    description: 'xAI\'s Grok models for real-time understanding',
+    fields: [],
+    icon: 'xai'
+  },
+  { 
     value: 'custom', 
     label: 'Custom OpenAI-Compatible', 
     description: 'Custom API endpoints with OpenAI-compatible interface',

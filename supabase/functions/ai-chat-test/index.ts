@@ -73,7 +73,7 @@ serve(async (req) => {
         response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${provider.api_key_encrypted}`,
+            'x-api-key': provider.api_key_encrypted, // Anthropic uses x-api-key, not Authorization
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01'
           },
@@ -94,6 +94,56 @@ serve(async (req) => {
         const anthropicData = await response.json();
         responseText = anthropicData.content[0].text;
         break;
+
+      case 'meta':
+        response = await fetch('https://api.llama-api.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${provider.api_key_encrypted}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.7
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Meta API error:', error);
+          throw new Error(`Meta API error: ${response.status} - ${error}`);
+        }
+        
+        const metaData = await response.json();
+        responseText = metaData.choices[0].message.content;
+        break;
+
+      case 'xai':
+        response = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${provider.api_key_encrypted}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+            max_tokens: 1000,
+            temperature: 0.7,
+            stream: false
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('xAI API error:', error);
+          throw new Error(`xAI API error: ${response.status} - ${error}`);
+        }
+        
+        const xaiData = await response.json();
+        responseText = xaiData.choices[0].message.content;
 
       case 'google':
         const apiKey = provider.api_key_encrypted;

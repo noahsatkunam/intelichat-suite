@@ -55,6 +55,27 @@ const ProviderLogo: React.FC<ProviderLogoProps> = ({
       );
     }
     
+    if (lowerProvider === 'meta') {
+      return (
+        <div className={`${sizeClasses[size]} ${className} bg-blue-600 rounded-sm flex items-center justify-center`}>
+          <svg viewBox="0 0 24 24" className="w-3/4 h-3/4 fill-white">
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22C6.486 22 2 17.514 2 12S6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/>
+            <path d="M12 6c-3.314 0-6 2.686-6 6s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6zm0 10c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4z"/>
+          </svg>
+        </div>
+      );
+    }
+    
+    if (lowerProvider === 'xai') {
+      return (
+        <div className={`${sizeClasses[size]} ${className} bg-black rounded-sm flex items-center justify-center`}>
+          <svg viewBox="0 0 24 24" className="w-3/4 h-3/4 fill-white">
+            <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/>
+          </svg>
+        </div>
+      );
+    }
+    
     if (lowerProvider === 'ollama') {
       return (
         <div className={`${sizeClasses[size]} ${className} bg-green-600 rounded-sm flex items-center justify-center`}>
