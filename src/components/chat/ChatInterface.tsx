@@ -6,8 +6,12 @@ import { TypingIndicator } from './TypingIndicator';
 import { FileUpload } from './FileUpload';
 import { MessageSearch } from './MessageSearch';
 import { ReplyPreview } from './ReplyPreview';
+import { RelatedDocuments } from '@/components/knowledge/RelatedDocuments';
+import { KnowledgeSearchOverlay } from '@/components/knowledge/KnowledgeSearchOverlay';
+import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
+import { KnowledgeBaseToggle } from '@/components/knowledge/KnowledgeBaseToggle';
 import { Button } from '@/components/ui/button';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Search, Upload, BookOpen } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -22,6 +26,9 @@ export interface Message {
     title: string;
     url: string;
     snippet: string;
+    confidence?: 'high' | 'medium' | 'low';
+    type?: string;
+    isKnowledgeBase?: boolean;
   }[];
   attachments?: {
     name: string;
@@ -41,34 +48,43 @@ const mockMessages: Message[] = [
       {
         title: 'Zyria Enterprise Guidelines',
         url: '#',
-        snippet: 'Comprehensive guide to enterprise AI best practices and implementation strategies...'
+        snippet: 'Comprehensive guide to enterprise AI best practices and implementation strategies...',
+        confidence: 'high',
+        type: 'PDF',
+        isKnowledgeBase: true
       }
     ]
   },
   {
     id: '2',
-    content: 'Can you help me understand how your knowledge integration works with `inline code` examples?',
+    content: 'Can you help me understand our security compliance requirements for the new project?',
     sender: 'user',
     timestamp: new Date(Date.now() - 5000),
     status: 'sent'
   },
   {
     id: '3',
-    content: 'Absolutely! Zyria integrates with your enterprise knowledge base through advanced semantic search and retrieval. I provide real-time access to documentation, policies, and procedures with full source attribution. Every response includes verified citations so you can trust the information and explore deeper when needed.',
+    content: 'Based on your enterprise documentation, I can provide comprehensive information about your security compliance requirements. Your organization follows SOC 2 Type II standards with additional ISO 27001 controls.\n\nKey requirements include:\n- Multi-factor authentication for all systems\n- Data encryption in transit and at rest\n- Regular security audits and penetration testing\n- Incident response procedures\n\nI have found several relevant documents that provide detailed implementation guidance.',
     sender: 'bot',
     timestamp: new Date(),
     status: 'sent',
     reactions: ['👍', '💡'],
     sources: [
       {
-        title: 'Knowledge Integration Architecture',
+        title: 'Enterprise Security Policy',
         url: '#',
-        snippet: 'Technical overview of Zyria semantic search and retrieval system for enterprise data...'
+        snippet: 'Complete security policy framework including SOC 2 Type II compliance requirements and implementation guidelines...',
+        confidence: 'high',
+        type: 'PDF',
+        isKnowledgeBase: true
       },
       {
-        title: 'Source Attribution Framework',
+        title: 'ISO 27001 Implementation Guide',
         url: '#',
-        snippet: 'How Zyria ensures accurate citations and maintains data provenance across all responses...'
+        snippet: 'Step-by-step implementation guide for ISO 27001 information security management system controls...',
+        confidence: 'high',
+        type: 'DOCX',
+        isKnowledgeBase: true
       }
     ]
   }
@@ -81,6 +97,10 @@ export function ChatInterface() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewMessageIndicator, setShowNewMessageIndicator] = useState(false);
+  const [showKnowledgeSearch, setShowKnowledgeSearch] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showRelatedDocs, setShowRelatedDocs] = useState(true);
+  const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -186,53 +206,124 @@ export function ChatInterface() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-chat-background">
-      <ChatHeader />
-      
-      <MessageSearch 
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        resultsCount={filteredMessages.length}
-      />
-      
-      <div className="flex-1 overflow-hidden relative">
-        <div 
-          ref={chatContainerRef}
-          className="h-full overflow-y-auto chat-scroll"
-          onScroll={handleScroll}
-        >
-          <MessageList 
-            messages={filteredMessages} 
-            onReaction={handleReaction}
-            onReply={handleReply}
-            replyingTo={replyingTo}
-          />
-          {isTyping && <TypingIndicator />}
-          <div ref={messagesEndRef} />
+    <div className="flex h-screen bg-chat-background">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <ChatHeader />
+        
+        <MessageSearch 
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          resultsCount={filteredMessages.length}
+        />
+        
+        {/* Knowledge Base Controls */}
+        <div className="px-4 py-3 bg-chat-header border-b border-chat-border">
+          <div className="flex items-center gap-4">
+            <KnowledgeBaseToggle
+              useKnowledgeBase={useKnowledgeBase}
+              onToggle={setUseKnowledgeBase}
+              className="flex-shrink-0"
+            />
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-accent"
+                onClick={() => setShowKnowledgeSearch(true)}
+              >
+                <Search className="w-4 h-4" />
+                Search KB
+              </Button>
+              
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-accent"
+                onClick={() => setShowDocumentUpload(true)}
+              >
+                <Upload className="w-4 h-4" />
+                Upload
+              </Button>
+              
+              <div className="ml-auto">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 hover:bg-accent"
+                  onClick={() => setShowRelatedDocs(!showRelatedDocs)}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  Related Docs
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-hidden relative">
+          <div 
+            ref={chatContainerRef}
+            className="h-full overflow-y-auto chat-scroll"
+            onScroll={handleScroll}
+          >
+            <MessageList 
+              messages={filteredMessages} 
+              onReaction={handleReaction}
+              onReply={handleReply}
+              replyingTo={replyingTo}
+            />
+            {isTyping && <TypingIndicator />}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* New message indicator */}
+          {showNewMessageIndicator && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="absolute bottom-4 left-1/2 transform -translate-x-1/2 shadow-large bg-primary text-primary-foreground hover:bg-primary-dark animate-slide-up"
+              onClick={() => scrollToBottom()}
+            >
+              <ChevronDown className="w-4 h-4 mr-1" />
+              New messages
+            </Button>
+          )}
         </div>
 
-        {/* New message indicator */}
-        {showNewMessageIndicator && (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute bottom-4 left-1/2 transform -translate-x-1/2 shadow-large bg-primary text-primary-foreground hover:bg-primary-dark animate-slide-up"
-            onClick={() => scrollToBottom()}
-          >
-            <ChevronDown className="w-4 h-4 mr-1" />
-            New messages
-          </Button>
+        {/* Reply preview */}
+        {replyingTo && (
+          <ReplyPreview 
+            replyingTo={replyingTo}
+            onCancel={() => setReplyingTo(null)}
+          />
         )}
+
+        <MessageInput 
+          onSendMessage={handleSendMessage}
+          onToggleFileUpload={() => setShowFileUpload(!showFileUpload)}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+        />
       </div>
 
-      {/* Reply preview */}
-      {replyingTo && (
-        <ReplyPreview 
-          replyingTo={replyingTo}
-          onCancel={() => setReplyingTo(null)}
-        />
+      {/* Related Documents Sidebar */}
+      {showRelatedDocs && (
+        <div className="w-80 border-l border-chat-border bg-chat-surface">
+          <div className="h-full overflow-hidden">
+            <RelatedDocuments 
+              documents={[]}
+              onDocumentSelect={(doc) => {
+                // Handle document selection
+                console.log('Selected document:', doc);
+              }}
+            />
+          </div>
+        </div>
       )}
 
+      {/* Modals */}
       {showFileUpload && (
         <FileUpload 
           onClose={() => setShowFileUpload(false)}
@@ -243,11 +334,18 @@ export function ChatInterface() {
         />
       )}
 
-      <MessageInput 
-        onSendMessage={handleSendMessage}
-        onToggleFileUpload={() => setShowFileUpload(!showFileUpload)}
-        replyingTo={replyingTo}
-        onCancelReply={() => setReplyingTo(null)}
+      <KnowledgeSearchOverlay
+        isOpen={showKnowledgeSearch}
+        onClose={() => setShowKnowledgeSearch(false)}
+        onSelectDocument={(doc) => {
+          // Handle document selection for insertion
+          setShowKnowledgeSearch(false);
+        }}
+      />
+
+      <DocumentUpload
+        isOpen={showDocumentUpload}
+        onClose={() => setShowDocumentUpload(false)}
       />
     </div>
   );
