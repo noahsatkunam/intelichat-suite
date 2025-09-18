@@ -344,7 +344,7 @@ export function ChatInterface() {
 
   return (
     <LoadingOverlay isLoading={isLoading}>
-      <div className="flex h-screen bg-chat-background">
+      <div className="flex h-full bg-chat-background">
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           <ChatHeader />

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 
 export default function APISettings() {
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div className="border-b border-border bg-card/50 backdrop-blur-sm">
         <div className="p-6">
