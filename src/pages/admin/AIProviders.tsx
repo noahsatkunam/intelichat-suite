@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit, Eye, EyeOff } from 'lucide-react';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
@@ -70,6 +71,7 @@ const providerTypes = [
 ];
 
 export default function AIProviders() {
+  const navigate = useNavigate();
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(null);
@@ -333,20 +335,20 @@ export default function AIProviders() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleHealthCheck(provider.id)}
-                    className="flex-1"
-                  >
-                    <Settings className="w-3 h-3 mr-1" />
-                    Test
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => handleEditProvider(provider)}
                     className="flex-1"
                   >
                     <Edit className="w-3 h-3 mr-1" />
                     Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/admin/ai-providers/test/${provider.id}`)}
+                    className="flex-1"
+                  >
+                    <Settings className="w-3 h-3 mr-1" />
+                    Test
                   </Button>
                   <Button
                     variant="outline"

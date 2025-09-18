@@ -28,6 +28,7 @@ import APISettings from "./pages/admin/APISettings";
 import AuditLogs from "./pages/admin/AuditLogs";
 import SystemMonitoring from "./pages/admin/SystemMonitoring";
 import AIProviders from "./pages/admin/AIProviders";
+import AIModelTest from "./pages/admin/AIModelTest";
 import ChatbotManagement from "./pages/admin/ChatbotManagement";
 import UserInvitations from "./pages/admin/UserInvitations";
 import NotFound from "./pages/NotFound";
@@ -124,6 +125,11 @@ const App = () => (
                 <Route path="/admin/ai-providers" element={
                   <ProtectedRoute>
                     <AppLayout><AIProviders /></AppLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/ai-providers/test/:providerId" element={
+                  <ProtectedRoute>
+                    <AppLayout><AIModelTest /></AppLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/chatbot-management" element={
