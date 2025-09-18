@@ -666,6 +666,10 @@ export type Database = {
         Args: { required_role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_global_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "global_admin" | "tenant_admin"
