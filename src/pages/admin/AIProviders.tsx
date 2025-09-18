@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit } from 'lucide-react';
+import { Brain, Plus, Settings, AlertCircle, CheckCircle, Trash2, Edit, Eye, EyeOff } from 'lucide-react';
+import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,7 @@ export default function AIProviders() {
   const [selectedProvider, setSelectedProvider] = useState<AIProvider | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [showApiKey, setShowApiKey] = useState(false);
   const { toast } = useToast();
 
   const form = useForm({
@@ -117,6 +119,7 @@ export default function AIProviders() {
     form.reset();
     setDialogMode('create');
     setSelectedProvider(null);
+    setShowApiKey(false);
     setIsDialogOpen(true);
   };
 
@@ -134,6 +137,7 @@ export default function AIProviders() {
     });
     setDialogMode('edit');
     setSelectedProvider(provider);
+    setShowApiKey(false);
     setIsDialogOpen(true);
   };
 
@@ -290,8 +294,8 @@ export default function AIProviders() {
             <Card key={provider.id} className="relative">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{getProviderIcon(provider.type)}</span>
+                  <div className="flex items-center gap-3">
+                    <ProviderLogo provider={provider.type} size="lg" />
                     <div>
                       <CardTitle className="text-lg">{provider.name}</CardTitle>
                       <CardDescription className="capitalize">{provider.type}</CardDescription>
@@ -371,12 +375,17 @@ export default function AIProviders() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {dialogMode === 'create' ? 'Add API Key' : 'Edit API Key'}
-            </DialogTitle>
-            <DialogDescription>
-              Configure your API key and provider-specific settings. Models will be selected when creating chatbots.
-            </DialogDescription>
+            <div className="flex items-center gap-3 mb-2">
+              <ProviderLogo provider={form.watch('type')} size="lg" />
+              <div>
+                <DialogTitle>
+                  {dialogMode === 'create' ? 'Add API Key' : 'Edit API Key'}
+                </DialogTitle>
+                <DialogDescription>
+                  Configure your API key and provider-specific settings. Models will be selected when creating chatbots.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           
           <Form {...form}>
@@ -449,11 +458,27 @@ export default function AIProviders() {
                   <FormItem>
                     <FormLabel>API Key</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="password" 
-                        placeholder={dialogMode === 'edit' ? "Leave blank to keep existing key" : "Enter API key"} 
-                        {...field} 
-                      />
+                      <div className="relative">
+                        <Input 
+                          type={showApiKey ? "text" : "password"} 
+                          placeholder={dialogMode === 'edit' ? "Leave blank to keep existing key" : "Enter API key"} 
+                          {...field} 
+                          className="pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                        >
+                          {showApiKey ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormDescription>
                       Your API key will be encrypted and stored securely.
