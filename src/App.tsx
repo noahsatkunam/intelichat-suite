@@ -4,8 +4,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
+import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import { AppLayout } from "@/components/layout/AppLayout";
 import Index from "./pages/Index";
+import HomePage from "./pages/HomePage";
+import LoginPage from "./pages/LoginPage";
+import SignUpPage from "./pages/SignUpPage";
 import ChatHistory from "./pages/ChatHistory";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
@@ -14,6 +19,8 @@ import TenantManagement from "./pages/admin/TenantManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import WorkflowAutomation from "./pages/admin/WorkflowAutomation";
 import APISettings from "./pages/admin/APISettings";
+import AuditLogs from "./pages/admin/AuditLogs";
+import SystemMonitoring from "./pages/admin/SystemMonitoring";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,27 +28,37 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="light" storageKey="zyria-theme">
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppLayout>
+      <ErrorBoundary>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/history" element={<ChatHistory />} />
-              <Route path="/knowledge" element={<KnowledgeBase />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/admin/tenants" element={<TenantManagement />} />
-              <Route path="/admin/users" element={<UserManagement />} />
-              <Route path="/admin/workflows" element={<WorkflowAutomation />} />
-              <Route path="/admin/api" element={<APISettings />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              {/* Public Routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignUpPage />} />
+              
+              {/* Protected Routes with Layout */}
+              <Route path="/dashboard" element={<AppLayout><Index /></AppLayout>} />
+              <Route path="/history" element={<AppLayout><ChatHistory /></AppLayout>} />
+              <Route path="/knowledge" element={<AppLayout><KnowledgeBase /></AppLayout>} />
+              <Route path="/analytics" element={<AppLayout><Analytics /></AppLayout>} />
+              <Route path="/settings" element={<AppLayout><Settings /></AppLayout>} />
+              <Route path="/admin/tenants" element={<AppLayout><TenantManagement /></AppLayout>} />
+              <Route path="/admin/users" element={<AppLayout><UserManagement /></AppLayout>} />
+              <Route path="/admin/workflows" element={<AppLayout><WorkflowAutomation /></AppLayout>} />
+              <Route path="/admin/api" element={<AppLayout><APISettings /></AppLayout>} />
+              <Route path="/admin/audit" element={<AppLayout><AuditLogs /></AppLayout>} />
+              <Route path="/admin/monitoring" element={<AppLayout><SystemMonitoring /></AppLayout>} />
+              
+              {/* Catch-all route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </AppLayout>
-        </BrowserRouter>
-      </TooltipProvider>
+          </BrowserRouter>
+          <OfflineIndicator />
+        </TooltipProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   </QueryClientProvider>
 );

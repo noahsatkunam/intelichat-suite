@@ -67,10 +67,10 @@ export function useAuth() {
 
   const login = async (email: string, password: string) => {
     try {
-      const result = await apiService.login(email, password);
+      const result = await apiService.login({ email, password });
       setUser(result.user);
       setIsAuthenticated(true);
-      showSuccess('Welcome back!', `Logged in as ${result.user.name}`);
+      showSuccess('Welcome back!', `Logged in as ${result.user.firstName || result.user.email}`);
       return result;
     } catch (error) {
       showError('Login failed', 'Please check your credentials and try again');
