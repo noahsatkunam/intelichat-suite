@@ -367,6 +367,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
                 onDataChange={updateFormData}
                 onNext={handleNext}
                 onPrevious={handlePrevious}
+                editingTenantId={mode === 'edit' ? tenant?.id : undefined}
               />
             )}
           </div>

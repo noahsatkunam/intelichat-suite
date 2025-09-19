@@ -15,13 +15,15 @@ interface GeneralInformationProps {
   onDataChange: (data: Partial<TenantFormData>) => void;
   onNext?: () => void;
   onPrevious?: () => void;
+  editingTenantId?: string; // Add tenant ID for edit mode
 }
 
 export default function GeneralInformation({
   data,
   onDataChange,
   onNext,
-  onPrevious
+  onPrevious,
+  editingTenantId
 }: GeneralInformationProps) {
   const [subdomainStatus, setSubdomainStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [subdomainMessage, setSubdomainMessage] = useState('');
@@ -46,11 +48,17 @@ export default function GeneralInformation({
 
     setSubdomainStatus('checking');
     try {
-      const { data: existingTenant, error } = await supabase
+      let query = supabase
         .from('tenants')
         .select('id')
-        .eq('subdomain', subdomain)
-        .single();
+        .eq('subdomain', subdomain);
+
+      // If editing a tenant, exclude the current tenant from the check
+      if (editingTenantId) {
+        query = query.neq('id', editingTenantId);
+      }
+
+      const { data: existingTenant, error } = await query.single();
 
       if (error && error.code !== 'PGRST116') {
         throw error;
@@ -61,7 +69,7 @@ export default function GeneralInformation({
         setSubdomainMessage('This subdomain is already taken');
       } else {
         setSubdomainStatus('available');
-        setSubdomainMessage('Subdomain is available');
+        setSubdomainMessage(editingTenantId ? 'Subdomain is valid' : 'Subdomain is available');
       }
     } catch (error) {
       setSubdomainStatus('idle');
@@ -78,7 +86,7 @@ export default function GeneralInformation({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [data.subdomain]);
+  }, [data.subdomain, editingTenantId]);
 
   const handleNameChange = (name: string) => {
     onDataChange({ name });
