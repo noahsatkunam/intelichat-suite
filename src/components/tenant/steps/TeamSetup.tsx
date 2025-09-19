@@ -1,15 +1,17 @@
 import React, { useState, useRef } from 'react';
-import { Users, Upload, Download, Plus, Trash2, ToggleLeft, ToggleRight, AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/components/ui/use-toast';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
+import { Download, Upload, Plus, X, UserPlus, Users, FileText, Check, AlertTriangle } from 'lucide-react';
 import { TenantFormData } from '../TenantCreationWizard';
+import { useToast } from '@/hooks/use-toast';
 
 interface TeamSetupProps {
   data: TenantFormData;
@@ -18,43 +20,31 @@ interface TeamSetupProps {
   onPrevious?: () => void;
 }
 
-const ROLES = ['Admin', 'Manager', 'Agent', 'Viewer'];
-const ROLE_COLORS = {
-  Admin: 'bg-red-100 text-red-700 hover:bg-red-200',
-  Manager: 'bg-blue-100 text-blue-700 hover:bg-blue-200',
-  Agent: 'bg-green-100 text-green-700 hover:bg-green-200',
-  Viewer: 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-};
+const ROLES = ['admin', 'moderator', 'user', 'viewer'];
 
-type TeamMember = TenantFormData['teamMembers'][0];
-
-export function TeamSetup({ data, onDataChange }: TeamSetupProps) {
-  const [newMember, setNewMember] = useState<Omit<TeamMember, 'status'>>({
+export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
+  const [newMember, setNewMember] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    roles: ['Agent']
+    role: 'user'
   });
-  const [csvProcessing, setCsvProcessing] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [fileContent, setFileContent] = useState<string>('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingCsv, setProcessingCsv] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const checkDuplicateEmail = (email: string, excludeIndex?: number): boolean => {
-    return data.teamMembers.some((member, index) => 
-      member.email.toLowerCase() === email.toLowerCase() && index !== excludeIndex
-    );
-  };
-
-  const addTeamMember = () => {
+  const addMember = () => {
     if (!newMember.firstName || !newMember.lastName || !newMember.email) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
@@ -63,24 +53,25 @@ export function TeamSetup({ data, onDataChange }: TeamSetupProps) {
     if (!validateEmail(newMember.email)) {
       toast({
         title: "Invalid Email",
-        description: "Please enter a valid email address.",
+        description: "Please enter a valid email address",
         variant: "destructive"
       });
       return;
     }
 
-    if (checkDuplicateEmail(newMember.email)) {
+    const existingEmails = data.teamMembers.map(m => m.email.toLowerCase());
+    if (existingEmails.includes(newMember.email.toLowerCase())) {
       toast({
         title: "Duplicate Email",
-        description: "This email address is already in the team.",
+        description: "This email is already added",
         variant: "destructive"
       });
       return;
     }
 
-    const member: TeamMember = {
+    const member = {
       ...newMember,
-      status: 'valid'
+      status: 'valid' as const
     };
 
     onDataChange({
@@ -91,108 +82,98 @@ export function TeamSetup({ data, onDataChange }: TeamSetupProps) {
       firstName: '',
       lastName: '',
       email: '',
-      roles: ['Agent']
+      role: 'user'
+    });
+
+    setShowAddForm(false);
+    
+    toast({
+      title: "Member Added",
+      description: `${newMember.firstName} ${newMember.lastName} has been added to the team`
     });
   };
 
-  const removeTeamMember = (index: number) => {
-    const updatedMembers = data.teamMembers.filter((_, i) => i !== index);
-    onDataChange({ teamMembers: updatedMembers });
+  const removeMember = (index: number) => {
+    const updated = data.teamMembers.filter((_, i) => i !== index);
+    onDataChange({ teamMembers: updated });
   };
 
-  const toggleRole = (memberIndex: number, role: string) => {
-    const updatedMembers = [...data.teamMembers];
-    const member = updatedMembers[memberIndex];
-    
-    if (member.roles.includes(role)) {
-      member.roles = member.roles.filter(r => r !== role);
-    } else {
-      member.roles = [...member.roles, role];
-    }
-
-    // Ensure at least one role is selected
-    if (member.roles.length === 0) {
-      member.roles = ['Viewer'];
-    }
-
-    onDataChange({ teamMembers: updatedMembers });
-  };
-
-  const setBulkRole = (role: string) => {
-    const updatedMembers = data.teamMembers.map(member => ({
-      ...member,
-      roles: [role]
-    }));
-    onDataChange({ teamMembers: updatedMembers });
+  const updateMemberRole = (index: number, role: string) => {
+    const updated = [...data.teamMembers];
+    updated[index] = { ...updated[index], role };
+    onDataChange({ teamMembers: updated });
   };
 
   const downloadTemplate = () => {
-    const csvContent = `First Name,Last Name,Email,Role
-John,Smith,j.smith@company.com,Agent
-Jane,Doe,jane.doe@company.com,Manager
-Bob,Wilson,bob.wilson@company.com,Admin`;
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
+    const csvTemplate = 'First Name,Last Name,Email,Role\nJohn,Doe,john@example.com,user\nJane,Smith,jane@example.com,admin\n';
+    const blob = new Blob([csvTemplate], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'team-members-template.csv';
+    a.download = 'team-template.csv';
+    document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Template Downloaded",
+      description: "CSV template has been downloaded"
+    });
   };
 
-  const handleCsvUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const processCsvFile = (file: File) => {
+    setProcessingCsv(true);
+    setUploadProgress(0);
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast({
-        title: "File Too Large",
-        description: "CSV file must be less than 5MB.",
-        variant: "destructive"
-      });
-      return;
-    }
+    const reader = new FileReader();
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress((e.loaded / e.total) * 50);
+      }
+    };
 
-    setCsvProcessing(true);
-
-    try {
-      const text = await file.text();
-      const lines = text.split('\n').filter(line => line.trim());
+    reader.onload = (e) => {
+      const csv = e.target?.result as string;
+      const lines = csv.split('\n').filter(line => line.trim());
       
       if (lines.length < 2) {
-        throw new Error('CSV file must contain a header row and at least one data row');
+        toast({
+          title: "Invalid File",
+          description: "CSV file must contain at least a header and one data row",
+          variant: "destructive"
+        });
+        setProcessingCsv(false);
+        return;
       }
 
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      const requiredHeaders = ['first name', 'last name', 'email'];
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const requiredHeaders = ['first name', 'last name', 'email', 'role'];
       
-      const hasRequiredHeaders = requiredHeaders.every(header => 
-        headers.some(h => h.includes(header.replace(' ', '')))
-      );
-
-      if (!hasRequiredHeaders) {
-        throw new Error('CSV must contain columns: First Name, Last Name, Email, Role (optional)');
+      if (!requiredHeaders.every(header => headers.some(h => h.includes(header.replace(' ', ''))))) {
+        toast({
+          title: "Invalid Headers",
+          description: "CSV must contain: First Name, Last Name, Email, Role columns",
+          variant: "destructive"
+        });
+        setProcessingCsv(false);
+        return;
       }
 
-      const members: TeamMember[] = [];
+      const members: any[] = [];
       const errors: string[] = [];
 
       lines.slice(1).forEach((line, index) => {
-        const values = line.split(',').map(v => v.trim());
-        const lineNumber = index + 2;
-
-        if (values.length < 3) {
-          errors.push(`Line ${lineNumber}: Missing required fields`);
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length < 4) {
+          errors.push(`Row ${index + 2}: Insufficient columns`);
           return;
         }
 
-        const firstName = values[0];
-        const lastName = values[1];
-        const email = values[2];
-        const role = values[3] || 'Agent';
-
-        let status: TeamMember['status'] = 'valid';
+        const [firstName, lastName, email, role] = values;
+        
+        let status = 'valid';
         let errorMessage = '';
 
         if (!firstName || !lastName || !email) {
@@ -202,7 +183,7 @@ Bob,Wilson,bob.wilson@company.com,Admin`;
           status = 'error';
           errorMessage = 'Invalid email format';
         } else if (members.some(m => m.email.toLowerCase() === email.toLowerCase()) || 
-                   checkDuplicateEmail(email)) {
+                   data.teamMembers.some(m => m.email.toLowerCase() === email.toLowerCase())) {
           status = 'duplicate';
           errorMessage = 'Duplicate email address';
         }
@@ -211,7 +192,7 @@ Bob,Wilson,bob.wilson@company.com,Admin`;
           firstName,
           lastName,
           email,
-          roles: [ROLES.includes(role) ? role : 'Agent'],
+          role: ROLES.includes(role) ? role : 'user',
           status,
           errorMessage
         });
@@ -219,354 +200,402 @@ Bob,Wilson,bob.wilson@company.com,Admin`;
 
       if (errors.length > 0) {
         toast({
-          title: "CSV Processing Errors",
-          description: `${errors.length} errors found. Please check the file format.`,
+          title: "Processing Errors",
+          description: `${errors.length} rows had errors. Check the data table.`,
           variant: "destructive"
         });
       }
 
-      onDataChange({ teamMembers: [...data.teamMembers, ...members] });
+      onDataChange({ teamMembers: [...data.teamMembers, ...members.filter(m => m.status === 'valid')] });
+      setUploadProgress(100);
       
-      toast({
-        title: "CSV Uploaded",
-        description: `Processed ${members.length} team members from CSV.`,
-      });
+      setTimeout(() => {
+        setProcessingCsv(false);
+        setUploadProgress(0);
+      }, 1000);
 
-    } catch (error) {
       toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Failed to process CSV file.",
+        title: "CSV Processed",
+        description: `Added ${members.filter(m => m.status === 'valid').length} team members`,
+      });
+    };
+
+    reader.onerror = () => {
+      toast({
+        title: "File Error",
+        description: "Error reading the CSV file",
         variant: "destructive"
       });
-    } finally {
-      setCsvProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+      setProcessingCsv(false);
+    };
+
+    reader.readAsText(file);
   };
 
-  const validMembers = data.teamMembers.filter(m => m.status === 'valid');
-  const errorMembers = data.teamMembers.filter(m => m.status === 'error');
-  const duplicateMembers = data.teamMembers.filter(m => m.status === 'duplicate');
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a CSV file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "File size must be less than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    processCsvFile(file);
+  };
+
+  const setAllRoles = (role: string) => {
+    const updated = data.teamMembers.map(member => ({ ...member, role }));
+    onDataChange({ teamMembers: updated });
+    
+    toast({
+      title: "Roles Updated",
+      description: `Set all members to ${role} role`
+    });
+  };
+
+  const validMembers = data.teamMembers.filter(m => m.status !== 'error' && m.status !== 'duplicate');
+  const errorCount = data.teamMembers.filter(m => m.status === 'error' || m.status === 'duplicate').length;
 
   return (
-    <div className="space-y-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-display font-bold text-foreground">Team Setup & User Invitations</h2>
-        <p className="text-muted-foreground text-lg">Add team members and configure their roles</p>
-        <Badge variant="secondary">Optional Step</Badge>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-8">
-        {/* Left Panel - Manual Addition & CSV Upload */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Plus className="w-5 h-5" />
-                Add Individual Users
-              </CardTitle>
-              <CardDescription>
-                Manually add team members one by one
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+    <div className="space-y-6">
+      {/* Add Team Member */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5" />
+            Add Team Members
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!showAddForm ? (
+            <Button
+              onClick={() => setShowAddForm(true)}
+              variant="outline"
+              className="w-full border-dashed border-2 h-12 gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Team Member
+            </Button>
+          ) : (
+            <div className="space-y-4 p-4 border rounded-lg">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div>
                   <Label>First Name *</Label>
                   <Input
-                    placeholder="John"
                     value={newMember.firstName}
                     onChange={(e) => setNewMember(prev => ({ ...prev, firstName: e.target.value }))}
+                    placeholder="John"
                   />
                 </div>
-                <div className="space-y-2">
+                <div>
                   <Label>Last Name *</Label>
                   <Input
-                    placeholder="Smith"
                     value={newMember.lastName}
                     onChange={(e) => setNewMember(prev => ({ ...prev, lastName: e.target.value }))}
+                    placeholder="Doe"
                   />
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div>
                 <Label>Email Address *</Label>
                 <Input
                   type="email"
-                  placeholder="john.smith@company.com"
                   value={newMember.email}
                   onChange={(e) => setNewMember(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="john@company.com"
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label>Roles</Label>
-                <div className="flex flex-wrap gap-2">
-                  {ROLES.map((role) => (
-                    <Badge
-                      key={role}
-                      variant={newMember.roles.includes(role) ? "default" : "outline"}
-                      className={`cursor-pointer ${newMember.roles.includes(role) ? ROLE_COLORS[role as keyof typeof ROLE_COLORS] : ''}`}
-                      onClick={() => {
-                        if (newMember.roles.includes(role)) {
-                          setNewMember(prev => ({
-                            ...prev,
-                            roles: prev.roles.filter(r => r !== role)
-                          }));
-                        } else {
-                          setNewMember(prev => ({
-                            ...prev,
-                            roles: [...prev.roles, role]
-                          }));
-                        }
-                      }}
-                    >
-                      {role}
-                    </Badge>
-                  ))}
-                </div>
+              
+              <div>
+                <Label>Role</Label>
+                <Select value={newMember.role} onValueChange={(value) => setNewMember(prev => ({ ...prev, role: value }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="moderator">Moderator</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <Button onClick={addTeamMember} className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Team Member
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="w-5 h-5" />
-                CSV Mass Upload
-              </CardTitle>
-              <CardDescription>
-                Upload multiple team members at once using CSV
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <Button variant="outline" onClick={downloadTemplate} className="w-full">
-                  <Download className="w-4 h-4 mr-2" />
-                  Download CSV Template
+              <div className="flex gap-2">
+                <Button onClick={addMember} className="gap-2">
+                  <Check className="w-4 h-4" />
+                  Add Member
                 </Button>
-                
-                <div className="text-center text-sm text-muted-foreground">
-                  or
-                </div>
-
-                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                  {csvProcessing ? (
-                    <div className="space-y-2">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                      <p className="text-sm">Processing CSV file...</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                      <div>
-                        <p className="text-sm font-medium">Upload CSV File</p>
-                        <p className="text-xs text-muted-foreground">Max 5MB, up to 1000 users</p>
-                      </div>
-                      <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        Choose File
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleCsvUpload}
-                  className="hidden"
-                />
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setNewMember({ firstName: '', lastName: '', email: '', role: 'user' });
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-        {/* Right Panel - Team Members List & Bulk Actions */}
-        <div className="space-y-6">
-          {data.teamMembers.length > 0 && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      Team Members ({data.teamMembers.length})
+      {/* CSV Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            CSV Bulk Upload
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-4 items-center">
+            <Button onClick={downloadTemplate} variant="outline" className="gap-2">
+              <Download className="w-4 h-4" />
+              Download Template
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Template includes: First Name, Last Name, Email, Role
+            </span>
+          </div>
+
+          <div 
+            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-accent/50 transition-colors"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer.files);
+              if (files[0]) {
+                processCsvFile(files[0]);
+              }
+            }}
+          >
+            <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+            <p className="font-medium">Drop CSV file here or click to upload</p>
+            <p className="text-sm text-muted-foreground">Max 5MB • CSV format only</p>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+
+          {processingCsv && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Processing CSV...</span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <Progress value={uploadProgress} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Team Members List */}
+      {data.teamMembers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Team Members ({validMembers.length})
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setAllRoles('admin')}>
+                  Set All Admin
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setAllRoles('user')}>
+                  Set All User
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {errorCount > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                    <span className="text-sm text-yellow-800">
+                      {errorCount} members have errors and will not be added
                     </span>
-                  </CardTitle>
-                  <CardDescription>
-                    Review and manage team member roles
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Summary Stats */}
-                  <div className="flex gap-4 text-sm">
-                    <Badge variant="outline" className="gap-1">
-                      <CheckCircle className="w-3 h-3 text-green-500" />
-                      {validMembers.length} Valid
-                    </Badge>
-                    {errorMembers.length > 0 && (
-                      <Badge variant="outline" className="gap-1">
-                        <AlertCircle className="w-3 h-3 text-red-500" />
-                        {errorMembers.length} Errors
-                      </Badge>
-                    )}
-                    {duplicateMembers.length > 0 && (
-                      <Badge variant="outline" className="gap-1">
-                        <AlertCircle className="w-3 h-3 text-yellow-500" />
-                        {duplicateMembers.length} Duplicates
-                      </Badge>
-                    )}
                   </div>
+                </div>
+              )}
 
-                  {/* Bulk Actions */}
-                  <div className="flex gap-2 text-sm">
-                    <span className="text-muted-foreground">Set all to:</span>
-                    {ROLES.map((role) => (
-                      <Button
-                        key={role}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setBulkRole(role)}
-                        className="text-xs"
-                      >
-                        {role}
-                      </Button>
-                    ))}
-                  </div>
-
-                  {/* Team Members List */}
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.teamMembers.map((member, index) => (
-                      <div key={index} className={`p-3 border rounded-lg ${
-                        member.status === 'error' ? 'border-red-200 bg-red-50' :
-                        member.status === 'duplicate' ? 'border-yellow-200 bg-yellow-50' :
-                        'border-border'
-                      }`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {member.firstName} {member.lastName}
-                              </span>
-                              {member.status === 'error' && (
-                                <AlertCircle className="w-4 h-4 text-red-500" />
-                              )}
-                              {member.status === 'duplicate' && (
-                                <AlertCircle className="w-4 h-4 text-yellow-500" />
-                              )}
-                              {member.status === 'valid' && (
-                                <CheckCircle className="w-4 h-4 text-green-500" />
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {member.email}
-                            </div>
-                            {member.errorMessage && (
-                              <div className="text-xs text-red-600 mt-1">
+                      <TableRow key={index} className={member.status === 'error' || member.status === 'duplicate' ? 'bg-red-50' : ''}>
+                        <TableCell className="font-medium">
+                          {member.firstName} {member.lastName}
+                        </TableCell>
+                        <TableCell>{member.email}</TableCell>
+                        <TableCell>
+                          <Select 
+                            value={member.role} 
+                            onValueChange={(value) => updateMemberRole(index, value)}
+                            disabled={member.status === 'error' || member.status === 'duplicate'}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="moderator">Moderator</SelectItem>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          {member.status === 'valid' ? (
+                            <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="destructive">Error</Badge>
+                              <span className="text-xs text-red-600">
                                 {member.errorMessage}
-                              </div>
-                            )}
-                          </div>
+                              </span>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeTeamMember(index)}
-                            className="text-red-500 hover:text-red-700"
+                            onClick={() => removeMember(index)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <X className="w-4 h-4" />
                           </Button>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-1">
-                          {ROLES.map((role) => (
-                            <Badge
-                              key={role}
-                              variant={member.roles.includes(role) ? "default" : "outline"}
-                              className={`cursor-pointer text-xs ${
-                                member.roles.includes(role) ? ROLE_COLORS[role as keyof typeof ROLE_COLORS] : ''
-                              }`}
-                              onClick={() => toggleRole(index, role)}
-                            >
-                              {role}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Mail className="w-5 h-5" />
-                    Invitation Settings
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-base">Send Welcome Emails</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Send invitation emails immediately after tenant creation
-                      </p>
-                    </div>
-                    <Switch
-                      checked={data.sendWelcomeEmails}
-                      onCheckedChange={(checked) => onDataChange({ sendWelcomeEmails: checked })}
-                    />
-                  </div>
+      {/* Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Invitation Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Send Welcome Emails</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically send invitation emails to team members
+              </p>
+            </div>
+            <Switch
+              checked={data.sendWelcomeEmails}
+              onCheckedChange={(checked) => onDataChange({ sendWelcomeEmails: checked })}
+            />
+          </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label className="text-base">Require Password Reset</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Users must set password on first login
-                      </p>
-                    </div>
-                    <Switch
-                      checked={data.requirePasswordReset}
-                      onCheckedChange={(checked) => onDataChange({ requirePasswordReset: checked })}
-                    />
-                  </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Require Password Reset</Label>
+              <p className="text-sm text-muted-foreground">
+                Force users to set new password on first login
+              </p>
+            </div>
+            <Switch
+              checked={data.requirePasswordReset}
+              onCheckedChange={(checked) => onDataChange({ requirePasswordReset: checked })}
+            />
+          </div>
 
-                  <div className="space-y-2">
-                    <Label>Custom Invitation Message</Label>
-                    <Textarea
-                      placeholder="You've been invited to join our organization's AI platform..."
-                      value={data.customInvitationMessage}
-                      onChange={(e) => onDataChange({ customInvitationMessage: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
+          <div>
+            <Label>Custom Invitation Message</Label>
+            <Textarea
+              value={data.customInvitationMessage}
+              onChange={(e) => onDataChange({ customInvitationMessage: e.target.value })}
+              placeholder="Welcome to our team! You've been invited to join our Zyria workspace..."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-          {data.teamMembers.length === 0 && (
-            <Card className="border-dashed border-2">
-              <CardContent className="p-8 text-center">
-                <Users className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No Team Members Added</h3>
-                <p className="text-muted-foreground">
-                  Add team members manually or upload a CSV file to get started.
-                  You can also skip this step and add users later.
+      {/* Summary */}
+      {validMembers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-4 bg-primary/10 rounded-lg">
+                <div className="text-2xl font-bold text-primary">{validMembers.length}</div>
+                <div className="text-sm text-muted-foreground">Total Members</div>
+              </div>
+              <div className="text-center p-4 bg-red-50 rounded-lg">
+                <div className="text-2xl font-bold text-red-600">
+                  {validMembers.filter(m => m.role === 'admin').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Admins</div>
+              </div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">
+                  {validMembers.filter(m => m.role === 'moderator').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Moderators</div>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">
+                  {validMembers.filter(m => m.role === 'user').length}
+                </div>
+                <div className="text-sm text-muted-foreground">Users</div>
+              </div>
+            </div>
+
+            {data.sendWelcomeEmails && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  ✓ {validMembers.length} invitation emails will be sent after tenant creation
                 </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

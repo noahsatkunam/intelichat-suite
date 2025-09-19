@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Import step components
 import GeneralInformation from './steps/GeneralInformation';
-import UserManagement from './steps/UserManagement';
-import BrandingCustomization from './steps/BrandingCustomization';
+import TeamSetup from './steps/TeamSetup';
+import { BrandingCustomization } from './steps/BrandingCustomization';
 
 export interface TenantFormData {
   // General Information
@@ -18,30 +18,80 @@ export interface TenantFormData {
   description: string;
   maxUsers: number;
   unlimitedUsers: boolean;
+  organizationName: string;
+  organizationSize: string;
+  industry: string;
+  primaryUseCase: string;
   
-  // User Management
+  // Initial Configuration
+  defaultAiModel: string;
+  knowledgeBaseEnabled: boolean;
+  workflowAutomationEnabled: boolean;
+  realtimeChatEnabled: boolean;
+  monthlyMessageLimit: number;
+  storageLimit: number;
+  concurrentUsers: number;
+  apiRateLimit: number;
+  
+  // Admin Setup
+  adminFirstName: string;
+  adminLastName: string;
+  adminEmail: string;
+  adminPhone: string;
+  welcomeMessage: string;
+  passwordComplexity: boolean;
+  twoFactorRequired: boolean;
+  sessionTimeout: string;
+  
   manualUsers: Array<{
     firstName: string;
     lastName: string;
     email: string;
     role: string;
+    roles?: string[];
+    status?: 'valid' | 'error' | 'duplicate';
+    errorMessage?: string;
   }>;
   csvUsers: Array<{
     firstName: string;
     lastName: string;
     email: string;
     role: string;
-    status: 'valid' | 'error';
+    roles?: string[];
+    status: 'valid' | 'error' | 'duplicate';
+    errorMessage?: string;
     error?: string;
+  }>;
+  teamMembers: Array<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    roles?: string[];
+    status?: 'valid' | 'error' | 'duplicate';
+    errorMessage?: string;
   }>;
   
   // Branding & Customization
   logo?: File;
   logoUrl?: string;
+  logoFile?: File;
   primaryColor: string;
   secondaryColor: string;
+  primaryBrandColor: string;
+  secondaryBrandColor: string;
   customDomain: string;
   whiteLabel: boolean;
+  whiteLabelEnabled: boolean;
+  customFont: string;
+  chatWidgetPosition: string;
+  sslAutoProvisioning: boolean;
+  
+  // Final Review
+  launchMode: string;
+  sendWelcomeEmails: boolean;
+  requirePasswordReset: boolean;
+  customInvitationMessage: string;
 }
 
 interface TenantCreationWizardProps {
@@ -54,7 +104,7 @@ interface TenantCreationWizardProps {
 
 const STEPS = [
   { id: 1, title: 'General Information', subtitle: 'Configure basic tenant organization settings', component: GeneralInformation },
-  { id: 2, title: 'User Management', subtitle: 'Set up your team and invite users', component: UserManagement },
+  { id: 2, title: 'User Management', subtitle: 'Set up your team and invite users', component: TeamSetup },
   { id: 3, title: 'Branding & Customization', subtitle: 'Customize your tenant\'s appearance for white-label deployment', component: BrandingCustomization }
 ];
 
@@ -67,12 +117,43 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
     description: '',
     maxUsers: 50,
     unlimitedUsers: true,
+    organizationName: '',
+    organizationSize: '',
+    industry: '',
+    primaryUseCase: '',
+    defaultAiModel: 'gpt-4',
+    knowledgeBaseEnabled: false,
+    workflowAutomationEnabled: false,
+    realtimeChatEnabled: true,
+    monthlyMessageLimit: 1000,
+    storageLimit: 100,
+    concurrentUsers: 50,
+    apiRateLimit: 100,
+    adminFirstName: '',
+    adminLastName: '',
+    adminEmail: '',
+    adminPhone: '',
+    welcomeMessage: '',
+    passwordComplexity: false,
+    twoFactorRequired: false,
+    sessionTimeout: '30',
     manualUsers: [],
     csvUsers: [],
+    teamMembers: [],
     primaryColor: '#3b82f6',
     secondaryColor: '#6366f1',
+    primaryBrandColor: '#3b82f6',
+    secondaryBrandColor: '#6366f1',
     customDomain: '',
-    whiteLabel: false
+    whiteLabel: false,
+    whiteLabelEnabled: false,
+    customFont: 'Inter',
+    chatWidgetPosition: 'bottom-right',
+    sslAutoProvisioning: true,
+    launchMode: 'launch',
+    sendWelcomeEmails: true,
+    requirePasswordReset: true,
+    customInvitationMessage: ''
   });
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const { toast } = useToast();
