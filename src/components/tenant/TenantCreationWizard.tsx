@@ -158,6 +158,112 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const { toast } = useToast();
 
+  // Reset wizard state and populate data when opening
+  useEffect(() => {
+    if (open) {
+      // Always start on step 1 when opening
+      setCurrentStep(1);
+      setCompletedSteps([]);
+      
+      // If editing, populate form data from tenant
+      if (mode === 'edit' && tenant) {
+        setFormData({
+          name: tenant.name || '',
+          subdomain: tenant.subdomain || '',
+          organizationUrl: tenant.settings?.organizationUrl || '',
+          description: tenant.settings?.description || '',
+          maxUsers: tenant.settings?.max_users || 50,
+          unlimitedUsers: !tenant.settings?.max_users,
+          industry: tenant.settings?.industry || '',
+          organizationName: tenant.settings?.organizationName || tenant.name || '',
+          organizationSize: tenant.settings?.organizationSize || '',
+          primaryUseCase: tenant.settings?.primaryUseCase || '',
+          defaultAiModel: tenant.settings?.defaultAiModel || 'gpt-4',
+          knowledgeBaseEnabled: tenant.settings?.knowledgeBaseEnabled || false,
+          workflowAutomationEnabled: tenant.settings?.workflowAutomationEnabled || false,
+          realtimeChatEnabled: tenant.settings?.realtimeChatEnabled !== false,
+          monthlyMessageLimit: tenant.settings?.monthlyMessageLimit || 1000,
+          storageLimit: tenant.settings?.storageLimit || 100,
+          concurrentUsers: tenant.settings?.concurrentUsers || 50,
+          apiRateLimit: tenant.settings?.apiRateLimit || 100,
+          adminFirstName: tenant.settings?.adminFirstName || '',
+          adminLastName: tenant.settings?.adminLastName || '',
+          adminEmail: tenant.settings?.adminEmail || '',
+          adminPhone: tenant.settings?.adminPhone || '',
+          welcomeMessage: tenant.settings?.welcomeMessage || '',
+          passwordComplexity: tenant.settings?.passwordComplexity || false,
+          twoFactorRequired: tenant.settings?.twoFactorRequired || false,
+          sessionTimeout: tenant.settings?.sessionTimeout || '30',
+          manualUsers: [],
+          csvUsers: [],
+          teamMembers: tenant.settings?.teamMembers || [],
+          primaryColor: tenant.branding_config?.primaryColor || '#3b82f6',
+          secondaryColor: tenant.branding_config?.secondaryColor || '#6366f1',
+          primaryBrandColor: tenant.branding_config?.primaryColor || '#3b82f6',
+          secondaryBrandColor: tenant.branding_config?.secondaryColor || '#6366f1',
+          logoUrl: tenant.branding_config?.logoUrl || '',
+          customDomain: tenant.settings?.customDomain || '',
+          whiteLabel: tenant.settings?.whiteLabel || false,
+          whiteLabelEnabled: tenant.settings?.whiteLabel || false,
+          customFont: tenant.branding_config?.customFont || 'Inter',
+          chatWidgetPosition: tenant.branding_config?.chatWidgetPosition || 'bottom-right',
+          sslAutoProvisioning: tenant.settings?.sslAutoProvisioning !== false,
+          launchMode: 'launch',
+          sendWelcomeEmails: true,
+          requirePasswordReset: true,
+          customInvitationMessage: ''
+        });
+      } else if (mode === 'create') {
+        // Reset to default values for create mode
+        setFormData({
+          name: '',
+          subdomain: '',
+          organizationUrl: '',
+          description: '',
+          maxUsers: 50,
+          unlimitedUsers: true,
+          organizationName: '',
+          organizationSize: '',
+          industry: '',
+          primaryUseCase: '',
+          defaultAiModel: 'gpt-4',
+          knowledgeBaseEnabled: false,
+          workflowAutomationEnabled: false,
+          realtimeChatEnabled: true,
+          monthlyMessageLimit: 1000,
+          storageLimit: 100,
+          concurrentUsers: 50,
+          apiRateLimit: 100,
+          adminFirstName: '',
+          adminLastName: '',
+          adminEmail: '',
+          adminPhone: '',
+          welcomeMessage: '',
+          passwordComplexity: false,
+          twoFactorRequired: false,
+          sessionTimeout: '30',
+          manualUsers: [],
+          csvUsers: [],
+          teamMembers: [],
+          primaryColor: '#3b82f6',
+          secondaryColor: '#6366f1',
+          primaryBrandColor: '#3b82f6',
+          secondaryBrandColor: '#6366f1',
+          customDomain: '',
+          whiteLabel: false,
+          whiteLabelEnabled: false,
+          customFont: 'Inter',
+          chatWidgetPosition: 'bottom-right',
+          sslAutoProvisioning: true,
+          launchMode: 'launch',
+          sendWelcomeEmails: true,
+          requirePasswordReset: true,
+          customInvitationMessage: ''
+        });
+      }
+    }
+  }, [open, mode, tenant]);
+
   const updateFormData = (newData: Partial<TenantFormData>) => {
     setFormData(prev => ({ ...prev, ...newData }));
   };
@@ -192,6 +298,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
         settings: {
           description: formData.description,
           organizationUrl: formData.organizationUrl,
+          industry: formData.industry,
           max_users: formData.unlimitedUsers ? null : formData.maxUsers,
           customDomain: formData.customDomain,
           whiteLabel: formData.whiteLabel,
