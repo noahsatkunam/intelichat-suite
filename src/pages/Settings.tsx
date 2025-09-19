@@ -110,7 +110,7 @@ export default function Settings() {
                   <Input
                     id="avatar-upload"
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/jpg,application/pdf"
                     onChange={handleAvatarUpload}
                     className="hidden"
                   />
