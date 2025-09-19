@@ -3,14 +3,9 @@ import { Building2, Plus, Settings, Users, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { useForm } from 'react-hook-form';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { TenantCreationWizard } from '@/components/tenant/TenantCreationWizard';
 
 interface Tenant {
   id: string;
@@ -28,20 +23,9 @@ export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardMode, setWizardMode] = useState<'create' | 'edit'>('create');
   const { toast } = useToast();
-
-  const form = useForm({
-    defaultValues: {
-      name: '',
-      subdomain: '',
-      description: '',
-      is_active: true,
-      max_users: 50,
-      max_chatbots: 10
-    }
-  });
 
   useEffect(() => {
     fetchTenants();
@@ -87,80 +71,19 @@ export default function TenantManagement() {
   };
 
   const handleCreateTenant = () => {
-    form.reset({
-      name: '',
-      subdomain: '',
-      description: '',
-      is_active: true,
-      max_users: 50,
-      max_chatbots: 10
-    });
-    setDialogMode('create');
+    setWizardMode('create');
     setSelectedTenant(null);
-    setIsDialogOpen(true);
+    setIsWizardOpen(true);
   };
 
   const handleEditTenant = (tenant: Tenant) => {
-    form.reset({
-      name: tenant.name,
-      subdomain: tenant.subdomain,
-      description: tenant.settings?.description || '',
-      is_active: tenant.settings?.is_active !== false,
-      max_users: tenant.settings?.max_users || 50,
-      max_chatbots: tenant.settings?.max_chatbots || 10
-    });
-    setDialogMode('edit');
+    setWizardMode('edit');
     setSelectedTenant(tenant);
-    setIsDialogOpen(true);
+    setIsWizardOpen(true);
   };
 
-  const onSubmit = async (data: any) => {
-    try {
-      const tenantData = {
-        name: data.name,
-        subdomain: data.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-        settings: {
-          description: data.description,
-          is_active: data.is_active,
-          max_users: data.max_users,
-          max_chatbots: data.max_chatbots
-        }
-      };
-
-      if (dialogMode === 'create') {
-        const { error } = await supabase
-          .from('tenants')
-          .insert([tenantData]);
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Success",
-          description: "Tenant created successfully"
-        });
-      } else {
-        const { error } = await supabase
-          .from('tenants')
-          .update(tenantData)
-          .eq('id', selectedTenant?.id);
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Success",
-          description: "Tenant updated successfully"
-        });
-      }
-
-      setIsDialogOpen(false);
-      fetchTenants();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive"
-      });
-    }
+  const handleWizardComplete = () => {
+    fetchTenants();
   };
 
   const handleDeleteTenant = async (tenantId: string) => {
@@ -292,146 +215,14 @@ export default function TenantManagement() {
         )}
       </div>
 
-      {/* Tenant Configuration Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogMode === 'create' ? 'Create Tenant' : 'Edit Tenant'}
-            </DialogTitle>
-            <DialogDescription>
-              Configure tenant organization settings and limits.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tenant Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Acme Corporation" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="subdomain"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Subdomain</FormLabel>
-                      <FormControl>
-                        <Input placeholder="acme-corp" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        Used for tenant identification
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Description of the tenant organization..."
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="max_users"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Max Users</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min={1}
-                          {...field} 
-                          onChange={(e) => field.onChange(parseInt(e.target.value))} 
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Maximum number of users allowed
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="max_chatbots"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Max Chatbots</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          min={1}
-                          {...field} 
-                          onChange={(e) => field.onChange(parseInt(e.target.value))} 
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Maximum number of chatbots allowed
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active Tenant</FormLabel>
-                      <FormDescription>
-                        Enable this tenant for active use
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {dialogMode === 'create' ? 'Create Tenant' : 'Update Tenant'}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      {/* Tenant Creation Wizard */}
+      <TenantCreationWizard
+        open={isWizardOpen}
+        onOpenChange={setIsWizardOpen}
+        mode={wizardMode}
+        tenant={selectedTenant}
+        onComplete={handleWizardComplete}
+      />
     </div>
   );
 }
