@@ -17,9 +17,13 @@ import {
   AlertTriangle,
   Users,
   FileText,
-  UserPlus
+  UserPlus,
+  Mail,
+  UserCheck,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { TenantFormData } from '../TenantCreationWizard';
 
 interface UserManagementProps {
@@ -27,6 +31,7 @@ interface UserManagementProps {
   onDataChange: (data: Partial<TenantFormData>) => void;
   onNext?: () => void;
   onPrevious?: () => void;
+  editingTenantId?: string;
 }
 
 const ROLES = [
@@ -40,7 +45,8 @@ export default function UserManagement({
   data,
   onDataChange,
   onNext,
-  onPrevious
+  onPrevious,
+  editingTenantId
 }: UserManagementProps) {
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [newUser, setNewUser] = useState({
@@ -52,10 +58,91 @@ export default function UserManagement({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [editingUser, setEditingUser] = useState<number | null>(null);
+  const [isProcessingUsers, setIsProcessingUsers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const handleAddUser = () => {
+  // Check if users already exist in the system
+  const checkExistingUsers = async (emails: string[]) => {
+    try {
+      const { data: existingProfiles, error } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('email', emails.map(email => email.toLowerCase()));
+
+      if (error) throw error;
+
+      return existingProfiles?.map(p => p.email.toLowerCase()) || [];
+    } catch (error: any) {
+      console.error('Error checking existing users:', error);
+      return [];
+    }
+  };
+
+  // Create invitation and send email
+  const createInvitationAndSendEmail = async (user: any, tenantId: string) => {
+    try {
+      // Generate invitation token
+      const token = crypto.randomUUID();
+      
+      // Create invitation record
+      const { error: inviteError } = await supabase
+        .from('user_invitations')
+        .insert({
+          email: user.email.toLowerCase(),
+          role: user.role,
+          tenant_id: tenantId,
+          token,
+          invited_by: (await supabase.auth.getUser()).data.user?.id,
+          metadata: {
+            firstName: user.firstName,
+            lastName: user.lastName
+          }
+        });
+
+      if (inviteError) throw inviteError;
+
+      // Send invitation email via edge function
+      const { error: emailError } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: user.email,
+          token,
+          role: user.role,
+          inviterName: 'Tenant Administrator'
+        }
+      });
+
+      if (emailError) throw emailError;
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error creating invitation:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Helper function to get status badge
+  const getStatusBadge = (user: any) => {
+    const statusConfig = {
+      valid: { icon: Check, color: 'bg-green-100 text-green-700', label: 'Ready' },
+      existing: { icon: UserCheck, color: 'bg-blue-100 text-blue-700', label: 'Existing User' },
+      invited: { icon: Mail, color: 'bg-purple-100 text-purple-700', label: 'Invited' },
+      error: { icon: AlertTriangle, color: 'bg-red-100 text-red-700', label: 'Error' },
+      duplicate: { icon: AlertTriangle, color: 'bg-orange-100 text-orange-700', label: 'Duplicate' }
+    };
+
+    const config = statusConfig[user.status || 'valid'];
+    const Icon = config.icon;
+
+    return (
+      <Badge className={`${config.color} gap-1`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const handleAddUser = async () => {
     if (!newUser.firstName || !newUser.lastName || !newUser.email) {
       toast({
         title: "Missing Information",
@@ -76,7 +163,7 @@ export default function UserManagement({
       return;
     }
 
-    // Check for duplicate emails
+    // Check for duplicate emails in current list
     const allEmails = [...data.manualUsers, ...data.csvUsers].map(u => u.email.toLowerCase());
     if (allEmails.includes(newUser.email.toLowerCase())) {
       toast({
@@ -87,17 +174,66 @@ export default function UserManagement({
       return;
     }
 
-    onDataChange({
-      manualUsers: [...data.manualUsers, { ...newUser }]
-    });
+    setIsProcessingUsers(true);
 
-    setNewUser({ firstName: '', lastName: '', email: '', role: 'user' });
-    setShowAddUserForm(false);
+    try {
+      // Check if user already exists
+      const existingUsers = await checkExistingUsers([newUser.email]);
+      const userExists = existingUsers.includes(newUser.email.toLowerCase());
 
-    toast({
-      title: "User Added",
-      description: `${newUser.firstName} ${newUser.lastName} has been added`
-    });
+      let status: 'valid' | 'existing' | 'invited' | 'error' = 'valid';
+      let statusMessage = '';
+
+      if (userExists) {
+        status = 'existing';
+        statusMessage = 'User already exists in system';
+      } else if (editingTenantId) {
+        // If we're editing a tenant, create invitation
+        const result = await createInvitationAndSendEmail(newUser, editingTenantId);
+        if (result.success) {
+          status = 'invited';
+          statusMessage = 'Invitation sent successfully';
+        } else {
+          status = 'error';
+          statusMessage = result.error || 'Failed to send invitation';
+        }
+      }
+
+      const userWithStatus = {
+        ...newUser,
+        status,
+        statusMessage
+      };
+
+      onDataChange({
+        manualUsers: [...data.manualUsers, userWithStatus]
+      });
+
+      setNewUser({ firstName: '', lastName: '', email: '', role: 'user' });
+      setShowAddUserForm(false);
+
+      const messages = {
+        existing: `${newUser.firstName} ${newUser.lastName} already exists in the system`,
+        invited: `Invitation sent to ${newUser.firstName} ${newUser.lastName}`,
+        valid: `${newUser.firstName} ${newUser.lastName} has been added`,
+        error: `Failed to process ${newUser.firstName} ${newUser.lastName}: ${statusMessage}`
+      };
+
+      toast({
+        title: status === 'error' ? "Error" : "Success",
+        description: messages[status],
+        variant: status === 'error' ? "destructive" : "default"
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to process user: " + error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessingUsers(false);
+    }
   };
 
   const handleRemoveUser = (index: number, type: 'manual' | 'csv') => {
@@ -154,7 +290,7 @@ Mike,Johnson,mike.j@company.com,admin`;
     });
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -187,7 +323,7 @@ Mike,Johnson,mike.j@company.com,admin`;
       }
     };
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const csv = e.target?.result as string;
         const lines = csv.split('\n');
@@ -205,7 +341,7 @@ Mike,Johnson,mike.j@company.com,admin`;
         }
 
         const users = [];
-        const errors = [];
+        const emails = [];
 
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -213,10 +349,7 @@ Mike,Johnson,mike.j@company.com,admin`;
 
           const columns = line.split(',').map(col => col.trim());
           
-          if (columns.length < 4) {
-            errors.push(`Row ${i + 1}: Insufficient columns`);
-            continue;
-          }
+          if (columns.length < 4) continue;
 
           const firstName = columns[headerMap[0]]?.replace(/"/g, '') || '';
           const lastName = columns[headerMap[1]]?.replace(/"/g, '') || '';
@@ -235,7 +368,6 @@ Mike,Johnson,mike.j@company.com,admin`;
             error = 'Invalid email format';
           } else if (!ROLES.find(r => r.value === role)) {
             // Default to 'user' if role is invalid
-            // status remains 'valid'
           }
 
           users.push({
@@ -246,6 +378,40 @@ Mike,Johnson,mike.j@company.com,admin`;
             status,
             error
           });
+
+          if (status === 'valid') {
+            emails.push(email);
+          }
+        }
+
+        // Check which users already exist
+        if (emails.length > 0) {
+          setUploadProgress(50);
+          const existingEmails = await checkExistingUsers(emails);
+          
+          // Update user statuses and send invitations if editing a tenant
+          for (let user of users) {
+            if (user.status === 'valid') {
+              if (existingEmails.includes(user.email.toLowerCase())) {
+                user.status = 'existing';
+                user.statusMessage = 'User already exists in system';
+              } else if (editingTenantId) {
+                try {
+                  const result = await createInvitationAndSendEmail(user, editingTenantId);
+                  if (result.success) {
+                    user.status = 'invited';
+                    user.statusMessage = 'Invitation sent successfully';
+                  } else {
+                    user.status = 'error';
+                    user.statusMessage = result.error || 'Failed to send invitation';
+                  }
+                } catch (error: any) {
+                  user.status = 'error';
+                  user.statusMessage = 'Failed to send invitation';
+                }
+              }
+            }
+          }
         }
 
         onDataChange({ csvUsers: users });
@@ -257,11 +423,13 @@ Mike,Johnson,mike.j@company.com,admin`;
         }, 500);
 
         const validCount = users.filter(u => u.status === 'valid').length;
+        const existingCount = users.filter(u => u.status === 'existing').length;
+        const invitedCount = users.filter(u => u.status === 'invited').length;
         const errorCount = users.filter(u => u.status === 'error').length;
 
         toast({
           title: "CSV Processed",
-          description: `${validCount} valid users, ${errorCount} errors found`,
+          description: `${validCount} valid, ${existingCount} existing, ${invitedCount} invited, ${errorCount} errors`,
           variant: errorCount > 0 ? "destructive" : "default"
         });
 
@@ -299,8 +467,13 @@ Mike,Johnson,mike.j@company.com,admin`;
               onClick={() => setShowAddUserForm(true)}
               variant="outline"
               className="w-full border-dashed border-2 h-12"
+              disabled={isProcessingUsers}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              {isProcessingUsers ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
               Add User
             </Button>
           ) : (
@@ -336,8 +509,12 @@ Mike,Johnson,mike.j@company.com,admin`;
                 </Select>
               </div>
               <div className="col-span-2 md:col-span-4 flex gap-2">
-                <Button onClick={handleAddUser} size="sm">
-                  <Check className="w-4 h-4 mr-1" />
+                <Button onClick={handleAddUser} size="sm" disabled={isProcessingUsers}>
+                  {isProcessingUsers ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-1" />
+                  )}
                   Add User
                 </Button>
                 <Button 
@@ -367,6 +544,7 @@ Mike,Johnson,mike.j@company.com,admin`;
                       <Badge className={ROLES.find(r => r.value === user.role)?.color}>
                         {ROLES.find(r => r.value === user.role)?.label}
                       </Badge>
+                      {user.status && getStatusBadge(user)}
                     </div>
                     <Button
                       variant="ghost"
@@ -437,7 +615,7 @@ Mike,Johnson,mike.j@company.com,admin`;
             {isUploading && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span>Uploading...</span>
+                  <span>Processing users...</span>
                   <span>{Math.round(uploadProgress)}%</span>
                 </div>
                 <Progress value={uploadProgress} />
@@ -500,13 +678,12 @@ Mike,Johnson,mike.j@company.com,admin`;
                             </div>
                           </TableCell>
                           <TableCell>
-                            {user.status === 'valid' ? (
-                              <Badge className="bg-green-100 text-green-700">Valid</Badge>
-                            ) : (
-                              <div className="flex items-center gap-1">
-                                <AlertTriangle className="w-4 h-4 text-red-500" />
-                                <span className="text-red-600 text-xs">{user.error}</span>
-                              </div>
+                            {getStatusBadge(user)}
+                            {user.error && (
+                              <p className="text-xs text-red-600 mt-1">{user.error}</p>
+                            )}
+                            {user.statusMessage && (
+                              <p className="text-xs text-muted-foreground mt-1">{user.statusMessage}</p>
                             )}
                           </TableCell>
                           <TableCell>
@@ -530,41 +707,38 @@ Mike,Johnson,mike.j@company.com,admin`;
       </Card>
 
       {/* Summary */}
-      {totalUsers > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              User Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-primary/10 rounded-lg">
-                <div className="text-2xl font-bold text-primary">{totalUsers}</div>
-                <div className="text-sm text-muted-foreground">Total Users</div>
-              </div>
-              {ROLES.map(role => {
-                const count = allUsers.filter(u => u.role === role.value).length;
-                return (
-                  <div key={role.value} className="text-center p-4 bg-secondary rounded-lg">
-                    <div className="text-2xl font-bold">{count}</div>
-                    <div className="text-sm text-muted-foreground">{role.label}s</div>
-                  </div>
-                );
-              })}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 bg-accent rounded-lg">
+              <div className="text-2xl font-bold">{totalUsers}</div>
+              <div className="text-sm text-muted-foreground">Total Users</div>
             </div>
-            
-            {totalUsers > 0 && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-800">
-                  ✓ {totalUsers} users will receive invitation emails after tenant creation
-                </p>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {[...data.manualUsers, ...data.csvUsers].filter(u => u.status === 'invited').length}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <div className="text-sm text-muted-foreground">Invitations Sent</div>
+            </div>
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {[...data.manualUsers, ...data.csvUsers].filter(u => u.status === 'existing').length}
+              </div>
+              <div className="text-sm text-muted-foreground">Existing Users</div>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">{errorCount}</div>
+              <div className="text-sm text-muted-foreground">Errors</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -49,8 +49,9 @@ export interface TenantFormData {
     email: string;
     role: string;
     roles?: string[];
-    status?: 'valid' | 'error' | 'duplicate';
+    status?: 'valid' | 'error' | 'duplicate' | 'existing' | 'invited';
     errorMessage?: string;
+    statusMessage?: string;
   }>;
   csvUsers: Array<{
     firstName: string;
@@ -58,8 +59,9 @@ export interface TenantFormData {
     email: string;
     role: string;
     roles?: string[];
-    status: 'valid' | 'error' | 'duplicate';
+    status: 'valid' | 'error' | 'duplicate' | 'existing' | 'invited';
     errorMessage?: string;
+    statusMessage?: string;
     error?: string;
   }>;
   teamMembers: Array<{
@@ -68,8 +70,9 @@ export interface TenantFormData {
     email: string;
     role: string;
     roles?: string[];
-    status?: 'valid' | 'error' | 'duplicate';
+    status?: 'valid' | 'error' | 'duplicate' | 'existing' | 'invited';
     errorMessage?: string;
+    statusMessage?: string;
   }>;
   
   // Branding & Customization
