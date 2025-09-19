@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, Plus, Settings, Users, Trash2, Edit } from 'lucide-react';
+import { Building2, Plus, Settings, Users, Trash2, Edit, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { TenantCreationWizard } from '@/components/tenant/TenantCreationWizard';
@@ -21,7 +22,9 @@ interface Tenant {
 
 export default function TenantManagement() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [filteredTenants, setFilteredTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardMode, setWizardMode] = useState<'create' | 'edit'>('create');
@@ -59,6 +62,7 @@ export default function TenantManagement() {
       })) || [];
 
       setTenants(tenantsWithCounts);
+      setFilteredTenants(tenantsWithCounts);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -69,6 +73,21 @@ export default function TenantManagement() {
       setLoading(false);
     }
   };
+
+  // Filter tenants based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredTenants(tenants);
+    } else {
+      const filtered = tenants.filter((tenant) =>
+        tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenant.subdomain.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenant.settings?.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenant.settings?.industry?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredTenants(filtered);
+    }
+  }, [searchQuery, tenants]);
 
   const handleCreateTenant = () => {
     setWizardMode('create');
@@ -133,13 +152,38 @@ export default function TenantManagement() {
               Create Advanced Tenant
             </Button>
           </div>
+          
+          {/* Search Bar */}
+          <div className="mt-4">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tenants by name, subdomain, or industry..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
+        {/* Results Count */}
+        <div className="mb-4">
+          <p className="text-sm text-muted-foreground">
+            Showing {filteredTenants.length} of {tenants.length} tenant{tenants.length !== 1 ? 's' : ''}
+            {searchQuery && (
+              <span className="ml-1">
+                for "<span className="font-medium">{searchQuery}</span>"
+              </span>
+            )}
+          </p>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {tenants.map((tenant) => (
+          {filteredTenants.map((tenant) => (
             <Card key={tenant.id} className="relative">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -160,6 +204,11 @@ export default function TenantManagement() {
                   {tenant.settings?.description && (
                     <p className="text-sm text-muted-foreground">
                       {tenant.settings.description}
+                    </p>
+                  )}
+                  {tenant.settings?.industry && (
+                    <p className="text-xs text-muted-foreground capitalize">
+                      Industry: {tenant.settings.industry.replace('-', ' ')}
                     </p>
                   )}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -199,6 +248,23 @@ export default function TenantManagement() {
             </Card>
           ))}
         </div>
+
+        {filteredTenants.length === 0 && tenants.length > 0 && (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">No Results Found</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              No tenants match your search criteria. Try adjusting your search terms.
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => setSearchQuery('')}
+              className="gap-2"
+            >
+              Clear Search
+            </Button>
+          </div>
+        )}
 
         {tenants.length === 0 && (
           <div className="text-center py-12">

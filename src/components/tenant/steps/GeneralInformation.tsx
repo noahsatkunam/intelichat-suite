@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, XCircle, Loader2, Globe, Building } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { TenantFormData } from '../TenantCreationWizard';
@@ -167,6 +168,31 @@ export default function GeneralInformation({
                 />
               </div>
               <p className="text-xs text-muted-foreground">Your company's website or main URL</p>
+            </div>
+
+            {/* Industry */}
+            <div className="space-y-2">
+              <Label htmlFor="industry">Industry</Label>
+              <Select value={data.industry} onValueChange={(value) => onDataChange({ industry: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="technology">Technology</SelectItem>
+                  <SelectItem value="healthcare">Healthcare</SelectItem>
+                  <SelectItem value="finance">Finance</SelectItem>
+                  <SelectItem value="education">Education</SelectItem>
+                  <SelectItem value="retail">Retail</SelectItem>
+                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                  <SelectItem value="consulting">Consulting</SelectItem>
+                  <SelectItem value="media">Media & Entertainment</SelectItem>
+                  <SelectItem value="real-estate">Real Estate</SelectItem>
+                  <SelectItem value="government">Government</SelectItem>
+                  <SelectItem value="non-profit">Non-Profit</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Select the industry that best describes your organization</p>
             </div>
           </CardContent>
         </Card>
