@@ -6,6 +6,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { FileUpload } from './FileUpload';
 import { MessageSearch } from './MessageSearch';
 import { ReplyPreview } from './ReplyPreview';
+import { NewChatDialog, type ChatSettings } from './NewChatDialog';
 import { RelatedDocuments } from '@/components/knowledge/RelatedDocuments';
 import { KnowledgeSearchOverlay } from '@/components/knowledge/KnowledgeSearchOverlay';
 import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
@@ -54,6 +55,7 @@ export function ChatInterface() {
   const { user, session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentConversation, setCurrentConversation] = useState<string | null>(null);
+  const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -66,6 +68,7 @@ export function ChatInterface() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [lastSeenMessageId, setLastSeenMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -244,10 +247,20 @@ export function ChatInterface() {
               'Authorization': `Bearer ${session?.access_token}`,
             },
             body: JSON.stringify({
-              chatbot_id: null, // Default chatbot for now
+              chatbot_id: currentChatSettings?.chatbotId || null,
               message: content,
               conversation_id: conversationId,
               user_id: user?.id,
+              settings: currentChatSettings ? {
+                provider_id: currentChatSettings.providerId,
+                model: currentChatSettings.modelId,
+                temperature: currentChatSettings.temperature,
+                max_tokens: currentChatSettings.maxTokens,
+                top_p: currentChatSettings.topP,
+                frequency_penalty: currentChatSettings.frequencyPenalty,
+                presence_penalty: currentChatSettings.presencePenalty,
+                system_prompt: currentChatSettings.systemPrompt
+              } : undefined
             }),
           });
 
@@ -326,15 +339,20 @@ export function ChatInterface() {
     setShowClearConfirm(false);
   };
 
-  const handleNewChat = async () => {
-    const newConversationId = await createNewConversation();
-    if (newConversationId) {
-      setMessages([]);
-      setReplyingTo(null);
-      setSearchQuery('');
-      setUnreadCount(0);
-      setLastSeenMessageId(null);
-    }
+  const handleNewChat = () => {
+    setShowNewChatDialog(true);
+  };
+
+  const handleChatCreated = (conversationId: string, settings: ChatSettings) => {
+    setCurrentConversation(conversationId);
+    setCurrentChatSettings(settings);
+    setMessages([]);
+    setReplyingTo(null);
+    setSearchQuery('');
+    setUnreadCount(0);
+    setLastSeenMessageId(null);
+    
+    toast.success(`Chat created with ${settings.providerName || settings.modelName || 'AI'}`);
   };
 
   const filteredMessages = messages.filter(msg =>
@@ -548,11 +566,17 @@ export function ChatInterface() {
       {showHelp && (
         <KeyboardShortcutsHelp
           isOpen={showHelp}
-          shortcuts={shortcuts}
           onClose={() => setShowHelp(false)}
+          shortcuts={shortcuts}
           getShortcutDisplay={getShortcutDisplay}
         />
       )}
+
+      <NewChatDialog
+        open={showNewChatDialog}
+        onOpenChange={setShowNewChatDialog}
+        onChatCreated={handleChatCreated}
+      />
     </LoadingOverlay>
   );
 }
