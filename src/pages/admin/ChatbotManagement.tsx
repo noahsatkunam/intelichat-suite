@@ -225,7 +225,7 @@ export default function ChatbotManagement() {
       const { data, error } = await supabase
         .from('documents')
         .select('id, filename, status')
-        .eq('status', 'processed')
+        .in('status', ['ready', 'processed'])
         .order('filename');
 
       if (error) throw error;
