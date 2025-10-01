@@ -17,21 +17,23 @@ export default function Settings() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Load first and last name from profile
+  // Load profile data including avatar
   React.useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('first_name, last_name')
+        .select('first_name, last_name, avatar_url')
         .eq('id', user.id)
         .maybeSingle();
       
       if (data && !error) {
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
+        setAvatarUrl(data.avatar_url);
       }
     };
     
@@ -89,13 +91,16 @@ export default function Settings() {
 
     setIsUploading(true);
     try {
-      // Upload to Supabase storage
+      // Upload to Supabase storage with user folder for RLS
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}.${fileExt}`;
+      const fileName = `${user.id}/avatar.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { 
+          upsert: true,
+          contentType: file.type 
+        });
 
       if (uploadError) throw uploadError;
 
@@ -104,12 +109,19 @@ export default function Settings() {
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Update user metadata
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      });
+      // Add cache busting parameter
+      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
+
+      // Update profiles table
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: cacheBustedUrl })
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
+
+      // Update local state
+      setAvatarUrl(cacheBustedUrl);
 
       toast({
         title: "Success",
@@ -157,7 +169,7 @@ export default function Settings() {
               </div>
               <div className="flex items-center gap-3">
                 <Avatar className="w-12 h-12">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="Profile" />
+                  <AvatarImage src={avatarUrl || undefined} alt="Profile" />
                   <AvatarFallback className="bg-gradient-primary text-primary-foreground">
                     {getUserInitials(user?.email || '')}
                   </AvatarFallback>
@@ -172,7 +184,7 @@ export default function Settings() {
                   <Input
                     id="avatar-upload"
                     type="file"
-                    accept="image/jpeg,image/jpg,application/pdf"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
                     onChange={handleAvatarUpload}
                     className="hidden"
                   />
