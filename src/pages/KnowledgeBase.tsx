@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, BookOpen, FileText, Video, Link2, Download, Plus, Filter, Trash2 } from 'lucide-react';
+import { Search, BookOpen, FileText, Video, Link2, Download, Plus, Filter, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
 import { useToast } from '@/hooks/use-toast';
 
@@ -55,10 +64,15 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
+  const [editTenantDialogOpen, setEditTenantDialogOpen] = useState(false);
+  const [documentToEdit, setDocumentToEdit] = useState<KnowledgeDocument | null>(null);
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     loadDocuments();
+    loadTenants();
   }, []);
 
   const loadDocuments = async () => {
@@ -98,6 +112,20 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
       setDocuments([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
     }
   };
 
@@ -168,6 +196,44 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const handleDeleteClick = (doc: KnowledgeDocument) => {
     setDocumentToDelete(doc);
     setDeleteDialogOpen(true);
+  };
+
+  const handleEditTenantClick = (doc: KnowledgeDocument) => {
+    setDocumentToEdit(doc);
+    setSelectedTenantId(doc.tenant_id || '');
+    setEditTenantDialogOpen(true);
+  };
+
+  const handleTenantUpdate = async () => {
+    if (!documentToEdit) return;
+
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ tenant_id: selectedTenantId || null })
+        .eq('id', documentToEdit.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Document tenant updated successfully"
+      });
+
+      // Reload documents
+      loadDocuments();
+    } catch (error: any) {
+      console.error('Update error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update document tenant",
+        variant: "destructive"
+      });
+    } finally {
+      setEditTenantDialogOpen(false);
+      setDocumentToEdit(null);
+      setSelectedTenantId('');
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -342,9 +408,29 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                           {doc.description}
                         </p>
                         <div className="flex flex-wrap gap-2 mb-4">
-                          {doc.tenant_name && (
-                            <Badge variant="default" className="text-xs">
+                          {doc.tenant_name ? (
+                            <Badge 
+                              variant="default" 
+                              className="text-xs cursor-pointer hover:opacity-80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditTenantClick(doc);
+                              }}
+                            >
                               {doc.tenant_name}
+                              <Edit className="w-3 h-3 ml-1" />
+                            </Badge>
+                          ) : (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-accent"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditTenantClick(doc);
+                              }}
+                            >
+                              Add Tenant
+                              <Plus className="w-3 h-3 ml-1" />
                             </Badge>
                           )}
                           <Badge variant="secondary" className="text-xs">
@@ -415,6 +501,59 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Tenant Dialog */}
+      <Dialog open={editTenantDialogOpen} onOpenChange={setEditTenantDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Document Tenant</DialogTitle>
+            <DialogDescription>
+              Assign or change the tenant tag for "{documentToEdit?.title}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="tenant-select">Tenant</Label>
+              <Select 
+                value={selectedTenantId} 
+                onValueChange={setSelectedTenantId}
+              >
+                <SelectTrigger id="tenant-select">
+                  <SelectValue placeholder="Select a tenant or leave unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No Tenant (Unassigned)</SelectItem>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Documents can be tagged with a tenant for organization purposes
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setEditTenantDialogOpen(false);
+                setDocumentToEdit(null);
+                setSelectedTenantId('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleTenantUpdate}>
+              Update
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
