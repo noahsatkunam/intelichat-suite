@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Settings as SettingsIcon, User, Shield, Camera } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Shield, Palette, Database, Code, Camera } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -71,7 +71,7 @@ export default function Settings() {
       <div>
         <h1 className="text-3xl font-bold font-display">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Configure your Zyria platform preferences
+          Configure your Zyria platform preferences and development options
         </p>
       </div>
 
@@ -125,6 +125,22 @@ export default function Settings() {
               </div>
               <ThemeToggle />
             </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Notifications</h4>
+                <p className="text-sm text-muted-foreground">Email notifications for important events</p>
+              </div>
+              <Badge variant="secondary">Coming Soon</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Language</h4>
+                <p className="text-sm text-muted-foreground">Interface language preference</p>
+              </div>
+              <Badge variant="outline">English</Badge>
+            </div>
           </CardContent>
         </Card>
 
@@ -152,12 +168,90 @@ export default function Settings() {
             
             <div className="flex items-center justify-between">
               <div>
+                <h4 className="font-medium">Session Management</h4>
+                <p className="text-sm text-muted-foreground">Manage active sessions</p>
+              </div>
+              <Button variant="outline" size="sm">
+                View Sessions
+              </Button>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
                 <h4 className="font-medium">Data Export</h4>
                 <p className="text-sm text-muted-foreground">Download your conversation history</p>
               </div>
               <Button variant="outline" size="sm">
                 Export Data
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Appearance */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5 text-primary" />
+              Appearance
+            </CardTitle>
+            <CardDescription>
+              Customize the look and feel of your interface
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Compact Mode</h4>
+                <p className="text-sm text-muted-foreground">Reduce spacing for more content</p>
+              </div>
+              <Badge variant="secondary">Coming Soon</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Message Density</h4>
+                <p className="text-sm text-muted-foreground">Adjust message spacing</p>
+              </div>
+              <Badge variant="outline">Normal</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Animations</h4>
+                <p className="text-sm text-muted-foreground">Enable smooth transitions</p>
+              </div>
+              <Badge variant="default">Enabled</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Development Settings */}
+        <Card className="interactive-element">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Code className="w-5 h-5 text-primary" />
+              Developer Options
+            </CardTitle>
+            <CardDescription>
+              Development and debugging options
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Debug Mode</h4>
+                <p className="text-sm text-muted-foreground">Show detailed logs and information</p>
+              </div>
+              <Badge variant="secondary">Available in Dev</Badge>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Performance Monitoring</h4>
+                <p className="text-sm text-muted-foreground">Track app performance metrics</p>
+              </div>
+              <Badge variant="outline">Enabled</Badge>
             </div>
           </CardContent>
         </Card>
