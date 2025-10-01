@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { conversationService } from '@/services/conversationService';
 import { Search, Filter, Calendar, Folder, MessageSquare, Clock, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,64 +14,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
-const mockChatHistory = [
-  {
-    id: '1',
-    title: 'Enterprise AI Integration Strategy',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    messageCount: 45,
-    category: 'Strategy',
-    starred: true,
-    participants: ['John Doe', 'Zyria'],
-    lastMessage: 'Thank you for the comprehensive analysis of our AI integration roadmap.',
-  },
-  {
-    id: '2',
-    title: 'Database Migration Troubleshooting',
-    timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-    messageCount: 23,
-    category: 'Technical',
-    starred: false,
-    participants: ['John Doe', 'Zyria'],
-    lastMessage: 'The migration script should handle the schema changes automatically.',
-  },
-  {
-    id: '3',
-    title: 'Security Compliance Review',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    messageCount: 67,
-    category: 'Compliance',
-    starred: true,
-    participants: ['John Doe', 'Zyria'],
-    lastMessage: 'All security protocols are now aligned with SOC 2 Type II requirements.',
-  },
-  {
-    id: '4',
-    title: 'API Documentation Standards',
-    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    messageCount: 34,
-    category: 'Documentation',
-    starred: false,
-    participants: ['John Doe', 'Zyria'],
-    lastMessage: 'The OpenAPI specification has been updated with the new endpoints.',
-  },
-  {
-    id: '5',
-    title: 'Performance Optimization Guide',
-    timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    messageCount: 56,
-    category: 'Performance',
-    starred: false,
-    participants: ['John Doe', 'Zyria'],
-    lastMessage: 'Implementing these changes should improve response times by 40%.',
-  },
-];
+interface ChatHistoryItem {
+  id: string;
+  title: string;
+  timestamp: Date;
+  messageCount: number;
+  category: string;
+  starred: boolean;
+  participants: string[];
+  lastMessage: string;
+}
 
 export default function ChatHistory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedTimeframe, setSelectedTimeframe] = useState('all');
+  const [chats, setChats] = useState<ChatHistoryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const categories = ['all', 'Strategy', 'Technical', 'Compliance', 'Documentation', 'Performance'];
   const timeframes = [
@@ -78,7 +44,49 @@ export default function ChatHistory() {
     { value: 'month', label: 'This Month' },
   ];
 
-  const filteredChats = mockChatHistory.filter(chat => {
+  useEffect(() => {
+    loadChatHistory();
+  }, []);
+
+  const loadChatHistory = async () => {
+    try {
+      setIsLoading(true);
+      const conversations = await conversationService.getConversations();
+      
+      // Transform conversations to chat history format
+      const transformedChats: ChatHistoryItem[] = await Promise.all(
+        conversations.map(async (conv) => {
+          // Get message count for each conversation
+          const messages = await conversationService.getMessages(conv.id);
+          const lastMessage = messages.length > 0 ? messages[messages.length - 1]?.content : 'No messages yet';
+          
+          return {
+            id: conv.id,
+            title: conv.title,
+            timestamp: new Date(conv.updated_at || conv.created_at),
+            messageCount: messages.length,
+            category: 'General',
+            starred: false,
+            participants: ['You', 'Zyria'],
+            lastMessage: lastMessage?.substring(0, 100) || 'No messages yet',
+          };
+        })
+      );
+      
+      setChats(transformedChats);
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load chat history',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredChats = chats.filter(chat => {
     const matchesSearch = searchQuery === '' || 
       chat.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase());
@@ -87,6 +95,23 @@ export default function ChatHistory() {
     
     return matchesSearch && matchesCategory;
   });
+
+  const handleDeleteChat = async (chatId: string) => {
+    try {
+      await conversationService.deleteConversation(chatId);
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      toast({
+        title: 'Success',
+        description: 'Conversation deleted successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete conversation',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const formatTimestamp = (date: Date) => {
     const now = new Date();
@@ -167,7 +192,12 @@ export default function ChatHistory() {
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto p-6">
-        {filteredChats.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <MessageSquare className="w-16 h-16 text-muted-foreground mb-4 animate-pulse" />
+            <p className="text-muted-foreground">Loading conversations...</p>
+          </div>
+        ) : filteredChats.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <MessageSquare className="w-16 h-16 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">No conversations found</h3>
@@ -181,6 +211,7 @@ export default function ChatHistory() {
               <Card 
                 key={chat.id} 
                 className="hover:shadow-medium transition-all duration-200 cursor-pointer group border-border bg-card"
+                onClick={() => navigate(`/chat/${chat.id}`)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -204,6 +235,10 @@ export default function ChatHistory() {
                         variant="ghost"
                         size="sm"
                         className={`h-8 w-8 p-0 ${chat.starred ? 'text-yellow-500 hover:text-yellow-600' : 'text-muted-foreground hover:text-foreground'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Toggle star logic would go here
+                        }}
                       >
                         <Star className={`w-4 h-4 ${chat.starred ? 'fill-current' : ''}`} />
                       </Button>
@@ -211,6 +246,10 @@ export default function ChatHistory() {
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteChat(chat.id);
+                        }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

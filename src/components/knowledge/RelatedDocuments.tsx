@@ -19,41 +19,7 @@ interface RelatedDocumentsProps {
   onDocumentSelect: (document: Document) => void;
 }
 
-const mockRelatedDocs: Document[] = [
-  {
-    id: '1',
-    title: 'Security Implementation Guide',
-    type: 'PDF',
-    relevance: 94,
-    lastAccessed: '2 hours ago',
-    snippet: 'Enterprise security best practices and implementation guidelines...'
-  },
-  {
-    id: '2',
-    title: 'API Authentication Standards',
-    type: 'DOCX',
-    relevance: 87,
-    lastAccessed: '1 day ago',
-    snippet: 'OAuth 2.0 and JWT implementation for secure API access...'
-  },
-  {
-    id: '3',
-    title: 'Database Security Checklist',
-    type: 'PDF',
-    relevance: 82,
-    snippet: 'Comprehensive database security audit and compliance checklist...'
-  },
-  {
-    id: '4',
-    title: 'Incident Response Procedures',
-    type: 'DOCX',
-    relevance: 76,
-    lastAccessed: '3 days ago',
-    snippet: 'Step-by-step procedures for security incident response and recovery...'
-  }
-];
-
-export function RelatedDocuments({ documents = mockRelatedDocs, onDocumentSelect }: RelatedDocumentsProps) {
+export function RelatedDocuments({ documents = [], onDocumentSelect }: RelatedDocumentsProps) {
   const getTypeIcon = (type: string) => {
     return <FileText className="w-4 h-4 text-muted-foreground" />;
   };
