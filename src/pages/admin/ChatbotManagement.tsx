@@ -366,7 +366,7 @@ export default function ChatbotManagement() {
             file_url: publicUrl,
             uploaded_by: user.id,
             tenant_id: profile.tenant_id,
-            status: 'processed',
+            status: 'ready',
             content: `Uploaded via chatbot configuration - ${file.name}`
           })
           .select()
