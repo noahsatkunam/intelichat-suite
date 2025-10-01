@@ -240,13 +240,16 @@ export default function ChatbotManagement() {
   };
 
   const handleCreateChatbot = () => {
+    // Find OpenAI provider
+    const openAIProvider = providers.find(p => p.type.toLowerCase() === 'openai');
+    
     form.reset({
       name: '',
       description: '',
       system_prompt: '',
-      primary_ai_provider_id: '',
+      primary_ai_provider_id: openAIProvider?.id || '',
       fallback_ai_provider_id: '',
-      model_name: '',
+      model_name: 'gpt-4o',
       fallback_model_name: '',
       temperature: 0.7,
       max_tokens: 1000,
