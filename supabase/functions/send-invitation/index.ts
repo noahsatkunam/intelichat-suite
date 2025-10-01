@@ -163,7 +163,12 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteUrl}" class="cta-button">Accept Invitation & Create Account</a>
+              <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px;">Accept Invitation &amp; Create Account</a>
+            </div>
+            
+            <div style="text-align: center; margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Or copy and paste this link in your browser:</p>
+              <a href="${inviteUrl}" style="color: #667eea; word-break: break-all; font-size: 14px;">${inviteUrl}</a>
             </div>
             
             <div class="security-note">
