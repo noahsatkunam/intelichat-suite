@@ -4,6 +4,7 @@ import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -598,8 +599,13 @@ export default function ChatbotManagement() {
             <Card key={chatbot.id} className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-6 h-6 text-primary" />
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={chatbot.avatar_url || ''} alt={chatbot.name} />
+                      <AvatarFallback>
+                        <Bot className="w-5 h-5 text-primary" />
+                      </AvatarFallback>
+                    </Avatar>
                     <div>
                       <CardTitle className="text-lg">{chatbot.name}</CardTitle>
                       <CardDescription className="line-clamp-2">
