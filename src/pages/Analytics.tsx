@@ -212,7 +212,7 @@ export default function Analytics() {
 
             {/* Trends */}
             <div className="grid gap-6 md:grid-cols-2">
-              <Card>
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
                 <CardHeader>
                   <CardTitle className="text-lg">Message Trends</CardTitle>
                   <p className="text-sm text-muted-foreground">Messages over the last 7 days</p>
@@ -241,7 +241,7 @@ export default function Analytics() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
                 <CardHeader>
                   <CardTitle className="text-lg">Conversation Trends</CardTitle>
                   <p className="text-sm text-muted-foreground">New conversations over the last 7 days</p>
