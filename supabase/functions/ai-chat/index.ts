@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
@@ -17,7 +18,9 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { chatbot_id, message, conversation_id, user_id } = await req.json();
+    const { chatbot_id, message, conversation_id, attachments } = await req.json();
+
+    console.log('Processing chat request:', { chatbot_id, conversation_id, has_attachments: !!attachments });
 
     // Get chatbot configuration
     const { data: chatbot, error: chatbotError } = await supabase
@@ -28,6 +31,7 @@ serve(async (req) => {
       .single();
 
     if (chatbotError || !chatbot) {
+      console.error('Chatbot error:', chatbotError);
       throw new Error('Chatbot not found or inactive');
     }
 
@@ -35,101 +39,107 @@ serve(async (req) => {
     const { data: knowledgeDocs } = await supabase
       .from('chatbot_knowledge')
       .select(`
+        document_id,
         documents:document_id (
           id,
           filename,
-          content
+          content,
+          file_url
         )
       `)
       .eq('chatbot_id', chatbot_id);
 
-    // Build enhanced system prompt with knowledge base
-    let enhancedSystemPrompt = chatbot.system_prompt || 'You are a helpful AI assistant.';
+    console.log('Knowledge base docs:', knowledgeDocs?.length || 0);
+
+    // Build context from knowledge base
+    let knowledgeContext = '';
     const citations: Array<{ title: string; url?: string }> = [];
-
+    
     if (knowledgeDocs && knowledgeDocs.length > 0) {
-      const knowledgeContext = knowledgeDocs
-        .map((item: any) => {
-          const doc = item.documents;
-          if (doc && doc.content) {
-            citations.push({ title: doc.filename });
-            return `Document: ${doc.filename}\n${doc.content}`;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join('\n\n');
-
-      if (knowledgeContext) {
-        enhancedSystemPrompt += `\n\n## Knowledge Base\nUse the following documents to answer questions when relevant:\n\n${knowledgeContext}`;
+      knowledgeContext = '\n\nKnowledge Base Context:\n';
+      for (const doc of knowledgeDocs) {
+        const document = (doc as any).documents;
+        if (document && document.content) {
+          knowledgeContext += `\nDocument: ${document.filename}\nContent: ${document.content.substring(0, 1000)}\n`;
+          citations.push({
+            title: document.filename,
+            url: document.file_url
+          });
+        }
       }
     }
 
-    let response = '';
-    let model_used = 'google/gemini-2.5-flash';
-    let success = true;
-    let error_message = '';
-    const start_time = Date.now();
+    // Prepare system prompt with knowledge base
+    const systemPrompt = `${chatbot.system_prompt || 'You are a helpful AI assistant.'}\n${knowledgeContext}`;
 
-    try {
-      // Call Lovable AI Gateway
-      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${lovableApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: model_used,
-          messages: [
-            { role: 'system', content: enhancedSystemPrompt },
-            { role: 'user', content: message }
-          ],
-        }),
-      });
+    console.log('Calling Lovable AI with model:', chatbot.model_name || 'google/gemini-2.5-flash');
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error('Lovable AI error:', aiResponse.status, errorText);
-        
-        if (aiResponse.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again in a moment.');
-        }
-        if (aiResponse.status === 402) {
-          throw new Error('AI credits depleted. Please add credits to your workspace.');
-        }
-        throw new Error(`AI service error: ${aiResponse.status}`);
+    // Call Lovable AI Gateway
+    const startTime = Date.now();
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: chatbot.model_name || 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        max_tokens: chatbot.max_tokens || 1000,
+        temperature: chatbot.temperature || 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again in a moment.');
       }
-
-      const data = await aiResponse.json();
-      response = data.choices[0].message.content;
-
-    } catch (error) {
-      success = false;
-      error_message = error instanceof Error ? error.message : 'Unknown error';
-      response = error instanceof Error ? error.message : 'I apologize, but I\'m experiencing technical difficulties. Please try again later.';
-      console.error('AI chat error:', error);
+      if (response.status === 402) {
+        throw new Error('AI credits depleted. Please add credits to your workspace.');
+      }
+      throw new Error(`AI service error: ${response.status}`);
     }
 
-    const response_time = Date.now() - start_time;
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
+    const responseTime = Date.now() - startTime;
+
+    console.log('AI response received, time:', responseTime, 'ms');
+
+    // Get user from auth header
+    const authHeader = req.headers.get('authorization');
+    let userId = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      const { data: { user } } = await supabase.auth.getUser(token);
+      userId = user?.id;
+    }
 
     // Log usage
-    await supabase
-      .from('chatbot_usage')
-      .insert({
-        chatbot_id,
-        user_id,
-        ai_provider_id: null,
-        model_used,
-        response_time_ms: response_time,
-        success,
-        error_message: error_message || null
-      });
+    if (userId) {
+      await supabase
+        .from('chatbot_usage')
+        .insert({
+          chatbot_id,
+          user_id: userId,
+          ai_provider_id: null,
+          model_used: chatbot.model_name || 'google/gemini-2.5-flash',
+          response_time_ms: responseTime,
+          success: true,
+        });
+    }
 
     return new Response(JSON.stringify({
-      response,
-      model: model_used,
-      response_time_ms: response_time,
+      response: aiResponse,
+      provider_name: 'Lovable AI',
+      model: chatbot.model_name || 'google/gemini-2.5-flash',
+      response_time_ms: responseTime,
       citations: citations.length > 0 ? citations : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

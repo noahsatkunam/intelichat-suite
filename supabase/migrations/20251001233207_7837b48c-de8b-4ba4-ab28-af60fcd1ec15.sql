@@ -1,9 +1,11 @@
--- Fix conversations RLS policy to allow inserts
+-- Fix conversations RLS policy to allow users to create conversations
+-- Drop existing policies
 DROP POLICY IF EXISTS "Users can create own conversations" ON conversations;
 
-CREATE POLICY "Users can create own conversations"
-ON conversations
-FOR INSERT
+-- Recreate with proper check
+CREATE POLICY "Users can create own conversations" 
+ON conversations 
+FOR INSERT 
 WITH CHECK (
   user_id = auth.uid() 
   AND (

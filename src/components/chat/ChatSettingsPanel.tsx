@@ -201,7 +201,7 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
     : [];
 
   return (
-    <div className="w-96 border-l bg-card/30 backdrop-blur-sm flex flex-col h-screen">
+    <div className="w-96 border-l bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">

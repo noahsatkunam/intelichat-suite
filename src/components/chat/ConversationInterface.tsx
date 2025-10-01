@@ -256,9 +256,9 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -351,11 +351,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
       {/* Settings Panel */}
       {isPanelOpen && (
-        <ChatSettingsPanel
-          chatbotId={chatbotId}
-          isAdmin={isAdmin()}
-          onClose={() => setIsPanelOpen(false)}
-        />
+        <div className="flex-shrink-0">
+          <ChatSettingsPanel
+            chatbotId={chatbotId}
+            isAdmin={isAdmin()}
+            onClose={() => setIsPanelOpen(false)}
+          />
+        </div>
       )}
     </div>
   );
