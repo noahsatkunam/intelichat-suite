@@ -19,6 +19,57 @@ export default function Settings() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // Image prep: validate & downscale large images
+  const prepareImageForUpload = async (file: File): Promise<{ blob: Blob; ext: string; mime: string }> => {
+    const MAX_FILE_SIZE_MB = 5; // hard cap
+    const MAX_DIMENSION = 512; // avatars don't need to be huge
+
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Please upload a valid image file.');
+    }
+
+    // If under size limit, keep original
+    if (file.size <= MAX_FILE_SIZE_MB * 1024 * 1024) {
+      const mime = file.type;
+      const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+      return { blob: file, ext, mime };
+    }
+
+    // Downscale via canvas
+    const imgDataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = imgDataUrl;
+    });
+
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas not supported');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // Prefer PNG for transparency, else JPEG
+    const preferPng = file.type === 'image/png' || file.type === 'image/webp';
+    const mime = preferPng ? 'image/png' : 'image/jpeg';
+    const quality = preferPng ? 1.0 : 0.9;
+
+    const blob: Blob = await new Promise((resolve) => canvas.toBlob(b => resolve(b as Blob), mime, quality));
+    const ext = mime === 'image/png' ? 'png' : 'jpg';
+    return { blob, ext, mime };
+  };
+
   // Load profile data including avatar
   React.useEffect(() => {
     const loadProfile = async () => {
@@ -33,7 +84,9 @@ export default function Settings() {
       if (data && !error) {
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
-        setAvatarUrl(data.avatar_url);
+        setAvatarUrl(data.avatar_url || (user.user_metadata?.avatar_url ?? null));
+      } else {
+        setAvatarUrl(user.user_metadata?.avatar_url ?? null);
       }
     };
     
