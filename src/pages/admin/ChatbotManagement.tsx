@@ -77,6 +77,7 @@ const chatbotSchema = z.object({
   primary_ai_provider_id: z.string().min(1, 'Primary provider is required'),
   fallback_ai_provider_id: z.string().optional(),
   model_name: z.string().min(1, 'Model is required'),
+  fallback_model_name: z.string().optional(),
   temperature: z.number().min(0).max(2),
   max_tokens: z.number().min(1).max(32000),
   top_p: z.number().min(0).max(1),
@@ -115,6 +116,7 @@ export default function ChatbotManagement() {
       primary_ai_provider_id: '',
       fallback_ai_provider_id: '',
       model_name: '',
+      fallback_model_name: '',
       temperature: 0.7,
       max_tokens: 1000,
       top_p: 1.0,
@@ -128,6 +130,9 @@ export default function ChatbotManagement() {
 
   const selectedProviderType = providers.find(p => p.id === form.watch('primary_ai_provider_id'))?.type;
   const modelsForProvider = availableModels.filter(m => m.provider_type === selectedProviderType);
+  
+  const fallbackProviderType = providers.find(p => p.id === form.watch('fallback_ai_provider_id'))?.type;
+  const modelsForFallbackProvider = availableModels.filter(m => m.provider_type === fallbackProviderType);
 
   useEffect(() => {
     fetchChatbots();
@@ -242,6 +247,7 @@ export default function ChatbotManagement() {
       primary_ai_provider_id: '',
       fallback_ai_provider_id: '',
       model_name: '',
+      fallback_model_name: '',
       temperature: 0.7,
       max_tokens: 1000,
       top_p: 1.0,
@@ -281,6 +287,7 @@ export default function ChatbotManagement() {
       primary_ai_provider_id: chatbot.primary_ai_provider_id || '',
       fallback_ai_provider_id: chatbot.fallback_ai_provider_id || '',
       model_name: chatbot.model_name || '',
+      fallback_model_name: (chatbot as any).fallback_model_name || '',
       temperature: chatbot.temperature || 0.7,
       max_tokens: chatbot.max_tokens || 1000,
       top_p: chatbot.top_p || 1.0,
@@ -420,6 +427,7 @@ export default function ChatbotManagement() {
         primary_ai_provider_id: data.primary_ai_provider_id,
         fallback_ai_provider_id: data.fallback_ai_provider_id || null,
         model_name: data.model_name,
+        fallback_model_name: data.fallback_model_name || null,
         temperature: data.temperature,
         max_tokens: data.max_tokens,
         top_p: data.top_p,
@@ -912,7 +920,10 @@ export default function ChatbotManagement() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Fallback Provider (Optional)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || undefined}>
+                          <Select onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue('fallback_model_name', '');
+                          }} value={field.value || undefined}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="None (Optional)" />
@@ -936,6 +947,42 @@ export default function ChatbotManagement() {
                         </FormItem>
                       )}
                     />
+
+                    {/* Fallback Model Selection */}
+                    {form.watch('fallback_ai_provider_id') && (
+                      <FormField
+                        control={form.control}
+                        name="fallback_model_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fallback Model (Optional)</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || undefined} disabled={!fallbackProviderType}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={fallbackProviderType ? "Select fallback model" : "Select provider first"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {modelsForFallbackProvider.map((model) => (
+                                  <SelectItem key={model.id} value={model.model_name}>
+                                    <div className="space-y-1">
+                                      <div className="font-medium">{model.display_name}</div>
+                                      {model.description && (
+                                        <div className="text-xs text-muted-foreground">{model.description}</div>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Model to use when falling back to backup provider
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
                 )}
 

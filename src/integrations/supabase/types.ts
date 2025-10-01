@@ -281,6 +281,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           fallback_ai_provider_id: string | null
+          fallback_model_name: string | null
           frequency_penalty: number | null
           id: string
           is_active: boolean
@@ -300,6 +301,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          fallback_model_name?: string | null
           frequency_penalty?: number | null
           id?: string
           is_active?: boolean
@@ -319,6 +321,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          fallback_model_name?: string | null
           frequency_penalty?: number | null
           id?: string
           is_active?: boolean
