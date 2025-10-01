@@ -234,7 +234,7 @@ export default function UserManagement() {
   };
 
   const downloadTemplate = () => {
-    const csvTemplate = 'First Name,Last Name,Email,Role,Department,Tenant ID\nJohn,Doe,john@example.com,user,Engineering,\nJane,Smith,jane@example.com,tenant_admin,Marketing,e86569fd-0789-4819-9904-00250da53159\n';
+    const csvTemplate = 'First Name,Last Name,Email,Role,Department,Tenant\nJohn,Doe,john@example.com,user,Engineering,\nJane,Smith,jane@example.com,tenant_admin,Marketing,Northstar Technology Group\n';
     const blob = new Blob([csvTemplate], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -252,10 +252,10 @@ export default function UserManagement() {
   };
 
   const exportUsers = () => {
-    const csvHeaders = 'First Name,Last Name,Email,Role,Department,Tenant,Tenant ID\n';
+    const csvHeaders = 'First Name,Last Name,Email,Role,Department,Tenant\n';
     const csvRows = filteredUsers.map(user => {
       const [firstName = '', lastName = ''] = user.name.split(' ');
-      return `${firstName},${lastName},${user.email},${user.role},${user.department},${user.tenant_name || ''},${user.tenant_id || ''}`;
+      return `${firstName},${lastName},${user.email},${user.role},${user.department},${user.tenant_name || ''}`;
     }).join('\n');
     
     const csvContent = csvHeaders + csvRows;
@@ -305,12 +305,12 @@ export default function UserManagement() {
       }
 
       const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-      const requiredHeaders = ['first name', 'last name', 'email', 'role'];
+      const requiredHeaders = ['first name', 'last name', 'email'];
       
       if (!requiredHeaders.every(header => headers.some(h => h.includes(header.replace(' ', ''))))) {
         toast({
           title: 'Invalid Headers',
-          description: 'CSV must contain: First Name, Last Name, Email, Role columns',
+          description: 'CSV must contain: First Name, Last Name, Email columns (Role, Department, Tenant are optional)',
           variant: 'destructive',
         });
         setProcessingCsv(false);
@@ -322,33 +322,50 @@ export default function UserManagement() {
       lines.slice(1).forEach((line, index) => {
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
         
-        if (values.length < 4) {
+        if (values.length < 3) {
           return;
         }
 
-        const [firstName, lastName, email, role, department = 'N/A', tenantId = null] = values;
+        const [firstName, lastName, email, role = 'user', department = 'N/A', tenantName = ''] = values;
         
         let status = 'valid';
         let errorMessage = '';
 
         if (!firstName || !lastName || !email) {
           status = 'error';
-          errorMessage = 'Missing required fields';
+          errorMessage = 'Missing required fields (First Name, Last Name, Email)';
         } else if (!validateEmail(email)) {
           status = 'error';
           errorMessage = 'Invalid email format';
-        } else if (!['global_admin', 'tenant_admin', 'user'].includes(role)) {
+        } else if (role && !['global_admin', 'tenant_admin', 'user'].includes(role)) {
           status = 'error';
           errorMessage = 'Invalid role (must be: global_admin, tenant_admin, or user)';
+        }
+
+        // Find tenant ID from tenant name if provided
+        let tenant_id = null;
+        let tenant_display = tenantName || 'No Tenant';
+        
+        if (tenantName) {
+          const matchedTenant = tenants.find(t => 
+            t.name.toLowerCase() === tenantName.toLowerCase()
+          );
+          if (matchedTenant) {
+            tenant_id = matchedTenant.id;
+          } else if (status === 'valid') {
+            status = 'error';
+            errorMessage = `Tenant "${tenantName}" not found`;
+          }
         }
 
         preview.push({
           firstName,
           lastName,
           email,
-          role,
-          department,
-          tenant_id: tenantId || null,
+          role: role || 'user',
+          department: department || 'N/A',
+          tenant_id,
+          tenant_name: tenant_display,
           status,
           errorMessage
         });
@@ -743,12 +760,13 @@ export default function UserManagement() {
                     Download Template
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    Template includes: First Name, Last Name, Email, Role, Department, Tenant ID
+                    Template includes: First Name, Last Name, Email, Role, Department, Tenant
                   </span>
                 </div>
                 <div className="text-sm text-muted-foreground space-y-1">
+                  <p><strong>Required:</strong> First Name, Last Name, Email</p>
+                  <p><strong>Optional:</strong> Role (defaults to 'user'), Department (defaults to 'N/A'), Tenant (use tenant name, leave blank for none)</p>
                   <p><strong>Valid roles:</strong> global_admin, tenant_admin, user</p>
-                  <p><strong>Tenant ID:</strong> Leave empty for global admins, otherwise use tenant UUID</p>
                 </div>
               </CardContent>
             </Card>
@@ -830,6 +848,7 @@ export default function UserManagement() {
                           <TableHead>Email</TableHead>
                           <TableHead>Role</TableHead>
                           <TableHead>Department</TableHead>
+                          <TableHead>Tenant</TableHead>
                           <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -844,6 +863,7 @@ export default function UserManagement() {
                               <Badge variant="outline">{getRoleDisplayName(user.role)}</Badge>
                             </TableCell>
                             <TableCell>{user.department}</TableCell>
+                            <TableCell className="text-muted-foreground">{user.tenant_name}</TableCell>
                             <TableCell>
                               {user.status === 'valid' ? (
                                 <Badge className="bg-green-100 text-green-800">Valid</Badge>
