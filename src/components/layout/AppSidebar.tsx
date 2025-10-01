@@ -128,13 +128,10 @@ export function AppSidebar() {
   if (isCollapsed) {
     return (
       <Sidebar
+        variant="inset"
         className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
         collapsible="icon"
-        style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
       >
-        <div className="p-2">
-          <SidebarTrigger className="w-12 h-12 p-0 mx-auto flex items-center justify-center hover:bg-sidebar-accent rounded-lg transition-colors" />
-        </div>
         
         <SidebarContent className="px-2">
           {/* Collapsed Logo */}
@@ -167,18 +164,15 @@ export function AppSidebar() {
 
   return (
     <Sidebar
+      variant="inset"
       className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
       collapsible="icon"
-      style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
     >
       <SidebarContent className="p-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
           <ZyriaLogo size="md" showText={true} variant="default" />
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <SidebarTrigger className="p-2 hover:bg-sidebar-accent rounded-lg transition-colors" />
-          </div>
+          <ThemeToggle />
         </div>
 
         {/* Main Navigation */}
