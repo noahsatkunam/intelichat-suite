@@ -93,7 +93,7 @@ export default function UserManagement() {
         role: profile.role || 'user',
         status: 'Active',
         lastLogin: 'Recent',
-        department: 'N/A',
+        department: profile.department || 'N/A',
         tenant_id: profile.tenant_id,
         tenant_name: profile.tenants?.name || 'No Tenant'
       }));
@@ -155,6 +155,7 @@ export default function UserManagement() {
         .update({
           role: validated.role,
           tenant_id: validated.tenant_id,
+          department: validated.department,
         })
         .eq('id', editingUser.id);
 
