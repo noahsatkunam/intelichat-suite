@@ -66,6 +66,7 @@ const userAddSchema = z.object({
 
 const roles = ['Global Admin', 'Tenant Admin', 'User'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
+const USERS_PER_PAGE = 25;
 
 export default function UserManagement() {
   const [activeTab, setActiveTab] = useState('users');
@@ -335,6 +336,17 @@ export default function UserManagement() {
     const matchesTenant = selectedTenant === 'all' || user.tenant_id === selectedTenant;
     return matchesSearch && matchesRole && matchesStatus && matchesTenant;
   });
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / USERS_PER_PAGE);
+  const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+  const endIndex = startIndex + USERS_PER_PAGE;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedRole, selectedStatus, selectedTenant]);
 
   const handleSelectUser = (userId: string) => {
     setSelectedUsers(prev => 
@@ -704,7 +716,7 @@ export default function UserManagement() {
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-display font-bold text-foreground">Enterprise User Management</h1>
+              <h1 className="text-2xl font-display font-bold text-foreground">User Management</h1>
               <p className="text-muted-foreground">Manage user accounts, roles, permissions, and bulk operations</p>
             </div>
             <div className="flex gap-2">
@@ -965,7 +977,7 @@ export default function UserManagement() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((user) => (
+                    {paginatedUsers.map((user) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <Checkbox 
@@ -1018,27 +1030,40 @@ export default function UserManagement() {
             </Card>
 
             {/* Pagination */}
-            <div className="flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious />
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink isActive>1</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink>2</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationLink>3</PaginationLink>
-                  </PaginationItem>
-                  <PaginationItem>
-                    <PaginationNext />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center px-2">
+                <p className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+                </p>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink 
+                          isActive={currentPage === page}
+                          onClick={() => setCurrentPage(page)}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </TabsContent>
 
           {/* Pending Invitations Tab */}
