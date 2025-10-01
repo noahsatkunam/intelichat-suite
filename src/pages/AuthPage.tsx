@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
+import WebGLBackground from '@/components/ui/WebGLBackground';
 import { useAuth } from '@/contexts/AuthContext';
 
 const AuthPage = () => {
@@ -36,8 +37,13 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
-      <Card className="w-full max-w-md shadow-xl border-border/50">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4 relative">
+      {/* WebGL Background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <WebGLBackground />
+      </div>
+      
+      <Card className="w-full max-w-md shadow-xl border-border/50 relative z-10">
         <CardHeader className="space-y-4 text-center">
           <div className="flex justify-center">
             <ZyriaLogo size="lg" />

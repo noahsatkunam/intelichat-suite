@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
-import { DarkVeilBackground } from '@/components/ui/DarkVeilBackground';
+import WebGLBackground from '@/components/ui/WebGLBackground';
 import { Link, useNavigate } from 'react-router-dom';
 
 const HomePage = () => {
@@ -116,8 +116,10 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {/* Dark Veil Background */}
-      <DarkVeilBackground />
+      {/* WebGL Background */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <WebGLBackground />
+      </div>
       
       {/* Navigation Header */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
