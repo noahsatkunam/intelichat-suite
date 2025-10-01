@@ -38,84 +38,45 @@ interface Conversation {
   messageCount: number;
 }
 
-const mockConversations: Conversation[] = [
-  {
-    id: '1',
-    title: 'Enterprise AI Integration Strategy',
-    lastMessage: 'Let me help you design a scalable architecture for your AI implementation...',
-    timestamp: '2 hours ago',
-    participants: 2,
-    unreadCount: 0,
-    status: 'active',
-    aiProvider: 'GPT-4',
-    messageCount: 47
-  },
-  {
-    id: '2',
-    title: 'Database Migration Best Practices',
-    lastMessage: 'The key considerations for your PostgreSQL migration include...',
-    timestamp: '1 day ago',
-    participants: 1,
-    unreadCount: 2,
-    status: 'pending',
-    aiProvider: 'Claude-3',
-    messageCount: 23
-  },
-  {
-    id: '3',
-    title: 'Security Compliance Review',
-    lastMessage: 'Based on the GDPR requirements you mentioned...',
-    timestamp: '2 days ago',
-    participants: 1,
-    unreadCount: 0,
-    status: 'active',
-    aiProvider: 'GPT-4',
-    messageCount: 15
-  },
-  {
-    id: '4',
-    title: 'API Documentation Enhancement',
-    lastMessage: 'I can help improve the clarity of your authentication flow documentation...',
-    timestamp: '3 days ago',
-    participants: 3,
-    unreadCount: 0,
-    status: 'archived',
-    aiProvider: 'Claude-3',
-    messageCount: 31
-  },
-  {
-    id: '5',
-    title: 'Performance Optimization Analysis',
-    lastMessage: 'Looking at your metrics, there are several areas where we can improve...',
-    timestamp: '1 week ago',
-    participants: 1,
-    unreadCount: 1,
-    status: 'active',
-    aiProvider: 'GPT-4',
-    messageCount: 12
-  }
-];
+// Mock conversations removed - using live data from Supabase
 
 interface ConversationOverviewProps {
   className?: string;
 }
 
 export function ConversationOverview({ className }: ConversationOverviewProps) {
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>(mockConversations);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'archived'>('all');
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load real conversations from service
+    // Load real conversations from Supabase
     const loadConversations = async () => {
       try {
+        setIsLoading(true);
         const realConversations = await conversationService.getConversations();
-        // Transform to match our interface - in real app you'd have this data structure
-        // For now, keeping mock data for demonstration
+        
+        // Transform Supabase data to match our interface
+        const transformedConversations: Conversation[] = realConversations.map(conv => ({
+          id: conv.id,
+          title: conv.title,
+          lastMessage: '', // Would need to fetch last message from messages table
+          timestamp: new Date(conv.updated_at || conv.created_at).toLocaleString(),
+          participants: 1,
+          unreadCount: 0,
+          status: 'active' as const,
+          messageCount: 0, // Would need to count messages
+        }));
+        
+        setConversations(transformedConversations);
       } catch (error) {
         console.error('Failed to load conversations:', error);
+        setConversations([]);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -312,7 +273,12 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
         
         {/* Conversations List */}
         <div className="space-y-2 max-h-96 overflow-y-auto chat-scroll">
-          {filteredConversations.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50 animate-pulse" />
+              <p className="text-sm">Loading conversations...</p>
+            </div>
+          ) : filteredConversations.length > 0 ? (
             filteredConversations.map(renderConversation)
           ) : (
             <div className="text-center py-8 text-muted-foreground">

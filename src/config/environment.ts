@@ -12,12 +12,12 @@ export interface EnvironmentConfig {
   DEBUG_API_CALLS: boolean;
 }
 
-// Default configuration
+// Default configuration - Mock data disabled for production use
 const defaultConfig: EnvironmentConfig = {
   API_BASE_URL: 'https://api.zyria.com',
   API_VERSION: 'v1',
   ENVIRONMENT: 'development',
-  ENABLE_MOCK_DATA: true,
+  ENABLE_MOCK_DATA: false, // Always use live data from Supabase
   REQUEST_TIMEOUT: 30000, // 30 seconds
   MAX_RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
@@ -26,11 +26,11 @@ const defaultConfig: EnvironmentConfig = {
   DEBUG_API_CALLS: true,
 };
 
-// Environment-specific overrides
+// Environment-specific overrides - All environments use live data
 const environmentConfigs: Record<string, Partial<EnvironmentConfig>> = {
   development: {
     API_BASE_URL: 'http://localhost:3001',
-    ENABLE_MOCK_DATA: true,
+    ENABLE_MOCK_DATA: false, // Use live Supabase data in development
     DEBUG_API_CALLS: true,
   },
   staging: {

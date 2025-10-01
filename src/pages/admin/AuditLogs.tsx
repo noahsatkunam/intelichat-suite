@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { Activity, Search, Filter, Download, User, Shield, Database, Settings, Eye, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,81 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
-// Mock audit log data
-const mockAuditLogs = [
-  {
-    id: 1,
-    timestamp: '2024-01-15 14:32:45',
-    user: 'john.smith@company.com',
-    action: 'User Login',
-    category: 'Authentication',
-    resource: 'Dashboard',
-    ip: '192.168.1.100',
-    userAgent: 'Chrome 120.0.0.0',
-    status: 'Success',
-    details: 'Successful login from new device'
-  },
-  {
-    id: 2,
-    timestamp: '2024-01-15 14:30:12',
-    user: 'sarah.j@company.com',
-    action: 'User Created',
-    category: 'User Management',
-    resource: 'User: mike.davis@company.com',
-    ip: '192.168.1.101',
-    userAgent: 'Chrome 120.0.0.0',
-    status: 'Success',
-    details: 'New user account created with Manager role'
-  },
-  {
-    id: 3,
-    timestamp: '2024-01-15 14:28:33',
-    user: 'admin@company.com',
-    action: 'Permission Modified',
-    category: 'Security',
-    resource: 'Role: Manager',
-    ip: '192.168.1.102',
-    userAgent: 'Firefox 121.0.0.0',
-    status: 'Success',
-    details: 'Added database write permissions to Manager role'
-  },
-  {
-    id: 4,
-    timestamp: '2024-01-15 14:25:19',
-    user: 'lisa.w@company.com',
-    action: 'Data Export',
-    category: 'Data Access',
-    resource: 'User Report',
-    ip: '192.168.1.103',
-    userAgent: 'Safari 17.2.1',
-    status: 'Success',
-    details: 'Exported user data to CSV format'
-  },
-  {
-    id: 5,
-    timestamp: '2024-01-15 14:20:45',
-    user: 'unknown',
-    action: 'Failed Login',
-    category: 'Authentication',
-    resource: 'Dashboard',
-    ip: '203.0.113.195',
-    userAgent: 'Unknown',
-    status: 'Failed',
-    details: 'Multiple failed login attempts detected'
-  },
-  {
-    id: 6,
-    timestamp: '2024-01-15 14:15:22',
-    user: 'robert.brown@company.com',
-    action: 'Settings Changed',
-    category: 'Configuration',
-    resource: 'System Settings',
-    ip: '192.168.1.104',
-    userAgent: 'Chrome 120.0.0.0',
-    status: 'Success',
-    details: 'Updated notification preferences'
-  }
-];
+// Interface for audit log data
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  user_id?: string;
+  action: string;
+  provider_id?: string;
+  details: any;
+}
 
 const categories = ['All Categories', 'Authentication', 'User Management', 'Security', 'Data Access', 'Configuration'];
 const statuses = ['All Status', 'Success', 'Failed', 'Warning'];
@@ -93,8 +29,54 @@ export default function AuditLogs() {
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
   const [selectedStatus, setSelectedStatus] = useState('All Status');
   const [selectedTimeRange, setSelectedTimeRange] = useState('24h');
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  const filteredLogs = mockAuditLogs.filter(log => {
+  useEffect(() => {
+    loadAuditLogs();
+  }, [selectedTimeRange]);
+
+  const loadAuditLogs = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('ai_provider_audit_log')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Transform data to match expected format
+      const transformedLogs = (data || []).map(log => ({
+        id: log.id,
+        timestamp: new Date(log.timestamp).toLocaleString(),
+        user: 'User', // Would need to join with profiles
+        action: log.action,
+        category: 'System',
+        resource: log.provider_id || 'System',
+        ip: '-',
+        userAgent: '-',
+        status: 'Success',
+        details: typeof log.details === 'string' ? log.details : JSON.stringify(log.details)
+      }));
+
+      setAuditLogs(transformedLogs);
+    } catch (error) {
+      console.error('Failed to load audit logs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load audit logs',
+        variant: 'destructive',
+      });
+      setAuditLogs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredLogs = auditLogs.filter(log => {
     const matchesSearch = log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          log.resource.toLowerCase().includes(searchTerm.toLowerCase());
@@ -172,7 +154,7 @@ export default function AuditLogs() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Events</p>
-                    <p className="text-2xl font-bold">{mockAuditLogs.length}</p>
+                    <p className="text-2xl font-bold">{auditLogs.length}</p>
                   </div>
                   <Activity className="w-8 h-8 text-muted-foreground" />
                 </div>
@@ -183,7 +165,7 @@ export default function AuditLogs() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Successful</p>
-                    <p className="text-2xl font-bold text-green-600">{mockAuditLogs.filter(l => l.status === 'Success').length}</p>
+                    <p className="text-2xl font-bold text-green-600">{auditLogs.filter(l => l.status === 'Success').length}</p>
                   </div>
                   <Shield className="w-8 h-8 text-green-500" />
                 </div>
@@ -194,7 +176,7 @@ export default function AuditLogs() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Failed Events</p>
-                    <p className="text-2xl font-bold text-red-600">{mockAuditLogs.filter(l => l.status === 'Failed').length}</p>
+                    <p className="text-2xl font-bold text-red-600">{auditLogs.filter(l => l.status === 'Failed').length}</p>
                   </div>
                   <User className="w-8 h-8 text-red-500" />
                 </div>
@@ -205,7 +187,7 @@ export default function AuditLogs() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Unique Users</p>
-                    <p className="text-2xl font-bold">{new Set(mockAuditLogs.map(l => l.user)).size}</p>
+                    <p className="text-2xl font-bold">{new Set(auditLogs.map(l => l.user)).size}</p>
                   </div>
                   <Database className="w-8 h-8 text-blue-500" />
                 </div>
@@ -266,7 +248,19 @@ export default function AuditLogs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLogs.map((log) => (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <p className="text-muted-foreground">Loading audit logs...</p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <p className="text-muted-foreground">No audit logs found</p>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredLogs.map((log) => (
                   <TableRow key={log.id}>
                     <TableCell className="font-mono text-sm">{log.timestamp}</TableCell>
                     <TableCell>

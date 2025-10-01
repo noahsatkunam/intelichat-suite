@@ -40,19 +40,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'high' | 'medium' | 'low';
-  category: 'follow-up' | 'action-item' | 'reminder' | 'insight';
-  dueDate?: string;
-  completed: boolean;
-  aiGenerated: boolean;
-  source?: string;
-  createdAt: string;
-}
+import { taskService, Task } from '@/services/taskService';
+import { useToast } from '@/hooks/use-toast';
 
 const priorityConfig = {
   high: { color: 'bg-destructive text-destructive-foreground', icon: AlertTriangle },
@@ -67,70 +56,45 @@ const categoryConfig = {
   'insight': { label: 'Insight', color: 'bg-accent text-accent-foreground' },
 };
 
-const mockTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Follow up on enterprise integration discussion',
-    description: 'Client mentioned interest in scalable AI solution during conversation',
-    priority: 'high',
-    category: 'follow-up',
-    dueDate: '2024-12-20',
-    completed: false,
-    aiGenerated: true,
-    source: 'Chat: Enterprise AI Integration',
-    createdAt: '2024-12-18T10:30:00Z'
-  },
-  {
-    id: '2',
-    title: 'Review database migration requirements',
-    description: 'Analyze performance implications discussed in technical consultation',
-    priority: 'medium',
-    category: 'action-item',
-    dueDate: '2024-12-19',
-    completed: false,
-    aiGenerated: true,
-    source: 'Chat: Database Migration Query',
-    createdAt: '2024-12-18T09:15:00Z'
-  },
-  {
-    id: '3',
-    title: 'Prepare security audit checklist',
-    priority: 'medium',
-    category: 'reminder',
-    dueDate: '2024-12-21',
-    completed: true,
-    aiGenerated: false,
-    createdAt: '2024-12-17T14:20:00Z'
-  },
-  {
-    id: '4',
-    title: 'API documentation needs updates based on user feedback',
-    description: 'Multiple users requested clarification on authentication flow',
-    priority: 'low',
-    category: 'insight',
-    completed: false,
-    aiGenerated: true,
-    source: 'Multiple conversations',
-    createdAt: '2024-12-17T11:45:00Z'
-  }
-];
-
 interface TaskManagementProps {
   className?: string;
 }
 
 export function TaskManagement({ className }: TaskManagementProps) {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
     priority: 'medium' as Task['priority'],
     category: 'action-item' as Task['category'],
-    dueDate: ''
+    due_date: ''
   });
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      setIsLoading(true);
+      const data = await taskService.getTasks();
+      setTasks(data);
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load tasks',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'pending' && task.completed) return false;
@@ -141,41 +105,70 @@ export function TaskManagement({ className }: TaskManagementProps) {
 
   const todayTasks = tasks.filter(task => {
     const today = new Date().toISOString().split('T')[0];
-    return task.dueDate === today && !task.completed;
+    return task.due_date === today && !task.completed;
   });
 
-  const toggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
-  };
-
-  const deleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(task => task.id !== taskId));
-  };
-
-  const addTask = () => {
-    const task: Task = {
-      id: Date.now().toString(),
-      title: newTask.title,
-      description: newTask.description,
-      priority: newTask.priority,
-      category: newTask.category,
-      dueDate: newTask.dueDate || undefined,
-      completed: false,
-      aiGenerated: false,
-      createdAt: new Date().toISOString()
-    };
+  const toggleTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     
-    setTasks(prev => [task, ...prev]);
-    setNewTask({
-      title: '',
-      description: '',
-      priority: 'medium',
-      category: 'action-item',
-      dueDate: ''
-    });
-    setIsAddDialogOpen(false);
+    const success = await taskService.toggleTask(taskId, !task.completed);
+    if (success) {
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, completed: !t.completed } : t
+      ));
+      toast({
+        title: 'Success',
+        description: `Task marked as ${!task.completed ? 'completed' : 'pending'}`,
+      });
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    const success = await taskService.deleteTask(taskId);
+    if (success) {
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+      toast({
+        title: 'Success',
+        description: 'Task deleted successfully',
+      });
+    }
+  };
+
+  const addTask = async () => {
+    try {
+      const task = await taskService.createTask({
+        title: newTask.title,
+        description: newTask.description,
+        priority: newTask.priority,
+        category: newTask.category,
+        due_date: newTask.due_date || undefined,
+        completed: false,
+        ai_generated: false,
+      });
+      
+      if (task) {
+        setTasks(prev => [task, ...prev]);
+        setNewTask({
+          title: '',
+          description: '',
+          priority: 'medium',
+          category: 'action-item',
+          due_date: ''
+        });
+        setIsAddDialogOpen(false);
+        toast({
+          title: 'Success',
+          description: 'Task created successfully',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to create task',
+        variant: 'destructive',
+      });
+    }
   };
 
   const renderTask = (task: Task) => {
@@ -246,17 +239,17 @@ export function TaskManagement({ className }: TaskManagementProps) {
               {task.priority}
             </Badge>
             
-            {task.aiGenerated && (
+            {task.ai_generated && (
               <Badge variant="outline" className="text-xs">
                 <Brain className="w-3 h-3 mr-1" />
                 AI Generated
               </Badge>
             )}
             
-            {task.dueDate && (
+            {task.due_date && (
               <Badge variant="outline" className="text-xs">
                 <Calendar className="w-3 h-3 mr-1" />
-                {new Date(task.dueDate).toLocaleDateString()}
+                {new Date(task.due_date).toLocaleDateString()}
               </Badge>
             )}
           </div>
@@ -347,8 +340,8 @@ export function TaskManagement({ className }: TaskManagementProps) {
                   <Input
                     id="dueDate"
                     type="date"
-                    value={newTask.dueDate}
-                    onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                    value={newTask.due_date}
+                    onChange={(e) => setNewTask(prev => ({ ...prev, due_date: e.target.value }))}
                   />
                 </div>
               </div>
@@ -410,7 +403,12 @@ export function TaskManagement({ className }: TaskManagementProps) {
         
         {/* Task List */}
         <div className="space-y-2 max-h-96 overflow-y-auto chat-scroll">
-          {filteredTasks.length > 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Brain className="w-8 h-8 mx-auto mb-2 opacity-50 animate-pulse" />
+              <p className="text-sm">Loading tasks...</p>
+            </div>
+          ) : filteredTasks.length > 0 ? (
             filteredTasks.map(renderTask)
           ) : (
             <div className="text-center py-8 text-muted-foreground">

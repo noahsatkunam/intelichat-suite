@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { Users, Plus, Shield, Mail, Upload, Download, Search, Filter, MoreVertical, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,14 +16,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
 
-// Mock data for enterprise user management
-const mockUsers = [
-  { id: 1, name: 'John Smith', email: 'john.smith@company.com', role: 'Admin', status: 'Active', lastLogin: '2024-01-15 14:30', department: 'Engineering', permissions: ['read', 'write', 'delete'] },
-  { id: 2, name: 'Sarah Johnson', email: 'sarah.j@company.com', role: 'Manager', status: 'Active', lastLogin: '2024-01-15 09:15', department: 'Marketing', permissions: ['read', 'write'] },
-  { id: 3, name: 'Mike Davis', email: 'mike.davis@company.com', role: 'User', status: 'Inactive', lastLogin: '2024-01-10 16:45', department: 'Sales', permissions: ['read'] },
-  { id: 4, name: 'Lisa Wilson', email: 'lisa.w@company.com', role: 'Manager', status: 'Active', lastLogin: '2024-01-15 11:20', department: 'Support', permissions: ['read', 'write'] },
-  { id: 5, name: 'Robert Brown', email: 'robert.brown@company.com', role: 'User', status: 'Pending', lastLogin: 'Never', department: 'HR', permissions: ['read'] },
-];
+// Interface for user data
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  lastLogin: string;
+  department: string;
+  permissions: string[];
+}
 
 const roles = ['Admin', 'Manager', 'User', 'Viewer'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
@@ -30,12 +35,52 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  const filteredUsers = mockUsers.filter(user => {
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const transformedUsers: User[] = (data || []).map(profile => ({
+        id: profile.id,
+        name: profile.name || 'Unknown',
+        email: profile.email,
+        role: profile.role || 'User',
+        status: 'Active',
+        lastLogin: 'Recent',
+        department: 'N/A',
+        permissions: ['read']
+      }));
+
+      setUsers(transformedUsers);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load users',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
@@ -43,7 +88,7 @@ export default function UserManagement() {
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const handleSelectUser = (userId: number) => {
+  const handleSelectUser = (userId: string) => {
     setSelectedUsers(prev => 
       prev.includes(userId) 
         ? prev.filter(id => id !== userId)
@@ -155,7 +200,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Users</p>
-                    <p className="text-2xl font-bold">{mockUsers.length}</p>
+                    <p className="text-2xl font-bold">{users.length}</p>
                   </div>
                   <Users className="w-8 h-8 text-muted-foreground" />
                 </div>
@@ -166,7 +211,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Active Users</p>
-                    <p className="text-2xl font-bold">{mockUsers.filter(u => u.status === 'Active').length}</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.status === 'Active').length}</p>
                   </div>
                   <UserCheck className="w-8 h-8 text-green-500" />
                 </div>
@@ -177,7 +222,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Pending Users</p>
-                    <p className="text-2xl font-bold">{mockUsers.filter(u => u.status === 'Pending').length}</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.status === 'Pending').length}</p>
                   </div>
                   <UserX className="w-8 h-8 text-yellow-500" />
                 </div>
@@ -188,7 +233,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Admins</p>
-                    <p className="text-2xl font-bold">{mockUsers.filter(u => u.role === 'Admin').length}</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
                   </div>
                   <Shield className="w-8 h-8 text-red-500" />
                 </div>
