@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield } from 'lucide-react';
+import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -160,8 +161,9 @@ export default function ChatbotManagement() {
     try {
       const { data, error } = await supabase
         .from('ai_providers')
-        .select('id, name, type, is_active')
+        .select('id, name, type, is_active, is_healthy')
         .eq('is_active', true)
+        .eq('is_healthy', true)
         .order('name');
 
       if (error) throw error;
@@ -413,17 +415,6 @@ export default function ChatbotManagement() {
     }
   };
 
-  const getProviderIcon = (type: string) => {
-    switch (type) {
-      case 'openai': return '🤖';
-      case 'anthropic': return '🧠';
-      case 'google': return '🔍';
-      case 'mistral': return '🌬️';
-      case 'ollama': return '🦙';
-      default: return '⚙️';
-    }
-  };
-
   if (loading) {
     return <div className="flex items-center justify-center h-64">Loading...</div>;
   }
@@ -471,7 +462,7 @@ export default function ChatbotManagement() {
                 <div className="space-y-2">
                   {chatbot.ai_providers && !chatbot.ai_providers.error && (
                     <div className="flex items-center gap-2 text-sm">
-                      <span>{getProviderIcon(chatbot.ai_providers.type)}</span>
+                      <ProviderLogo provider={chatbot.ai_providers.type} size="sm" />
                       <span className="text-muted-foreground">
                         {chatbot.ai_providers.name}
                       </span>
@@ -487,7 +478,7 @@ export default function ChatbotManagement() {
                   </div>
                   {chatbot.fallback_providers && !chatbot.fallback_providers.error && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span>{getProviderIcon(chatbot.fallback_providers.type)}</span>
+                      <ProviderLogo provider={chatbot.fallback_providers.type} size="sm" />
                       <span>Fallback: {chatbot.fallback_providers.name}</span>
                     </div>
                   )}
@@ -661,7 +652,7 @@ export default function ChatbotManagement() {
                                 {providers.map((provider) => (
                                   <SelectItem key={provider.id} value={provider.id}>
                                     <div className="flex items-center gap-2">
-                                      <span>{getProviderIcon(provider.type)}</span>
+                                      <ProviderLogo provider={provider.type} size="sm" />
                                       {provider.name}
                                     </div>
                                   </SelectItem>
@@ -720,7 +711,7 @@ export default function ChatbotManagement() {
                               {providers.map((provider) => (
                                 <SelectItem key={provider.id} value={provider.id}>
                                   <div className="flex items-center gap-2">
-                                    <span>{getProviderIcon(provider.type)}</span>
+                                    <ProviderLogo provider={provider.type} size="sm" />
                                     {provider.name}
                                   </div>
                                 </SelectItem>
