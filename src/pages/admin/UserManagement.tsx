@@ -43,6 +43,15 @@ const userUpdateSchema = z.object({
   tenant_id: z.string().uuid().nullable(),
 });
 
+// Validation schema for adding new user
+const userAddSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100),
+  email: z.string().trim().email("Invalid email address").max(255),
+  role: z.enum(['global_admin', 'tenant_admin', 'user']),
+  department: z.string().trim().min(1, "Department is required").max(100),
+  tenant_id: z.string().uuid().optional().nullable(),
+});
+
 const roles = ['Global Admin', 'Tenant Admin', 'User'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
 
@@ -69,6 +78,13 @@ export default function UserManagement() {
   const [processingCsv, setProcessingCsv] = useState(false);
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [addUserForm, setAddUserForm] = useState({
+    name: '',
+    email: '',
+    role: 'user' as 'global_admin' | 'tenant_admin' | 'user',
+    department: '',
+    tenant_id: null as string | null,
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -187,6 +203,81 @@ export default function UserManagement() {
         toast({
           title: 'Error',
           description: 'Failed to update user',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddUser = async () => {
+    try {
+      // Validate input
+      const validated = userAddSchema.parse(addUserForm);
+
+      setIsSaving(true);
+
+      // Generate invitation token
+      const token = crypto.randomUUID();
+
+      // Create invitation record
+      const { error: inviteError } = await supabase
+        .from('user_invitations')
+        .insert({
+          email: validated.email,
+          token,
+          role: validated.role,
+          tenant_id: validated.tenant_id || null,
+          invited_by: (await supabase.auth.getUser()).data.user?.id,
+          metadata: {
+            name: validated.name,
+            department: validated.department,
+          },
+        });
+
+      if (inviteError) throw inviteError;
+
+      // Send invitation email
+      const { error: emailError } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: validated.email,
+          token,
+          role: validated.role,
+          inviterName: 'System Administrator',
+        },
+      });
+
+      if (emailError) throw emailError;
+
+      toast({
+        title: 'User Invited',
+        description: `Invitation sent to ${validated.email}`,
+      });
+
+      setShowAddUser(false);
+      setAddUserForm({
+        name: '',
+        email: '',
+        role: 'user',
+        department: '',
+        tenant_id: null,
+      });
+      
+      // Reload users list to show the new invitation
+      loadUsers();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      } else {
+        console.error('Failed to add user:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to send user invitation',
           variant: 'destructive',
         });
       }
@@ -509,42 +600,97 @@ export default function UserManagement() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" placeholder="Enter full name" />
+                      <Label htmlFor="add-name">Full Name</Label>
+                      <Input 
+                        id="add-name" 
+                        placeholder="Enter full name" 
+                        value={addUserForm.name}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, name: e.target.value })}
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" placeholder="Enter email address" />
+                      <Label htmlFor="add-email">Email Address</Label>
+                      <Input 
+                        id="add-email" 
+                        type="email" 
+                        placeholder="Enter email address"
+                        value={addUserForm.email}
+                        onChange={(e) => setAddUserForm({ ...addUserForm, email: e.target.value })}
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="role">Role</Label>
-                      <Select>
+                      <Label htmlFor="add-role">Role</Label>
+                      <Select 
+                        value={addUserForm.role}
+                        onValueChange={(value: 'global_admin' | 'tenant_admin' | 'user') => 
+                          setAddUserForm({ ...addUserForm, role: value })
+                        }
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select role" />
                         </SelectTrigger>
                         <SelectContent>
-                          {roles.map(role => (
-                            <SelectItem key={role} value={role.toLowerCase()}>{role}</SelectItem>
-                          ))}
+                          <SelectItem value="global_admin">Global Admin</SelectItem>
+                          <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="department">Department</Label>
-                      <Select>
+                      <Label htmlFor="add-department">Department</Label>
+                      <Select
+                        value={addUserForm.department}
+                        onValueChange={(value) => setAddUserForm({ ...addUserForm, department: value })}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Select department" />
                         </SelectTrigger>
                         <SelectContent>
                           {departments.map(dept => (
-                            <SelectItem key={dept} value={dept.toLowerCase()}>{dept}</SelectItem>
+                            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="add-tenant">Tenant (Optional)</Label>
+                      <Select
+                        value={addUserForm.tenant_id || 'none'}
+                        onValueChange={(value) => 
+                          setAddUserForm({ ...addUserForm, tenant_id: value === 'none' ? null : value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tenant (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Tenant</SelectItem>
+                          {tenants.map(tenant => (
+                            <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="flex justify-end gap-2 pt-4">
-                      <Button variant="outline" onClick={() => setShowAddUser(false)}>Cancel</Button>
-                      <Button>Create User</Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowAddUser(false);
+                          setAddUserForm({
+                            name: '',
+                            email: '',
+                            role: 'user',
+                            department: '',
+                            tenant_id: null,
+                          });
+                        }}
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleAddUser} disabled={isSaving}>
+                        {isSaving ? 'Sending...' : 'Send Invitation'}
+                      </Button>
                     </div>
                   </div>
                 </DialogContent>
