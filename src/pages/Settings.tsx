@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FeatureFlagToggle } from '@/components/ui/feature-flag-toggle';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -117,14 +115,6 @@ export default function Settings() {
                 </Label>
               </div>
             </div>
-            
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Theme</h4>
-                <p className="text-sm text-muted-foreground">Choose light or dark mode</p>
-              </div>
-              <ThemeToggle />
-            </div>
           </CardContent>
         </Card>
 
@@ -162,9 +152,6 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Data Source Configuration */}
-      <FeatureFlagToggle />
 
       {/* About */}
       <Card className="interactive-element">
