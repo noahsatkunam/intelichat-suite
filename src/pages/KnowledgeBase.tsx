@@ -68,7 +68,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [documentToEdit, setDocumentToEdit] = useState<KnowledgeDocument | null>(null);
-  const [editTenantId, setEditTenantId] = useState<string>('');
+  const [editTenantId, setEditTenantId] = useState<string>('none');
+  const [editFilename, setEditFilename] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
   const { toast } = useToast();
@@ -204,7 +206,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
 
   const handleEditClick = (doc: KnowledgeDocument) => {
     setDocumentToEdit(doc);
-    setEditTenantId(doc.tenant_id || '');
+    setEditTenantId(doc.tenant_id || 'none');
+    setEditFilename(doc.filename || '');
+    setEditDescription(doc.description || '');
     setEditNotes(doc.notes || '');
     setEditDialogOpen(true);
   };
@@ -216,7 +220,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
       const { error } = await supabase
         .from('documents')
         .update({ 
-          tenant_id: editTenantId || null,
+          tenant_id: editTenantId === 'none' ? null : editTenantId,
+          filename: editFilename,
+          content: editDescription,
           notes: editNotes || null
         })
         .eq('id', documentToEdit.id);
@@ -240,7 +246,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
     } finally {
       setEditDialogOpen(false);
       setDocumentToEdit(null);
-      setEditTenantId('');
+      setEditTenantId('none');
+      setEditFilename('');
+      setEditDescription('');
       setEditNotes('');
     }
   };
@@ -442,15 +450,8 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                             </Badge>
                           ))}
                         </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           <span>Updated {doc.lastUpdated}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs hover:text-primary"
-                          >
-                            Access →
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -527,10 +528,10 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-foreground truncate">
-                        {documentToEdit?.filename}
+                        {editFilename}
                       </h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {documentToEdit?.description}
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                        {editDescription || 'No description'}
                       </p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         <span>Updated {documentToEdit?.lastUpdated}</span>
@@ -539,6 +540,35 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Document Name */}
+            <div className="space-y-2">
+              <Label htmlFor="filename">Document Name</Label>
+              <Input
+                id="filename"
+                value={editFilename}
+                onChange={(e) => setEditFilename(e.target.value)}
+                placeholder="Enter document name..."
+              />
+              <p className="text-xs text-muted-foreground">
+                The display name for this document
+              </p>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Enter document description..."
+                className="min-h-[100px] resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                A brief description of what this document contains
+              </p>
             </div>
 
             {/* Tenant Selection */}
@@ -552,7 +582,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                   <SelectValue placeholder="Select a tenant or leave unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Tenant (Unassigned)</SelectItem>
+                  <SelectItem value="none">No Tenant (Unassigned)</SelectItem>
                   {tenants.map((tenant) => (
                     <SelectItem key={tenant.id} value={tenant.id}>
                       {tenant.name}
@@ -587,7 +617,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
               onClick={() => {
                 setEditDialogOpen(false);
                 setDocumentToEdit(null);
-                setEditTenantId('');
+                setEditTenantId('none');
+                setEditFilename('');
+                setEditDescription('');
                 setEditNotes('');
               }}
             >
