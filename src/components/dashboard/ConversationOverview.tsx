@@ -23,7 +23,6 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { conversationService } from '@/services/conversationService';
 import { useNavigate } from 'react-router-dom';
 
 interface Conversation {
@@ -53,34 +52,9 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Load real conversations from Supabase
-    const loadConversations = async () => {
-      try {
-        setIsLoading(true);
-        const realConversations = await conversationService.getConversations();
-        
-        // Transform Supabase data to match our interface
-        const transformedConversations: Conversation[] = realConversations.map(conv => ({
-          id: conv.id,
-          title: conv.title,
-          lastMessage: '', // Would need to fetch last message from messages table
-          timestamp: new Date(conv.updated_at || conv.created_at).toLocaleString(),
-          participants: 1,
-          unreadCount: 0,
-          status: 'active' as const,
-          messageCount: 0, // Would need to count messages
-        }));
-        
-        setConversations(transformedConversations);
-      } catch (error) {
-        console.error('Failed to load conversations:', error);
-        setConversations([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadConversations();
+    // Placeholder - will be rebuilt
+    setIsLoading(false);
+    setConversations([]);
   }, []);
 
   useEffect(() => {

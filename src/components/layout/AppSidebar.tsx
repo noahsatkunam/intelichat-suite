@@ -51,12 +51,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
-import { conversationService } from '@/services/conversationService';
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, variant: 'primary' as const },
-  { title: 'New Chat', url: '/chat', icon: MessageSquarePlus },
-  { title: 'Chat History', url: '/history', icon: History },
+  { title: 'Chat', url: '/chat', icon: MessageSquarePlus },
   { title: 'Knowledge Base', url: '/knowledge', icon: BookOpen },
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
 ];
@@ -97,13 +95,9 @@ export function AppSidebar() {
     item.roles.includes(userRole)
   );
 
-  // Load recent conversations
+  // Load recent conversations - placeholder
   useEffect(() => {
-    const loadConversations = async () => {
-      const conversations = await conversationService.getConversations();
-      setRecentConversations(conversations.slice(0, 4)); // Show only latest 4
-    };
-    loadConversations();
+    setRecentConversations([]);
   }, []);
 
   const handleSignOut = async () => {
@@ -187,11 +181,6 @@ export function AppSidebar() {
                     <NavLink to={item.url} className={getNavClassName(item.url, item.variant)}>
                       <item.icon className="w-5 h-5 mr-3" />
                        <span className="font-medium">{item.title}</span>
-                       {item.title === 'Chat History' && recentConversations.length > 0 && (
-                         <Badge variant="secondary" className="ml-auto text-xs">
-                           {recentConversations.length}
-                         </Badge>
-                       )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

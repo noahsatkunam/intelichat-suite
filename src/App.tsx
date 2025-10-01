@@ -16,7 +16,7 @@ import About from "./pages/About";
 import AuthPage from "./pages/AuthPage";
 import InviteAcceptPage from "./pages/InviteAcceptPage";
 import ContactPage from "./pages/ContactPage";
-import ChatHistory from "./pages/ChatHistory";
+
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
@@ -70,11 +70,6 @@ const App = () => (
                 <Route path="/chat/:id" element={
                   <ProtectedRoute>
                     <AppLayout><Index /></AppLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/history" element={
-                  <ProtectedRoute>
-                    <AppLayout><ChatHistory /></AppLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/knowledge" element={
