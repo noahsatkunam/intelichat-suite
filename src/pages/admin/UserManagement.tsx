@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { z } from 'zod';
 
 // Interface for user data
 interface User {
@@ -25,8 +26,21 @@ interface User {
   status: string;
   lastLogin: string;
   department: string;
-  permissions: string[];
+  tenant_id: string | null;
+  tenant_name?: string;
 }
+
+interface Tenant {
+  id: string;
+  name: string;
+}
+
+// Validation schema for user updates
+const userUpdateSchema = z.object({
+  role: z.enum(['global_admin', 'tenant_admin', 'user']),
+  department: z.string().trim().min(1, "Department is required").max(100),
+  tenant_id: z.string().uuid().nullable(),
+});
 
 const roles = ['Global Admin', 'Tenant Admin', 'User'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
@@ -40,10 +54,20 @@ export default function UserManagement() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    role: '',
+    department: '',
+    tenant_id: null as string | null,
+  });
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadUsers();
+    loadTenants();
   }, []);
 
   const loadUsers = async () => {
@@ -51,7 +75,13 @@ export default function UserManagement() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          tenants:tenant_id (
+            id,
+            name
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -60,11 +90,12 @@ export default function UserManagement() {
         id: profile.id,
         name: profile.name || 'Unknown',
         email: profile.email,
-        role: profile.role || 'User',
+        role: profile.role || 'user',
         status: 'Active',
         lastLogin: 'Recent',
         department: 'N/A',
-        permissions: ['read']
+        tenant_id: profile.tenant_id,
+        tenant_name: profile.tenants?.name || 'No Tenant'
       }));
 
       setUsers(transformedUsers);
@@ -77,6 +108,83 @@ export default function UserManagement() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+
+      setTenants(data || []);
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load tenants',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setEditForm({
+      role: user.role,
+      department: user.department,
+      tenant_id: user.tenant_id,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+
+    try {
+      // Validate input
+      const validated = userUpdateSchema.parse(editForm);
+
+      setIsSaving(true);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          role: validated.role,
+          tenant_id: validated.tenant_id,
+        })
+        .eq('id', editingUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'User updated successfully',
+      });
+
+      setShowEditModal(false);
+      setEditingUser(null);
+      loadUsers();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: 'Validation Error',
+          description: error.errors[0].message,
+          variant: 'destructive',
+        });
+      } else {
+        console.error('Failed to update user:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update user',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -102,10 +210,19 @@ export default function UserManagement() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'Admin': return 'bg-red-500/10 text-red-700 border-red-200';
-      case 'Manager': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-      case 'User': return 'bg-green-500/10 text-green-700 border-green-200';
+      case 'global_admin': return 'bg-red-500/10 text-red-700 border-red-200';
+      case 'tenant_admin': return 'bg-blue-500/10 text-blue-700 border-blue-200';
+      case 'user': return 'bg-green-500/10 text-green-700 border-green-200';
       default: return 'bg-gray-500/10 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'global_admin': return 'Global Admin';
+      case 'tenant_admin': return 'Tenant Admin';
+      case 'user': return 'User';
+      default: return role;
     }
   };
 
@@ -299,10 +416,9 @@ export default function UserManagement() {
                   </TableHead>
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Tenant</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Permissions</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -323,24 +439,15 @@ export default function UserManagement() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={getRoleColor(user.role)}>
-                        {user.role}
+                        {getRoleDisplayName(user.role)}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground">{user.tenant_name}</TableCell>
                     <TableCell className="text-muted-foreground">{user.department}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={getStatusColor(user.status)}>
                         {user.status}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.lastLogin}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {user.permissions.map(perm => (
-                          <Badge key={perm} variant="secondary" className="text-xs">
-                            {perm}
-                          </Badge>
-                        ))}
-                      </div>
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -350,13 +457,9 @@ export default function UserManagement() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditUser(user)}>
                             <Edit className="w-4 h-4 mr-2" />
                             Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Shield className="w-4 h-4 mr-2" />
-                            Manage Permissions
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600">
                             <Trash2 className="w-4 h-4 mr-2" />
@@ -395,6 +498,102 @@ export default function UserManagement() {
           </Pagination>
         </div>
       </div>
+
+      {/* Edit User Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">User</Label>
+                <div className="mt-1">
+                  <div className="font-medium">{editingUser.name}</div>
+                  <div className="text-sm text-muted-foreground">{editingUser.email}</div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-role">Role *</Label>
+                <Select 
+                  value={editForm.role} 
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, role: value }))}
+                >
+                  <SelectTrigger id="edit-role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global_admin">Global Admin</SelectItem>
+                    <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-tenant">Tenant *</Label>
+                <Select 
+                  value={editForm.tenant_id || 'null'} 
+                  onValueChange={(value) => setEditForm(prev => ({ 
+                    ...prev, 
+                    tenant_id: value === 'null' ? null : value 
+                  }))}
+                >
+                  <SelectTrigger id="edit-tenant">
+                    <SelectValue placeholder="Select tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="null">No Tenant (Global Admin only)</SelectItem>
+                    {tenants.map(tenant => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Global Admins typically have no tenant assigned
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="edit-department">Department *</Label>
+                <Select 
+                  value={editForm.department} 
+                  onValueChange={(value) => setEditForm(prev => ({ ...prev, department: value }))}
+                >
+                  <SelectTrigger id="edit-department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map(dept => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                  }}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
