@@ -332,8 +332,8 @@ export default function ChatbotManagement() {
       setUploadingFiles(prev => ({ ...prev, [fileId]: 50 }));
 
       try {
-        // Upload to storage
-        const filePath = `${user.id}/${fileId}`;
+        // Upload to storage with correct folder structure: tenant_id/user_id/filename
+        const filePath = `${profile.tenant_id}/${user.id}/${fileId}`;
         const { error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, file);
