@@ -59,7 +59,6 @@ const mainNavItems = [
   { title: 'Chat History', url: '/history', icon: History },
   { title: 'Knowledge Base', url: '/knowledge', icon: BookOpen },
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
-  { title: 'Settings', url: '/settings', icon: Settings },
 ];
 
 const adminNavItems = [
