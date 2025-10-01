@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield, Upload, CheckCircle } from 'lucide-react';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -101,6 +102,8 @@ export default function ChatbotManagement() {
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: number}>({});
+  const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
 
   const form = useForm({
     resolver: zodResolver(chatbotSchema),
@@ -252,6 +255,8 @@ export default function ChatbotManagement() {
     setTestMessage('');
     setTestResponse('');
     setCurrentStep(1);
+    setUploadingFiles({});
+    setUploadedDocs([]);
     setIsDialogOpen(true);
   };
 
@@ -289,7 +294,113 @@ export default function ChatbotManagement() {
     setTestMessage('');
     setTestResponse('');
     setCurrentStep(1);
+    setUploadingFiles({});
+    setUploadedDocs([]);
     setIsDialogOpen(true);
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to upload documents",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.tenant_id) {
+      toast({
+        title: "Error",
+        description: "User profile not found",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    for (const file of Array.from(files)) {
+      const fileId = `${Date.now()}-${file.name}`;
+      setUploadingFiles(prev => ({ ...prev, [fileId]: 50 }));
+
+      try {
+        // Upload to storage
+        const filePath = `${user.id}/${fileId}`;
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        setUploadingFiles(prev => ({ ...prev, [fileId]: 75 }));
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('documents')
+          .getPublicUrl(filePath);
+
+        // Create document record
+        const { data: document, error: docError } = await supabase
+          .from('documents')
+          .insert({
+            filename: file.name,
+            file_url: publicUrl,
+            uploaded_by: user.id,
+            tenant_id: profile.tenant_id,
+            status: 'processed',
+            content: `Uploaded via chatbot configuration - ${file.name}`
+          })
+          .select()
+          .single();
+
+        if (docError) throw docError;
+
+        setUploadingFiles(prev => ({ ...prev, [fileId]: 100 }));
+
+        // Add to uploaded docs and form
+        setUploadedDocs(prev => [...prev, document.id]);
+        const currentDocs = form.getValues('document_ids') || [];
+        form.setValue('document_ids', [...currentDocs, document.id]);
+
+        // Refresh documents list
+        await fetchDocuments();
+
+        toast({
+          title: "Success",
+          description: `${file.name} uploaded successfully`
+        });
+
+        // Remove from uploading state after a short delay
+        setTimeout(() => {
+          setUploadingFiles(prev => {
+            const newState = { ...prev };
+            delete newState[fileId];
+            return newState;
+          });
+        }, 1000);
+
+      } catch (error: any) {
+        console.error('Upload error:', error);
+        toast({
+          title: "Upload Failed",
+          description: error.message || `Failed to upload ${file.name}`,
+          variant: "destructive"
+        });
+        setUploadingFiles(prev => {
+          const newState = { ...prev };
+          delete newState[fileId];
+          return newState;
+        });
+      }
+    }
   };
 
   const onSubmit = async (data: z.infer<typeof chatbotSchema>) => {
@@ -799,21 +910,80 @@ export default function ChatbotManagement() {
                       <Brain className="w-5 h-5 text-primary" />
                       <h3 className="text-lg font-semibold">Knowledge Base</h3>
                     </div>
+
+                    {/* Upload New Documents */}
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Upload New Documents</label>
+                      <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                        <input
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
+                          onChange={(e) => handleFileUpload(e.target.files)}
+                          className="hidden"
+                          id="doc-upload"
+                        />
+                        <label htmlFor="doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                          <Upload className="w-8 h-8 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            Click to upload or drag files here
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            PDF, Word, PowerPoint, Text (Max 10MB)
+                          </p>
+                        </label>
+                      </div>
+
+                      {/* Upload Progress */}
+                      {Object.keys(uploadingFiles).length > 0 && (
+                        <div className="space-y-2">
+                          {Object.entries(uploadingFiles).map(([fileId, progress]) => (
+                            <div key={fileId} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground truncate">
+                                  Uploading...
+                                </span>
+                                <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                              </div>
+                              <Progress value={progress} className="h-1" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {uploadedDocs.length > 0 && (
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>{uploadedDocs.length} document(s) uploaded successfully</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">or select existing</span>
+                      </div>
+                    </div>
+
+                    {/* Select Existing Documents */}
                     <FormField
                       control={form.control}
                       name="document_ids"
                       render={() => (
                         <FormItem>
-                          <FormLabel className="text-base">Documents (Optional)</FormLabel>
+                          <FormLabel className="text-base">Existing Documents (Optional)</FormLabel>
                           <FormDescription>
-                            Enhance responses with specific documents
+                            Select from previously uploaded documents
                           </FormDescription>
                           {documents.length === 0 ? (
                             <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center bg-muted/30">
-                              No documents available. Upload in Knowledge Base first.
+                              No documents available. Upload new ones above.
                             </div>
                           ) : (
-                            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-background">
+                            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-background">
                               {documents.map((document) => (
                                 <FormField
                                   key={document.id}
