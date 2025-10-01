@@ -440,7 +440,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                 filteredDocuments.map((doc) => {
                   const Icon = getIcon(doc.type);
                   return (
-                    <Card key={doc.id} className="hover:shadow-medium transition-all duration-200 group cursor-pointer border-border bg-card">
+                    <Card key={doc.id} className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20 group cursor-pointer bg-card">
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-2">
