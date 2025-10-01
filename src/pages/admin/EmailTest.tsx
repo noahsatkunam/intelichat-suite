@@ -103,6 +103,7 @@ const EmailTest = () => {
           token: testToken,
           role: "user",
           inviterName: "Email Test System",
+          redirectUrl: window.location.origin,
         },
       });
 
@@ -138,7 +139,10 @@ const EmailTest = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("test-email-system", {
-        body: { testEmail: fullTestEmail },
+        body: { 
+          testEmail: fullTestEmail,
+          redirectUrl: window.location.origin,
+        },
       });
 
       if (error) throw error;

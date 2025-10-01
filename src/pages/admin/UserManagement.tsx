@@ -238,13 +238,14 @@ export default function UserManagement() {
 
       if (inviteError) throw inviteError;
 
-      // Send invitation email
+      // Send invitation email with correct redirect URL
       const { error: emailError } = await supabase.functions.invoke('send-invitation', {
         body: {
           email: validated.email,
           token,
           role: validated.role,
           inviterName: 'System Administrator',
+          redirectUrl: window.location.origin,
         },
       });
 

@@ -29,7 +29,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { testEmail } = await req.json();
+    const { testEmail, redirectUrl } = await req.json();
 
     console.log("Starting email system test for:", testEmail);
 
@@ -65,6 +65,7 @@ serve(async (req: Request) => {
           token: testToken,
           role: "user",
           inviterName: "Email Test System",
+          redirectUrl: redirectUrl || "https://your-app-domain.com",
         },
       });
 

@@ -14,6 +14,7 @@ interface InvitationRequest {
   token: string;
   role: 'admin' | 'moderator' | 'user';
   inviterName: string;
+  redirectUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -23,7 +24,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, token, role, inviterName }: InvitationRequest = await req.json();
+    const { email, token, role, inviterName, redirectUrl }: InvitationRequest = await req.json();
 
     if (!email || !token || !role) {
       return new Response(
@@ -35,7 +36,8 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const inviteUrl = `${Deno.env.get("SUPABASE_URL")?.replace('/supabase', '')}/invite/${token}`;
+    // Use provided redirectUrl or construct default from window.location.origin
+    const inviteUrl = redirectUrl ? `${redirectUrl}/invite/${token}` : `https://your-app-domain.com/invite/${token}`;
     
     // Generate HTML email content
     const htmlContent = `
