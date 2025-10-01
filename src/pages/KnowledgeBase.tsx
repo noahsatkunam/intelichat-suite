@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, BookOpen, FileText, Video, Link2, Download, Plus, Filter } from 'lucide-react';
+import { Search, BookOpen, FileText, Video, Link2, Download, Plus, Filter, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,6 +42,8 @@ interface KnowledgeDocument {
   lastUpdated: string;
   url?: string;
   filename?: string;
+  tenant_id?: string;
+  tenant_name?: string;
 }
 
 export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
@@ -41,6 +53,8 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -52,7 +66,12 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('documents')
-        .select('*')
+        .select(`
+          *,
+          tenants:tenant_id (
+            name
+          )
+        `)
         .eq('status', 'ready')
         .order('created_at', { ascending: false });
 
@@ -69,6 +88,8 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
         lastUpdated: new Date(doc.updated_at || doc.created_at).toLocaleDateString(),
         url: doc.file_url || undefined,
         filename: doc.filename,
+        tenant_id: doc.tenant_id,
+        tenant_name: doc.tenants?.name || undefined,
       }));
 
       setDocuments(transformedDocs);
@@ -141,6 +162,60 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
         description: error.message || "Failed to download document",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDeleteClick = (doc: KnowledgeDocument) => {
+    setDocumentToDelete(doc);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!documentToDelete) return;
+
+    try {
+      // Extract file path from URL if it exists
+      if (documentToDelete.url) {
+        const urlParts = documentToDelete.url.split('/documents/');
+        if (urlParts.length >= 2) {
+          const filePath = urlParts[1];
+          
+          // Delete from storage
+          const { error: storageError } = await supabase.storage
+            .from('documents')
+            .remove([filePath]);
+
+          if (storageError) {
+            console.error('Storage deletion error:', storageError);
+          }
+        }
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', documentToDelete.id);
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: "Success",
+        description: "Document deleted successfully"
+      });
+
+      // Reload documents
+      loadDocuments();
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete document",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
@@ -233,17 +308,30 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                               <Icon className="w-5 h-5 text-primary" />
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDownload(doc);
-                            }}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-accent"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(doc);
+                              }}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(doc);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                         <CardTitle className="text-base font-semibold text-foreground group-hover:text-primary transition-colors mt-2">
                           {doc.title}
@@ -254,6 +342,11 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                           {doc.description}
                         </p>
                         <div className="flex flex-wrap gap-2 mb-4">
+                          {doc.tenant_name && (
+                            <Badge variant="default" className="text-xs">
+                              {doc.tenant_name}
+                            </Badge>
+                          )}
                           <Badge variant="secondary" className="text-xs">
                             {doc.category}
                           </Badge>
@@ -299,6 +392,29 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
           loadDocuments(); // Reload documents after upload
         }} 
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{documentToDelete?.title}"? This action cannot be undone and will permanently remove the document from storage.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDocumentToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
