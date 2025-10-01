@@ -132,15 +132,16 @@ export function AppSidebar() {
         className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
         collapsible="icon"
       >
-        
-        <SidebarContent className="px-2">
-          {/* Collapsed Logo */}
-          <div className="flex justify-center py-4">
+        {/* Fixed Header */}
+        <div className="sticky top-0 z-10 bg-sidebar border-b border-sidebar-border p-2">
+          <div className="flex justify-center">
             <div className="p-2 rounded-lg bg-gradient-surface border border-sidebar-border shadow-soft hover:shadow-medium transition-all duration-300">
               <ZyriaLogo size="sm" showText={false} />
             </div>
           </div>
-          
+        </div>
+        
+        <SidebarContent className="px-2 overflow-y-auto">
           {/* Main Navigation - Icons Only */}
           <SidebarGroup>
             <SidebarGroupContent>
@@ -165,16 +166,18 @@ export function AppSidebar() {
   return (
     <Sidebar
       variant="inset"
-      className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
+      className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out flex flex-col"
       collapsible="icon"
     >
-      <SidebarContent className="p-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
+      {/* Fixed Header */}
+      <div className="sticky top-0 z-10 bg-sidebar border-b border-sidebar-border p-4">
+        <div className="flex items-center justify-between p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
           <ZyriaLogo size="md" showText={true} variant="default" />
           <ThemeToggle />
         </div>
+      </div>
 
+      <SidebarContent className="flex-1 overflow-y-auto p-4">
         {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
@@ -299,47 +302,46 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-
-        {/* User Profile */}
-        <div className="mt-auto pt-4">
-          <Separator className="mb-4 bg-sidebar-border" />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full justify-start p-3 hover:bg-sidebar-accent transition-colors"
-              >
-                <Avatar className="w-8 h-8 mr-3">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="User Avatar" />
-                  <AvatarFallback className="bg-gradient-primary text-primary-foreground text-sm font-medium">
-                    {getUserInitials(user?.email || '')}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left min-w-0">
-                  <p className="font-medium text-sm text-sidebar-foreground">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-popover border-border shadow-large">
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <User className="mr-2 h-4 w-4" />
-                My Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell className="mr-2 h-4 w-4" />
-                Notifications
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </SidebarContent>
+
+      {/* Fixed Footer - User Profile */}
+      <div className="sticky bottom-0 bg-sidebar border-t border-sidebar-border p-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-start p-3 hover:bg-sidebar-accent transition-colors"
+            >
+              <Avatar className="w-8 h-8 mr-3">
+                <AvatarImage src={user?.user_metadata?.avatar_url} alt="User Avatar" />
+                <AvatarFallback className="bg-gradient-primary text-primary-foreground text-sm font-medium">
+                  {getUserInitials(user?.email || '')}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <p className="font-medium text-sm text-sidebar-foreground">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 bg-popover border-border shadow-large">
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <User className="mr-2 h-4 w-4" />
+              My Account
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Bell className="mr-2 h-4 w-4" />
+              Notifications
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </Sidebar>
   );
 }
