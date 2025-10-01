@@ -677,14 +677,13 @@ export default function ChatbotManagement() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fallback Provider (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || undefined}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select fallback API key" />
+                            <SelectValue placeholder="None (Optional)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
                           {providers.map((provider) => (
                             <SelectItem key={provider.id} value={provider.id}>
                               <div className="flex items-center gap-2">
