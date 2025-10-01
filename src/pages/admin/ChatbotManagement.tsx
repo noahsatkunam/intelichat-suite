@@ -1255,7 +1255,10 @@ export default function ChatbotManagement() {
                     </Button>
                     <Button 
                       type="button" 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
                         // Validate step 1 fields
                         const step1Fields = ['name', 'system_prompt', 'primary_ai_provider_id', 'model_name'];
                         const hasErrors = step1Fields.some(field => {
@@ -1286,7 +1289,11 @@ export default function ChatbotManagement() {
                     <Button 
                       type="button" 
                       variant="outline" 
-                      onClick={() => setCurrentStep(1)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentStep(1);
+                      }}
                       className="gap-2"
                     >
                       <ChevronLeft className="w-4 h-4" />
