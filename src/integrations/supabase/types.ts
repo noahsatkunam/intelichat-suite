@@ -398,6 +398,42 @@ export type Database = {
           },
         ]
       }
+      document_tenants: {
+        Row: {
+          created_at: string | null
+          document_id: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_id: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_id?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_tenants_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_tenants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           content: string | null

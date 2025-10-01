@@ -53,7 +53,8 @@ interface KnowledgeDocument {
   url?: string;
   filename?: string;
   tenant_id?: string;
-  tenant_name?: string;
+  tenant_names?: string[];
+  tenant_ids?: string[];
   notes?: string;
 }
 
@@ -68,7 +69,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [documentToEdit, setDocumentToEdit] = useState<KnowledgeDocument | null>(null);
-  const [editTenantId, setEditTenantId] = useState<string>('none');
+  const [editTenantIds, setEditTenantIds] = useState<string[]>([]);
   const [editFilename, setEditFilename] = useState<string>('');
   const [editDescription, setEditDescription] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
@@ -87,8 +88,11 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
         .from('documents')
         .select(`
           *,
-          tenants:tenant_id (
-            name
+          document_tenants (
+            tenant_id,
+            tenants:tenant_id (
+              name
+            )
           )
         `)
         .eq('status', 'ready')
@@ -97,20 +101,27 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
       if (error) throw error;
 
       // Transform Supabase documents to match our interface
-      const transformedDocs: KnowledgeDocument[] = (data || []).map(doc => ({
-        id: doc.id,
-        title: doc.filename,
-        description: doc.content?.substring(0, 150) || 'No description available',
-        type: 'document' as const,
-        category: 'Technical',
-        tags: ['Document'],
-        lastUpdated: new Date(doc.updated_at || doc.created_at).toLocaleDateString(),
-        url: doc.file_url || undefined,
-        filename: doc.filename,
-        tenant_id: doc.tenant_id,
-        tenant_name: doc.tenants?.name || undefined,
-        notes: doc.notes || undefined,
-      }));
+      const transformedDocs: KnowledgeDocument[] = (data || []).map(doc => {
+        const tenantData = doc.document_tenants || [];
+        const tenant_names = tenantData.map((dt: any) => dt.tenants?.name).filter(Boolean);
+        const tenant_ids = tenantData.map((dt: any) => dt.tenant_id).filter(Boolean);
+        
+        return {
+          id: doc.id,
+          title: doc.filename,
+          description: doc.content?.substring(0, 150) || 'No description available',
+          type: 'document' as const,
+          category: 'Technical',
+          tags: ['Document'],
+          lastUpdated: new Date(doc.updated_at || doc.created_at).toLocaleDateString(),
+          url: doc.file_url || undefined,
+          filename: doc.filename,
+          tenant_id: doc.tenant_id, // Keep for backward compatibility
+          tenant_names,
+          tenant_ids,
+          notes: doc.notes || undefined,
+        };
+      });
 
       setDocuments(transformedDocs);
     } catch (error) {
@@ -206,28 +217,58 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
 
   const handleEditClick = (doc: KnowledgeDocument) => {
     setDocumentToEdit(doc);
-    setEditTenantId(doc.tenant_id || 'none');
+    setEditTenantIds(doc.tenant_ids || []);
     setEditFilename(doc.filename || '');
     setEditDescription(doc.description || '');
     setEditNotes(doc.notes || '');
     setEditDialogOpen(true);
   };
 
+  const toggleTenant = (tenantId: string) => {
+    setEditTenantIds(prev => 
+      prev.includes(tenantId) 
+        ? prev.filter(id => id !== tenantId)
+        : [...prev, tenantId]
+    );
+  };
+
   const handleSaveEdit = async () => {
     if (!documentToEdit) return;
 
     try {
-      const { error } = await supabase
+      // Update document info
+      const { error: updateError } = await supabase
         .from('documents')
         .update({ 
-          tenant_id: editTenantId === 'none' ? null : editTenantId,
           filename: editFilename,
           content: editDescription,
           notes: editNotes || null
         })
         .eq('id', documentToEdit.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Delete existing tenant associations
+      const { error: deleteError } = await supabase
+        .from('document_tenants')
+        .delete()
+        .eq('document_id', documentToEdit.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new tenant associations
+      if (editTenantIds.length > 0) {
+        const associations = editTenantIds.map(tenant_id => ({
+          document_id: documentToEdit.id,
+          tenant_id
+        }));
+
+        const { error: insertError } = await supabase
+          .from('document_tenants')
+          .insert(associations);
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: "Success",
@@ -246,7 +287,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
     } finally {
       setEditDialogOpen(false);
       setDocumentToEdit(null);
-      setEditTenantId('none');
+      setEditTenantIds([]);
       setEditFilename('');
       setEditDescription('');
       setEditNotes('');
@@ -436,11 +477,13 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                           {doc.description}
                         </p>
                         <div className="flex flex-wrap gap-2 mb-4">
-                          {doc.tenant_name && (
-                            <Badge variant="default" className="text-xs">
-                              {doc.tenant_name}
-                            </Badge>
-                          )}
+                          {doc.tenant_names && doc.tenant_names.length > 0 ? (
+                            doc.tenant_names.map((name, idx) => (
+                              <Badge key={idx} variant="default" className="text-xs">
+                                {name}
+                              </Badge>
+                            ))
+                          ) : null}
                           <Badge variant="secondary" className="text-xs">
                             {doc.category}
                           </Badge>
@@ -573,25 +616,34 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
 
             {/* Tenant Selection */}
             <div className="space-y-2">
-              <Label htmlFor="tenant-select">Tenant Tag</Label>
-              <Select 
-                value={editTenantId} 
-                onValueChange={setEditTenantId}
-              >
-                <SelectTrigger id="tenant-select">
-                  <SelectValue placeholder="Select a tenant or leave unassigned" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Tenant (Unassigned)</SelectItem>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Tenant Tags</Label>
+              <Card className="p-4">
+                <div className="space-y-3 max-h-[200px] overflow-y-auto">
+                  {tenants.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No tenants available</p>
+                  ) : (
+                    tenants.map((tenant) => (
+                      <div key={tenant.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`tenant-${tenant.id}`}
+                          checked={editTenantIds.includes(tenant.id)}
+                          onChange={() => toggleTenant(tenant.id)}
+                          className="rounded border-input"
+                        />
+                        <Label
+                          htmlFor={`tenant-${tenant.id}`}
+                          className="text-sm font-normal cursor-pointer flex-1"
+                        >
+                          {tenant.name}
+                        </Label>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
               <p className="text-xs text-muted-foreground">
-                Tag this document with a tenant for organization
+                Select one or more tenants to tag this document
               </p>
             </div>
 
@@ -617,7 +669,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
               onClick={() => {
                 setEditDialogOpen(false);
                 setDocumentToEdit(null);
-                setEditTenantId('none');
+                setEditTenantIds([]);
                 setEditFilename('');
                 setEditDescription('');
                 setEditNotes('');
