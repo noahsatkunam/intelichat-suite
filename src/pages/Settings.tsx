@@ -14,9 +14,65 @@ export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  // Load display name from profile
+  React.useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (data && !error) {
+        setDisplayName(data.name || '');
+      }
+    };
+    
+    loadProfile();
+  }, [user]);
 
   const getUserInitials = (email: string) => {
     return email.split('@')[0].charAt(0).toUpperCase();
+  };
+
+  const handleDisplayNameSave = async () => {
+    if (!user || !displayName.trim()) {
+      toast({
+        title: "Error",
+        description: "Display name cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ name: displayName.trim() })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Display name updated successfully",
+      });
+    } catch (error) {
+      console.error('Error updating display name:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update display name",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,6 +142,28 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div>
+                <h4 className="font-medium">Display Name</h4>
+                <p className="text-sm text-muted-foreground">This name will be visible across the platform</p>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder="Enter your display name"
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleDisplayNameSave}
+                  disabled={isSavingName}
+                  size="sm"
+                >
+                  {isSavingName ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-medium">Profile Picture</h4>
