@@ -93,13 +93,16 @@ const EmailTest = () => {
 
     setLoadingSingle(true);
     try {
+      // Generate a test token for the invitation
+      const testToken = crypto.randomUUID();
+      
       // Test by sending a single invitation email
       const { error } = await supabase.functions.invoke("send-invitation", {
         body: {
           email: singleTestEmail,
+          token: testToken,
           role: "user",
-          tenantId: "test",
-          invitedBy: user?.id,
+          inviterName: "Email Test System",
         },
       });
 
@@ -366,6 +369,10 @@ const EmailTest = () => {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
+                Sender email: noreply@zyria.com
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4" />
                 Edge functions: send-invitation, send-password-reset
               </li>
             </ul>
@@ -375,7 +382,8 @@ const EmailTest = () => {
             <h3 className="font-semibold mb-2">Common Issues</h3>
             <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
               <li>Verify RESEND_API_KEY is set in edge function secrets</li>
-              <li>Ensure your domain is verified in Resend dashboard</li>
+              <li>Ensure noreply@zyria.com is configured in Resend</li>
+              <li>Verify your domain (zyria.com) in Resend dashboard</li>
               <li>Check edge function logs for detailed error messages</li>
               <li>Confirm sender email is authorized in Resend</li>
             </ul>

@@ -56,12 +56,15 @@ serve(async (req: Request) => {
     // Test 1: Send Invitation Email
     console.log("Testing invitation email...");
     try {
+      // Generate a test token for the invitation
+      const testToken = crypto.randomUUID();
+      
       const inviteResponse = await supabase.functions.invoke("send-invitation", {
         body: {
           email: testEmail,
+          token: testToken,
           role: "user",
-          tenantId: "00000000-0000-0000-0000-000000000000", // Test tenant ID
-          invitedBy: "00000000-0000-0000-0000-000000000000", // Test user ID
+          inviterName: "Email Test System",
         },
       });
 
