@@ -11,11 +11,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
-        <SidebarInset className="flex-1 min-w-0 transition-all duration-300">
-          <main className="h-full w-full">
-            <div className="h-full w-full">  
-              {children}
-            </div>
+        <SidebarInset className="flex-1 min-w-0 transition-all duration-300 ease-in-out">
+          <main className="h-full w-full p-4 md:p-6">
+            {children}
           </main>
         </SidebarInset>
       </div>

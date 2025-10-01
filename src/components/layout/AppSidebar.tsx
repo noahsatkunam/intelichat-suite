@@ -128,7 +128,7 @@ export function AppSidebar() {
   if (isCollapsed) {
     return (
       <Sidebar
-        className="border-r border-sidebar-border bg-sidebar"
+        className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
         collapsible="icon"
         style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
       >
@@ -167,7 +167,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r border-sidebar-border bg-sidebar"
+      className="border-r border-sidebar-border bg-sidebar transition-all duration-300 ease-in-out"
       collapsible="icon"
       style={{ "--sidebar-width": "20rem", "--sidebar-width-icon": "4rem" } as React.CSSProperties}
     >
