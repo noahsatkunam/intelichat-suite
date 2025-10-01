@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Send, Paperclip, X, ChevronRight, Settings, BookOpen, Brain, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { MessageList } from './MessageList';
@@ -256,11 +256,11 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
-        <div className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0">
+        <div className="h-16 border-b flex items-center justify-between px-6 flex-shrink-0 bg-card/30 backdrop-blur-sm rounded-br-2xl">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ChevronRight className="w-4 h-4 rotate-180" />
@@ -288,76 +288,78 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         </div>
 
         {/* Input Area */}
-        <div className="border-t bg-card/50 backdrop-blur-sm p-4 flex-shrink-0">
-          {/* Attachments Preview */}
-          {attachments.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {attachments.map((file, index) => (
-                <Badge key={index} variant="secondary" className="gap-2 pr-1">
-                  <span className="max-w-[200px] truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({(file.size / 1024).toFixed(1)}KB)
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-4 w-4 p-0 hover:bg-transparent"
-                    onClick={() => removeAttachment(index)}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              ))}
-            </div>
-          )}
+        <div className="flex-shrink-0 p-6">
+          <Card className="border-2 shadow-lg">
+            <CardContent className="p-4">
+              {/* Attachments Preview */}
+              {attachments.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {attachments.map((file, index) => (
+                    <Badge key={index} variant="secondary" className="gap-2 pr-1">
+                      <span className="max-w-[200px] truncate">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({(file.size / 1024).toFixed(1)}KB)
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-4 w-4 p-0 hover:bg-transparent"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
 
-          <div className="flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
-              accept="*/*"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-            >
-              <Paperclip className="w-4 h-4" />
-            </Button>
-            <Textarea
-              placeholder="Type your message..."
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              disabled={isLoading}
-              rows={1}
-              className="resize-none min-h-[40px] max-h-[200px]"
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isLoading || (!inputMessage.trim() && attachments.length === 0)}
-              className="gap-2 bg-gradient-primary hover:shadow-glow"
-            >
-              <Send className="w-4 h-4" />
-              Send
-            </Button>
-          </div>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="*/*"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                >
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+                <Textarea
+                  placeholder="Type your message..."
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  disabled={isLoading}
+                  rows={1}
+                  className="resize-none min-h-[40px] max-h-[200px]"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={isLoading || (!inputMessage.trim() && attachments.length === 0)}
+                  className="gap-2 bg-gradient-primary hover:shadow-glow"
+                >
+                  <Send className="w-4 h-4" />
+                  Send
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* Settings Panel */}
       {isPanelOpen && (
-        <div className="flex-shrink-0">
-          <ChatSettingsPanel
-            chatbotId={chatbotId}
-            isAdmin={isAdmin()}
-            onClose={() => setIsPanelOpen(false)}
-          />
-        </div>
+        <ChatSettingsPanel
+          chatbotId={chatbotId}
+          isAdmin={isAdmin()}
+          onClose={() => setIsPanelOpen(false)}
+        />
       )}
     </div>
   );

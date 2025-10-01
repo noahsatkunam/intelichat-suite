@@ -201,9 +201,9 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
     : [];
 
   return (
-    <div className="w-96 border-l bg-card/30 backdrop-blur-sm flex flex-col overflow-hidden">
+    <div className="w-96 border-l bg-card/30 backdrop-blur-sm flex flex-col h-screen">
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between flex-shrink-0">
+      <div className="p-6 border-b flex items-center justify-between flex-shrink-0 rounded-bl-2xl bg-card/50">
         <div className="flex items-center gap-2">
           <Settings className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">Settings</h3>
@@ -214,10 +214,10 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
         {/* Provider & Model Selection */}
         {isAdmin && (
-          <Card>
+          <Card className="border-2 shadow-md">
             <CardHeader>
               <CardTitle className="text-base">AI Provider & Model</CardTitle>
               <CardDescription>
@@ -278,7 +278,7 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
 
         {/* System Instructions */}
         <Collapsible open={isSystemOpen} onOpenChange={setIsSystemOpen}>
-          <Card>
+          <Card className="border-2 shadow-md">
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -321,7 +321,7 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
 
         {/* Knowledge Base */}
         <Collapsible open={isKnowledgeOpen} onOpenChange={setIsKnowledgeOpen}>
-          <Card>
+          <Card className="border-2 shadow-md">
             <CollapsibleTrigger className="w-full">
               <CardHeader>
                 <div className="flex items-center justify-between">
