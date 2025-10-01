@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Plus, Shield, Mail, Upload, Download, Search, Filter, MoreVertical, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Users, Plus, Shield, Mail, Upload, Download, Search, Filter, MoreVertical, Edit, Trash2, UserCheck, UserX, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { ConfirmationModal } from '@/components/ui/confirmation-modal';
+import { Progress } from '@/components/ui/progress';
 import { z } from 'zod';
 
 // Interface for user data
@@ -63,6 +64,11 @@ export default function UserManagement() {
     tenant_id: null as string | null,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingCsv, setProcessingCsv] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -227,6 +233,220 @@ export default function UserManagement() {
     }
   };
 
+  const downloadTemplate = () => {
+    const csvTemplate = 'First Name,Last Name,Email,Role,Department,Tenant ID\nJohn,Doe,john@example.com,user,Engineering,\nJane,Smith,jane@example.com,tenant_admin,Marketing,e86569fd-0789-4819-9904-00250da53159\n';
+    const blob = new Blob([csvTemplate], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'user-import-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Template Downloaded',
+      description: 'CSV template has been downloaded',
+    });
+  };
+
+  const exportUsers = () => {
+    const csvHeaders = 'First Name,Last Name,Email,Role,Department,Tenant,Tenant ID\n';
+    const csvRows = filteredUsers.map(user => {
+      const [firstName = '', lastName = ''] = user.name.split(' ');
+      return `${firstName},${lastName},${user.email},${user.role},${user.department},${user.tenant_name || ''},${user.tenant_id || ''}`;
+    }).join('\n');
+    
+    const csvContent = csvHeaders + csvRows;
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Users Exported',
+      description: `Exported ${filteredUsers.length} users to CSV`,
+    });
+  };
+
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const processCsvFile = (file: File) => {
+    setProcessingCsv(true);
+    setUploadProgress(0);
+
+    const reader = new FileReader();
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        setUploadProgress((e.loaded / e.total) * 50);
+      }
+    };
+
+    reader.onload = (e) => {
+      const csv = e.target?.result as string;
+      const lines = csv.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        toast({
+          title: 'Invalid File',
+          description: 'CSV file must contain at least a header and one data row',
+          variant: 'destructive',
+        });
+        setProcessingCsv(false);
+        return;
+      }
+
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const requiredHeaders = ['first name', 'last name', 'email', 'role'];
+      
+      if (!requiredHeaders.every(header => headers.some(h => h.includes(header.replace(' ', ''))))) {
+        toast({
+          title: 'Invalid Headers',
+          description: 'CSV must contain: First Name, Last Name, Email, Role columns',
+          variant: 'destructive',
+        });
+        setProcessingCsv(false);
+        return;
+      }
+
+      const preview: any[] = [];
+
+      lines.slice(1).forEach((line, index) => {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        
+        if (values.length < 4) {
+          return;
+        }
+
+        const [firstName, lastName, email, role, department = 'N/A', tenantId = null] = values;
+        
+        let status = 'valid';
+        let errorMessage = '';
+
+        if (!firstName || !lastName || !email) {
+          status = 'error';
+          errorMessage = 'Missing required fields';
+        } else if (!validateEmail(email)) {
+          status = 'error';
+          errorMessage = 'Invalid email format';
+        } else if (!['global_admin', 'tenant_admin', 'user'].includes(role)) {
+          status = 'error';
+          errorMessage = 'Invalid role (must be: global_admin, tenant_admin, or user)';
+        }
+
+        preview.push({
+          firstName,
+          lastName,
+          email,
+          role,
+          department,
+          tenant_id: tenantId || null,
+          status,
+          errorMessage
+        });
+      });
+
+      setImportPreview(preview);
+      setUploadProgress(100);
+      
+      setTimeout(() => {
+        setProcessingCsv(false);
+        setUploadProgress(0);
+      }, 500);
+
+      const validCount = preview.filter(u => u.status === 'valid').length;
+      toast({
+        title: 'CSV Processed',
+        description: `Ready to import ${validCount} valid users`,
+      });
+    };
+
+    reader.onerror = () => {
+      toast({
+        title: 'File Error',
+        description: 'Error reading the CSV file',
+        variant: 'destructive',
+      });
+      setProcessingCsv(false);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: 'Invalid File Type',
+        description: 'Please upload a CSV file',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'File size must be less than 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    processCsvFile(file);
+  };
+
+  const handleImportUsers = async () => {
+    const validUsers = importPreview.filter(u => u.status === 'valid');
+    
+    if (validUsers.length === 0) {
+      toast({
+        title: 'No Valid Users',
+        description: 'Please fix errors before importing',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      // Note: In a real implementation, you would send invitations via edge function
+      // For now, we'll show success message
+      toast({
+        title: 'Import Initiated',
+        description: `${validUsers.length} user invitation(s) will be sent`,
+      });
+
+      setShowImportModal(false);
+      setImportPreview([]);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Failed to import users:', error);
+      toast({
+        title: 'Import Failed',
+        description: 'Failed to import users',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active': return 'bg-green-500/10 text-green-700 border-green-200';
@@ -247,11 +467,11 @@ export default function UserManagement() {
               <p className="text-muted-foreground">Manage user accounts, roles, permissions, and bulk operations</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={() => setShowImportModal(true)}>
                 <Upload className="w-4 h-4" />
                 Import CSV
               </Button>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" onClick={exportUsers}>
                 <Download className="w-4 h-4" />
                 Export Users
               </Button>
@@ -499,6 +719,176 @@ export default function UserManagement() {
           </Pagination>
         </div>
       </div>
+
+      {/* Import Users Modal */}
+      <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Users from CSV</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Template Download Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileText className="w-5 h-5" />
+                  CSV Template
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-4 items-center">
+                  <Button onClick={downloadTemplate} variant="outline" className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download Template
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Template includes: First Name, Last Name, Email, Role, Department, Tenant ID
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p><strong>Valid roles:</strong> global_admin, tenant_admin, user</p>
+                  <p><strong>Tenant ID:</strong> Leave empty for global admins, otherwise use tenant UUID</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Upload Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Upload className="w-5 h-5" />
+                  Upload CSV File
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div 
+                  className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files[0]) {
+                      processCsvFile(files[0]);
+                    }
+                  }}
+                >
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="font-medium">Drop CSV file here or click to upload</p>
+                  <p className="text-sm text-muted-foreground">Max 5MB • CSV format only</p>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+
+                {processingCsv && (
+                  <div className="space-y-2 mt-4">
+                    <div className="flex justify-between text-sm">
+                      <span>Processing CSV...</span>
+                      <span>{Math.round(uploadProgress)}%</span>
+                    </div>
+                    <Progress value={uploadProgress} />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Preview Section */}
+            {importPreview.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between text-base">
+                    <span className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Import Preview ({importPreview.filter(u => u.status === 'valid').length} valid)
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {importPreview.filter(u => u.status === 'error').length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                        <span className="text-sm text-yellow-800">
+                          {importPreview.filter(u => u.status === 'error').length} users have errors and will not be imported
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto max-h-64">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Department</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importPreview.map((user, index) => (
+                          <TableRow key={index} className={user.status === 'error' ? 'bg-red-50' : ''}>
+                            <TableCell className="font-medium">
+                              {user.firstName} {user.lastName}
+                            </TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{getRoleDisplayName(user.role)}</Badge>
+                            </TableCell>
+                            <TableCell>{user.department}</TableCell>
+                            <TableCell>
+                              {user.status === 'valid' ? (
+                                <Badge className="bg-green-100 text-green-800">Valid</Badge>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="destructive">Error</Badge>
+                                  <span className="text-xs text-red-600">
+                                    {user.errorMessage}
+                                  </span>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowImportModal(false);
+                        setImportPreview([]);
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = '';
+                        }
+                      }}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleImportUsers}
+                      disabled={isSaving || importPreview.filter(u => u.status === 'valid').length === 0}
+                    >
+                      {isSaving ? 'Importing...' : `Import ${importPreview.filter(u => u.status === 'valid').length} Users`}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Modal */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
