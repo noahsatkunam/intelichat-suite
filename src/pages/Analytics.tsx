@@ -26,21 +26,87 @@ import {
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { analyticsService, type AnalyticsData } from '@/services/analyticsService';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Analytics() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState('7days');
+  const [selectedTenant, setSelectedTenant] = useState<string>('all');
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [tenants, setTenants] = useState<Array<{ id: string; name: string }>>([]);
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  const isGlobalAdmin = userProfile?.role === 'global_admin';
 
   useEffect(() => {
     loadAnalytics();
+    if (isGlobalAdmin) {
+      loadTenants();
+    }
   }, []);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [selectedTenant, selectedUser]);
+
+  useEffect(() => {
+    if (selectedTenant && selectedTenant !== 'all') {
+      loadUsers(selectedTenant);
+    } else {
+      setUsers([]);
+      setSelectedUser('all');
+    }
+  }, [selectedTenant]);
+
+  const loadTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error) {
+      console.error('Failed to load tenants:', error);
+    }
+  };
+
+  const loadUsers = async (tenantId: string) => {
+    try {
+      setLoadingUsers(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('tenant_id', tenantId)
+        .order('name');
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const data = await analyticsService.getAnalyticsData();
+      const filters: { tenantId?: string; userId?: string } = {};
+      
+      if (selectedTenant !== 'all') {
+        filters.tenantId = selectedTenant;
+      }
+      
+      if (selectedUser !== 'all') {
+        filters.userId = selectedUser;
+      }
+
+      const data = await analyticsService.getAnalyticsData(filters);
       setAnalyticsData(data);
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -114,9 +180,48 @@ export default function Analytics() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-display font-bold text-foreground">Analytics & Insights</h1>
-              <p className="text-muted-foreground">Monitor your AI assistant's performance and usage patterns</p>
+              <p className="text-muted-foreground">
+                {isGlobalAdmin 
+                  ? selectedTenant === 'all' 
+                    ? 'Platform-wide analytics across all tenants'
+                    : selectedUser === 'all'
+                      ? `Analytics for ${tenants.find(t => t.id === selectedTenant)?.name || 'selected tenant'}`
+                      : `Analytics for ${users.find(u => u.id === selectedUser)?.name || 'selected user'}`
+                  : 'Monitor your AI assistant\'s performance and usage patterns'
+                }
+              </p>
             </div>
             <div className="flex items-center gap-4">
+              {isGlobalAdmin && (
+                <>
+                  <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Tenants" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tenants</SelectItem>
+                      {tenants.map(tenant => (
+                        <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedTenant !== 'all' && (
+                    <Select value={selectedUser} onValueChange={setSelectedUser} disabled={loadingUsers}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue placeholder={loadingUsers ? "Loading users..." : "All Users"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Users</SelectItem>
+                        {users.map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.name || user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </>
+              )}
               <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-32">
                   <SelectValue />

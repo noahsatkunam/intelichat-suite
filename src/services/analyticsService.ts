@@ -44,50 +44,98 @@ class AnalyticsService {
     }
   }
 
-  async getAnalyticsData(): Promise<AnalyticsData> {
+  async getAnalyticsData(filters?: { tenantId?: string; userId?: string }): Promise<AnalyticsData> {
     try {
-      // Get user's profile to get tenant_id
+      // Get user's profile to check role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return this.getEmptyAnalytics();
+
       const { data: profile } = await supabase
         .from('profiles')
-        .select('tenant_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id!)
+        .select('tenant_id, role')
+        .eq('id', user.id)
         .single();
 
-      if (!profile?.tenant_id) {
-        return this.getEmptyAnalytics();
+      // Determine which tenant to query
+      let targetTenantId: string | null = null;
+      let targetUserId: string | null = null;
+
+      if (profile?.role === 'global_admin') {
+        // Global admin can filter by tenant and user
+        targetTenantId = filters?.tenantId || null;
+        targetUserId = filters?.userId || null;
+      } else {
+        // Regular users only see their tenant
+        targetTenantId = profile?.tenant_id || null;
+        targetUserId = user.id;
+      }
+
+      // Build queries based on filters
+      let messagesQuery = supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true });
+
+      let conversationsQuery = supabase
+        .from('conversations')
+        .select('id', { count: 'exact', head: true });
+
+      let documentsQuery = supabase
+        .from('documents')
+        .select('id', { count: 'exact', head: true });
+
+      // Apply filters
+      if (targetTenantId) {
+        conversationsQuery = conversationsQuery.eq('tenant_id', targetTenantId);
+        documentsQuery = documentsQuery.eq('tenant_id', targetTenantId);
+      }
+
+      if (targetUserId) {
+        messagesQuery = messagesQuery.eq('user_id', targetUserId);
       }
 
       // Get total counts
       const [messagesCount, conversationsCount, documentsCount] = await Promise.all([
-        supabase
-          .from('messages')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id!),
-        supabase
-          .from('conversations')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', profile.tenant_id),
-        supabase
-          .from('documents')
-          .select('id', { count: 'exact', head: true })
-          .eq('tenant_id', profile.tenant_id),
+        messagesQuery,
+        conversationsQuery,
+        documentsQuery,
       ]);
 
       // Get trend data for the last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+      let messagesTrendQuery = supabase
+        .from('messages')
+        .select('timestamp')
+        .gte('timestamp', sevenDaysAgo);
+
+      let conversationsTrendQuery = supabase
+        .from('conversations')
+        .select('created_at')
+        .gte('created_at', sevenDaysAgo);
+
+      if (targetUserId) {
+        messagesTrendQuery = messagesTrendQuery.eq('user_id', targetUserId);
+      }
+
+      if (targetTenantId) {
+        conversationsTrendQuery = conversationsTrendQuery.eq('tenant_id', targetTenantId);
+      }
+
       const [messagesTrend, conversationsTrend] = await Promise.all([
-        supabase
-          .from('messages')
-          .select('timestamp')
-          .gte('timestamp', sevenDaysAgo)
-          .eq('user_id', (await supabase.auth.getUser()).data.user?.id!),
-        supabase
-          .from('conversations')
-          .select('created_at')
-          .gte('created_at', sevenDaysAgo)
-          .eq('tenant_id', profile.tenant_id),
+        messagesTrendQuery,
+        conversationsTrendQuery,
       ]);
+
+      // Get active users count
+      let activeUsersQuery = supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true });
+
+      if (targetTenantId) {
+        activeUsersQuery = activeUsersQuery.eq('tenant_id', targetTenantId);
+      }
+
+      const activeUsersCount = await activeUsersQuery;
 
       // Process trend data
       const processTrendData = (data: any[], dateField: string) => {
@@ -114,7 +162,7 @@ class AnalyticsService {
         totalMessages: messagesCount.count || 0,
         totalConversations: conversationsCount.count || 0,
         totalDocuments: documentsCount.count || 0,
-        activeUsers: 1, // For single tenant, this is always 1
+        activeUsers: activeUsersCount.count || 0,
         messagesTrend: processTrendData(messagesTrend.data || [], 'timestamp'),
         conversationsTrend: processTrendData(conversationsTrend.data || [], 'created_at'),
       };
