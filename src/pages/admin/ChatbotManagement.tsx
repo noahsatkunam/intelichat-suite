@@ -103,7 +103,6 @@ export default function ChatbotManagement() {
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [isTestSectionExpanded, setIsTestSectionExpanded] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: number}>({});
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
 
@@ -687,97 +686,82 @@ export default function ChatbotManagement() {
               <div className="flex-1 flex gap-6 overflow-hidden">
                 {/* Left Column - Test Chatbot (only in edit mode) */}
                 {dialogMode === 'edit' && selectedChatbot && (
-                  <div className="w-80 flex-shrink-0">
-                    <Collapsible 
-                      open={isTestSectionExpanded} 
-                      onOpenChange={setIsTestSectionExpanded}
-                      className="border rounded-lg bg-muted/50 h-full flex flex-col"
-                    >
-                      <CollapsibleTrigger className="w-full p-4 hover:bg-muted/70 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Brain className="w-5 h-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Test Chatbot</h3>
-                            <Badge variant="outline" className="text-xs">Optional</Badge>
-                          </div>
-                          <ChevronDown 
-                            className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
-                              isTestSectionExpanded ? 'rotate-180' : ''
-                            }`} 
-                          />
-                        </div>
-                      </CollapsibleTrigger>
-                      
-                      <CollapsibleContent className="flex-1 flex flex-col overflow-hidden">
-                        <div className="p-4 pt-0 space-y-4 flex-1 flex flex-col overflow-y-auto">
-                          <div className="space-y-2">
-                            <FormLabel>Test Message</FormLabel>
-                            <Textarea
-                              placeholder="Enter a test message to see how the chatbot responds..."
-                              value={testMessage}
-                              onChange={(e) => setTestMessage(e.target.value)}
-                              rows={4}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={async () => {
-                              if (!testMessage.trim()) {
-                                toast({
-                                  title: "Error",
-                                  description: "Please enter a test message",
-                                  variant: "destructive"
-                                });
-                                return;
-                              }
-                              
-                              setIsTesting(true);
-                              setTestResponse('');
-                              
-                              try {
-                                const { data, error } = await supabase.functions.invoke('ai-chat', {
-                                  body: {
-                                    chatbot_id: selectedChatbot.id,
-                                    message: testMessage,
-                                    conversation_id: null
-                                  }
-                                });
-
-                                if (error) throw error;
-
-                                setTestResponse(data.response || 'No response received');
-                                
-                                toast({
-                                  title: "Success",
-                                  description: `Response generated via ${data.provider_name || 'AI Provider'}`
-                                });
-                              } catch (error: any) {
-                                toast({
-                                  title: "Error",
-                                  description: error.message || 'Failed to get response',
-                                  variant: "destructive"
-                                });
-                              } finally {
-                                setIsTesting(false);
-                              }
-                            }}
-                            disabled={isTesting || !testMessage.trim()}
-                            className="w-full"
-                          >
-                            {isTesting ? 'Generating Response...' : 'Test Chatbot'}
-                          </Button>
+                  <div className="w-80 flex-shrink-0 border rounded-lg bg-muted/50 h-full flex flex-col overflow-hidden">
+                    <div className="p-4 border-b bg-muted/70">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Test Chatbot</h3>
+                        <Badge variant="outline" className="text-xs">Optional</Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 space-y-4 flex-1 flex flex-col overflow-y-auto">
+                      <div className="space-y-2">
+                        <FormLabel>Test Message</FormLabel>
+                        <Textarea
+                          placeholder="Enter a test message to see how the chatbot responds..."
+                          value={testMessage}
+                          onChange={(e) => setTestMessage(e.target.value)}
+                          rows={4}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          if (!testMessage.trim()) {
+                            toast({
+                              title: "Error",
+                              description: "Please enter a test message",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
                           
-                          {testResponse && (
-                            <div className="space-y-2 flex-1 flex flex-col min-h-0">
-                              <FormLabel>Response</FormLabel>
-                              <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap flex-1 overflow-y-auto">
-                                {testResponse}
-                              </div>
-                            </div>
-                          )}
+                          setIsTesting(true);
+                          setTestResponse('');
+                          
+                          try {
+                            const { data, error } = await supabase.functions.invoke('ai-chat', {
+                              body: {
+                                chatbot_id: selectedChatbot.id,
+                                message: testMessage,
+                                conversation_id: null
+                              }
+                            });
+
+                            if (error) throw error;
+
+                            setTestResponse(data.response || 'No response received');
+                            
+                            toast({
+                              title: "Success",
+                              description: `Response generated via ${data.provider_name || 'AI Provider'}`
+                            });
+                          } catch (error: any) {
+                            toast({
+                              title: "Error",
+                              description: error.message || 'Failed to get response',
+                              variant: "destructive"
+                            });
+                          } finally {
+                            setIsTesting(false);
+                          }
+                        }}
+                        disabled={isTesting || !testMessage.trim()}
+                        className="w-full"
+                      >
+                        {isTesting ? 'Generating Response...' : 'Test Chatbot'}
+                      </Button>
+                      
+                      {testResponse && (
+                        <div className="space-y-2 flex-1 flex flex-col min-h-0">
+                          <FormLabel>Response</FormLabel>
+                          <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap flex-1 overflow-y-auto">
+                            {testResponse}
+                          </div>
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible>
+                      )}
+                    </div>
                   </div>
                 )}
 
