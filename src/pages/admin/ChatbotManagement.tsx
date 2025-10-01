@@ -36,6 +36,7 @@ interface Chatbot {
   is_active: boolean;
   tenant_id: string;
   created_at: string;
+  avatar_url?: string | null;
   ai_providers?: any;
   fallback_providers?: any;
 }
@@ -85,7 +86,8 @@ const chatbotSchema = z.object({
   presence_penalty: z.number().min(0).max(2),
   is_active: z.boolean(),
   tenant_ids: z.array(z.string()).min(1, 'Select at least one tenant'),
-  document_ids: z.array(z.string()).optional()
+  document_ids: z.array(z.string()).optional(),
+  avatar_url: z.string().optional()
 });
 
 export default function ChatbotManagement() {
@@ -106,6 +108,8 @@ export default function ChatbotManagement() {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: number}>({});
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
 
   const form = useForm({
     resolver: zodResolver(chatbotSchema),
@@ -124,7 +128,8 @@ export default function ChatbotManagement() {
       presence_penalty: 0.0,
       is_active: true,
       tenant_ids: [],
-      document_ids: []
+      document_ids: [],
+      avatar_url: ''
     }
   });
 
@@ -258,7 +263,8 @@ export default function ChatbotManagement() {
       presence_penalty: 0.0,
       is_active: true,
       tenant_ids: [],
-      document_ids: []
+      document_ids: [],
+      avatar_url: ''
     });
     setDialogMode('create');
     setSelectedChatbot(null);
@@ -267,6 +273,8 @@ export default function ChatbotManagement() {
     setCurrentStep(1);
     setUploadingFiles({});
     setUploadedDocs([]);
+    setAvatarFile(null);
+    setAvatarPreview('');
     setIsDialogOpen(true);
   };
 
@@ -298,7 +306,8 @@ export default function ChatbotManagement() {
       presence_penalty: chatbot.presence_penalty || 0.0,
       is_active: chatbot.is_active,
       tenant_ids: tenantAssignments?.map(t => t.tenant_id) || [],
-      document_ids: knowledgeAssignments?.map(k => k.document_id) || []
+      document_ids: knowledgeAssignments?.map(k => k.document_id) || [],
+      avatar_url: (chatbot as any).avatar_url || ''
     });
     setDialogMode('edit');
     setSelectedChatbot(chatbot);
@@ -307,6 +316,8 @@ export default function ChatbotManagement() {
     setCurrentStep(1);
     setUploadingFiles({});
     setUploadedDocs([]);
+    setAvatarFile(null);
+    setAvatarPreview((chatbot as any).avatar_url || '');
     setIsDialogOpen(true);
   };
 
@@ -423,6 +434,25 @@ export default function ChatbotManagement() {
         .eq('id', (await supabase.auth.getUser()).data.user?.id)
         .single();
 
+      // Handle avatar upload if a new file was selected
+      let avatarUrl = data.avatar_url;
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('chatbot-avatars')
+          .upload(fileName, avatarFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('chatbot-avatars')
+          .getPublicUrl(fileName);
+
+        avatarUrl = publicUrl;
+      }
+
       const chatbotData = {
         name: data.name,
         description: data.description || null,
@@ -437,7 +467,8 @@ export default function ChatbotManagement() {
         frequency_penalty: data.frequency_penalty,
         presence_penalty: data.presence_penalty,
         is_active: data.is_active,
-        tenant_id: profile?.tenant_id
+        tenant_id: profile?.tenant_id,
+        avatar_url: avatarUrl || null
       };
 
       let chatbotId: string;
@@ -727,10 +758,25 @@ export default function ChatbotManagement() {
                         testConversation.map((msg, idx) => (
                           <div
                             key={idx}
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
+                            {msg.role === 'assistant' && (
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden bg-muted border">
+                                {selectedChatbot?.avatar_url || form.watch('avatar_url') || avatarPreview ? (
+                                  <img 
+                                    src={avatarPreview || form.watch('avatar_url') || selectedChatbot?.avatar_url} 
+                                    alt="Bot avatar" 
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Brain className="w-4 h-4 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <div
-                              className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                              className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
                                 msg.role === 'user'
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-background border shadow-sm'
@@ -895,6 +941,51 @@ export default function ChatbotManagement() {
                         </FormItem>
                       )}
                     />
+
+                    {/* Avatar Upload */}
+                    <div className="space-y-2">
+                      <FormLabel>Chatbot Avatar</FormLabel>
+                      <div className="flex items-start gap-4">
+                        {(avatarPreview || form.watch('avatar_url')) && (
+                          <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-primary/20">
+                            <img 
+                              src={avatarPreview || form.watch('avatar_url')} 
+                              alt="Avatar preview" 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  toast({
+                                    title: "File too large",
+                                    description: "Avatar must be less than 2MB",
+                                    variant: "destructive"
+                                  });
+                                  return;
+                                }
+                                setAvatarFile(file);
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setAvatarPreview(reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="cursor-pointer"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Upload an image (max 2MB). PNG, JPG, or WebP recommended.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
                     <FormField
                       control={form.control}
