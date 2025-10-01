@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield, Upload, CheckCircle } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield, Upload, CheckCircle, ChevronDown } from 'lucide-react';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -102,6 +103,7 @@ export default function ChatbotManagement() {
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isTestSectionExpanded, setIsTestSectionExpanded] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: number}>({});
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
 
@@ -1189,79 +1191,98 @@ export default function ChatbotManagement() {
                 )}
               </div>
 
-              {/* Test Section */}
+              {/* Test Section - Collapsible */}
               {dialogMode === 'edit' && selectedChatbot && (
-                <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Test Chatbot</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <FormLabel>Test Message</FormLabel>
-                    <Textarea
-                      placeholder="Enter a test message to see how the chatbot responds..."
-                      value={testMessage}
-                      onChange={(e) => setTestMessage(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={async () => {
-                      if (!testMessage.trim()) {
-                        toast({
-                          title: "Error",
-                          description: "Please enter a test message",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      setIsTesting(true);
-                      setTestResponse('');
-                      
-                      try {
-                        const { data, error } = await supabase.functions.invoke('ai-chat', {
-                          body: {
-                            chatbot_id: selectedChatbot.id,
-                            message: testMessage,
-                            conversation_id: null
-                          }
-                        });
-
-                        if (error) throw error;
-
-                        setTestResponse(data.response || 'No response received');
-                        
-                        toast({
-                          title: "Success",
-                          description: `Response generated via ${data.provider_name || 'AI Provider'}`
-                        });
-                      } catch (error: any) {
-                        toast({
-                          title: "Error",
-                          description: error.message || 'Failed to get response',
-                          variant: "destructive"
-                        });
-                      } finally {
-                        setIsTesting(false);
-                      }
-                    }}
-                    disabled={isTesting || !testMessage.trim()}
-                    className="w-full"
-                  >
-                    {isTesting ? 'Generating Response...' : 'Test Chatbot'}
-                  </Button>
-                  
-                  {testResponse && (
-                    <div className="space-y-2">
-                      <FormLabel>Response</FormLabel>
-                      <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap">
-                        {testResponse}
+                <Collapsible 
+                  open={isTestSectionExpanded} 
+                  onOpenChange={setIsTestSectionExpanded}
+                  className="border rounded-lg bg-muted/50"
+                >
+                  <CollapsibleTrigger className="w-full p-4 hover:bg-muted/70 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Test Chatbot</h3>
+                        <Badge variant="outline" className="text-xs">Optional</Badge>
                       </div>
+                      <ChevronDown 
+                        className={`w-5 h-5 text-muted-foreground transition-transform duration-200 ${
+                          isTestSectionExpanded ? 'rotate-180' : ''
+                        }`} 
+                      />
                     </div>
-                  )}
-                </div>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent>
+                    <div className="p-4 pt-0 space-y-4">
+                      <div className="space-y-2">
+                        <FormLabel>Test Message</FormLabel>
+                        <Textarea
+                          placeholder="Enter a test message to see how the chatbot responds..."
+                          value={testMessage}
+                          onChange={(e) => setTestMessage(e.target.value)}
+                          rows={3}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          if (!testMessage.trim()) {
+                            toast({
+                              title: "Error",
+                              description: "Please enter a test message",
+                              variant: "destructive"
+                            });
+                            return;
+                          }
+                          
+                          setIsTesting(true);
+                          setTestResponse('');
+                          
+                          try {
+                            const { data, error } = await supabase.functions.invoke('ai-chat', {
+                              body: {
+                                chatbot_id: selectedChatbot.id,
+                                message: testMessage,
+                                conversation_id: null
+                              }
+                            });
+
+                            if (error) throw error;
+
+                            setTestResponse(data.response || 'No response received');
+                            
+                            toast({
+                              title: "Success",
+                              description: `Response generated via ${data.provider_name || 'AI Provider'}`
+                            });
+                          } catch (error: any) {
+                            toast({
+                              title: "Error",
+                              description: error.message || 'Failed to get response',
+                              variant: "destructive"
+                            });
+                          } finally {
+                            setIsTesting(false);
+                          }
+                        }}
+                        disabled={isTesting || !testMessage.trim()}
+                        className="w-full"
+                      >
+                        {isTesting ? 'Generating Response...' : 'Test Chatbot'}
+                      </Button>
+                      
+                      {testResponse && (
+                        <div className="space-y-2">
+                          <FormLabel>Response</FormLabel>
+                          <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap">
+                            {testResponse}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               )}
 
               {/* Navigation Buttons */}
