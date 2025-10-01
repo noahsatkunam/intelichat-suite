@@ -16,7 +16,7 @@ import About from "./pages/About";
 import AuthPage from "./pages/AuthPage";
 import InviteAcceptPage from "./pages/InviteAcceptPage";
 import ContactPage from "./pages/ContactPage";
-
+import Chat from "./pages/Chat";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
@@ -64,7 +64,7 @@ const App = () => (
                 } />
                 <Route path="/chat" element={
                   <ProtectedRoute>
-                    <AppLayout><Index /></AppLayout>
+                    <AppLayout><Chat /></AppLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/chat/:id" element={
