@@ -307,7 +307,11 @@ export default function UserManagement() {
       const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
       const requiredHeaders = ['first name', 'last name', 'email'];
       
-      if (!requiredHeaders.every(header => headers.some(h => h.includes(header.replace(' ', ''))))) {
+      // Normalize headers by removing all spaces for comparison
+      const normalizedHeaders = headers.map(h => h.replace(/\s+/g, ''));
+      const normalizedRequired = requiredHeaders.map(h => h.replace(/\s+/g, ''));
+      
+      if (!normalizedRequired.every(required => normalizedHeaders.includes(required))) {
         toast({
           title: 'Invalid Headers',
           description: 'CSV must contain: First Name, Last Name, Email columns (Role, Department, Tenant are optional)',
