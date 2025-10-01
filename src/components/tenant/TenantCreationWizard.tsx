@@ -340,7 +340,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
           <div className="border-b border-border bg-card/50 backdrop-blur-sm p-6">
             <DialogHeader className="mb-4">
               <DialogTitle className="text-2xl font-display">
-                {mode === 'create' ? 'Create Advanced Tenant' : 'Edit Tenant Configuration'}
+                {mode === 'create' ? 'Create Tenant' : 'Edit Tenant Configuration'}
               </DialogTitle>
             </DialogHeader>
             

@@ -149,7 +149,7 @@ export default function TenantManagement() {
             </div>
             <Button onClick={handleCreateTenant} className="gap-2 bg-gradient-primary hover:shadow-glow">
               <Plus className="w-4 h-4" />
-              Create Advanced Tenant
+              Create Tenant
             </Button>
           </div>
           
