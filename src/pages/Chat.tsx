@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import ProviderLogo from '@/components/ai/ProviderLogo';
+import { ConversationInterface } from '@/components/chat/ConversationInterface';
 
 interface Chatbot {
   id: string;
@@ -24,6 +25,7 @@ interface Chatbot {
 export default function Chat() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -107,14 +109,17 @@ export default function Chat() {
   };
 
   const handleSelectChatbot = (chatbot: Chatbot) => {
-    // TODO: Navigate to chat interface with selected chatbot
-    console.log('Selected chatbot:', chatbot);
+    setSelectedChatbot(chatbot);
   };
 
   const handleCustomAI = () => {
     // TODO: Navigate to custom AI configuration
     console.log('Custom AI selected');
   };
+
+  if (selectedChatbot) {
+    return <ConversationInterface chatbotId={selectedChatbot.id} chatbotName={selectedChatbot.name} onBack={() => setSelectedChatbot(null)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-6">
