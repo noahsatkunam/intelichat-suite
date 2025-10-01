@@ -184,6 +184,26 @@ export function ChatInterface() {
   const handleSendMessage = async (content: string, attachments?: File[]) => {
     if (!user) return;
 
+    // Validate attachments - 10MB limit per file
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachments && attachments.length > 0) {
+      for (const file of attachments) {
+        if (file.size > MAX_FILE_SIZE) {
+          toast.error('File too large', {
+            description: `${file.name} exceeds 10MB limit`
+          });
+          return;
+        }
+      }
+      
+      if (attachments.length > 10) {
+        toast.error('Too many files', {
+          description: 'Maximum 10 files per message'
+        });
+        return;
+      }
+    }
+
     // Create conversation if it doesn't exist
     let conversationId = currentConversation;
     if (!conversationId) {
@@ -191,10 +211,10 @@ export function ChatInterface() {
       if (!conversationId) return;
     }
 
-    // Create optimistic UI message
-    const tempId = `temp-${Date.now()}`;
-    const newMessage: Message = {
-      id: tempId,
+    // Create optimistic user message
+    const tempUserId = `temp-user-${Date.now()}`;
+    const userMessage: Message = {
+      id: tempUserId,
       content,
       sender: 'user',
       timestamp: new Date(),
@@ -207,77 +227,178 @@ export function ChatInterface() {
       }))
     };
 
-    setMessages(prev => [...prev, newMessage]);
+    // Create optimistic bot message for streaming
+    const tempBotId = `temp-bot-${Date.now()}`;
+    const botMessage: Message = {
+      id: tempBotId,
+      content: '',
+      sender: 'bot',
+      timestamp: new Date(),
+      status: 'sending'
+    };
+
+    setMessages(prev => [...prev, userMessage, botMessage]);
     setReplyingTo(null);
     setIsTyping(true);
 
     try {
-      // Send message to database
-      const dbMessage = await conversationService.sendMessage(
+      // Send user message to database
+      const dbUserMessage = await conversationService.sendMessage(
         conversationId,
         content,
         'user'
       );
 
-      if (dbMessage) {
-        // Replace temp message with real one
+      if (dbUserMessage) {
+        // Replace temp user message with real one
         setMessages(prev => prev.map(msg =>
-          msg.id === tempId ? convertDbMessageToUiMessage(dbMessage) : msg
+          msg.id === tempUserId ? convertDbMessageToUiMessage(dbUserMessage) : msg
         ));
 
         // Track analytics
         await analyticsService.trackMetric('message_sent', 1);
-
         notifyMessageSent();
 
-        // Handle file uploads
+        // Notify about file uploads
         if (attachments && attachments.length > 0) {
           attachments.forEach(file => notifyFileUploaded(file.name));
         }
 
-        // Generate AI response via edge function
+        // Stream AI response with <100ms initial latency
+        let streamedContent = '';
+        let botMetadata: any = null;
+
+        const streamStartTime = Date.now();
+        let firstChunkReceived = false;
+
         try {
-          const response = await fetch('https://onvnvlnxmilotkxkfddu.supabase.co/functions/v1/ai-chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({
-              chatbot_id: null, // Default chatbot for now
-              message: content,
-              conversation_id: conversationId,
-              user_id: user?.id,
-            }),
-          });
+          const response = await fetch(
+            'https://onvnvlnxmilotkxkfddu.supabase.co/functions/v1/ai-chat-stream',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({
+                chatbot_id: null,
+                message: content,
+                conversation_id: conversationId,
+                user_id: user?.id,
+                use_knowledge_base: useKnowledgeBase
+              }),
+            }
+          );
 
           if (!response.ok) {
-            throw new Error('Failed to get AI response');
+            throw new Error(`HTTP ${response.status}`);
           }
 
-          const aiData = await response.json();
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+
+          if (reader) {
+            let buffer = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+
+                    if (!firstChunkReceived && data.type === 'content') {
+                      const latency = Date.now() - streamStartTime;
+                      console.log(`[ChatInterface] First chunk latency: ${latency}ms`);
+                      firstChunkReceived = true;
+                    }
+
+                    switch (data.type) {
+                      case 'metadata':
+                        botMetadata = {
+                          provider: data.provider,
+                          model: data.model,
+                          sources: data.sources || []
+                        };
+                        break;
+
+                      case 'content':
+                        if (data.content) {
+                          streamedContent += data.content;
+                          // Update bot message with streaming content
+                          setMessages(prev => prev.map(msg =>
+                            msg.id === tempBotId
+                              ? { ...msg, content: streamedContent, status: 'sending' }
+                              : msg
+                          ));
+                        }
+                        break;
+
+                      case 'failover':
+                        toast.info('Switching providers', {
+                          description: data.message || 'Trying backup...'
+                        });
+                        break;
+
+                      case 'error':
+                        throw new Error(data.content || 'AI error');
+
+                      case 'done':
+                        // Update with final message including sources
+                        setMessages(prev => prev.map(msg =>
+                          msg.id === tempBotId
+                            ? {
+                                ...msg,
+                                content: streamedContent,
+                                status: 'sent',
+                                sources: botMetadata?.sources || []
+                              }
+                            : msg
+                        ));
+                        setIsTyping(false);
+                        break;
+                    }
+                  } catch (parseError) {
+                    console.error('[ChatInterface] Parse error:', parseError);
+                  }
+                }
+              }
+            }
+          }
+        } catch (streamError) {
+          console.error('[ChatInterface] Streaming error:', streamError);
           
-          // AI response is already saved by the edge function
-          setIsTyping(false);
-        } catch (error) {
-          console.error('AI response error:', error);
-          // Fallback response
-          const botResponse = await conversationService.sendMessage(
-            conversationId!,
-            'I apologize, but I encountered an issue processing your request. Please try again.',
+          // Fallback error message
+          const errorResponse = await conversationService.sendMessage(
+            conversationId,
+            'I apologize, but I encountered an issue. Please try again.',
             'assistant'
           );
-          
-          if (botResponse) {
-            setIsTyping(false);
+
+          if (errorResponse) {
+            setMessages(prev => prev.map(msg =>
+              msg.id === tempBotId ? convertDbMessageToUiMessage(errorResponse) : msg
+            ));
           }
+          
+          setIsTyping(false);
+          notifyMessageError();
         }
       }
     } catch (error) {
-      // Handle error
-      setMessages(prev => prev.map(msg =>
-        msg.id === tempId ? { ...msg, status: 'error' } : msg
+      console.error('[ChatInterface] Send message error:', error);
+      
+      // Mark user message as error
+      setMessages(prev => prev.filter(msg => msg.id !== tempBotId).map(msg =>
+        msg.id === tempUserId ? { ...msg, status: 'error' } : msg
       ));
+      
       setIsTyping(false);
       notifyMessageError();
     }
