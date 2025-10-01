@@ -25,6 +25,8 @@ interface Chatbot {
   temperature: number;
   max_tokens: number;
   top_p: number;
+  frequency_penalty: number;
+  presence_penalty: number;
   is_active: boolean;
   tenant_id: string;
   created_at: string;
@@ -60,6 +62,10 @@ export default function ChatbotManagement() {
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const { toast } = useToast();
 
+  const [testMessage, setTestMessage] = useState('');
+  const [testResponse, setTestResponse] = useState('');
+  const [isTesting, setIsTesting] = useState(false);
+
   const form = useForm({
     defaultValues: {
       name: '',
@@ -71,6 +77,8 @@ export default function ChatbotManagement() {
       temperature: 0.7,
       max_tokens: 1000,
       top_p: 1.0,
+      frequency_penalty: 0.0,
+      presence_penalty: 0.0,
       is_active: true
     }
   });
@@ -154,10 +162,14 @@ export default function ChatbotManagement() {
       temperature: 0.7,
       max_tokens: 1000,
       top_p: 1.0,
+      frequency_penalty: 0.0,
+      presence_penalty: 0.0,
       is_active: true
     });
     setDialogMode('create');
     setSelectedChatbot(null);
+    setTestMessage('');
+    setTestResponse('');
     setIsDialogOpen(true);
   };
 
@@ -172,10 +184,14 @@ export default function ChatbotManagement() {
       temperature: chatbot.temperature || 0.7,
       max_tokens: chatbot.max_tokens || 1000,
       top_p: chatbot.top_p || 1.0,
+      frequency_penalty: chatbot.frequency_penalty || 0.0,
+      presence_penalty: chatbot.presence_penalty || 0.0,
       is_active: chatbot.is_active
     });
     setDialogMode('edit');
     setSelectedChatbot(chatbot);
+    setTestMessage('');
+    setTestResponse('');
     setIsDialogOpen(true);
   };
 
@@ -198,6 +214,8 @@ export default function ChatbotManagement() {
         temperature: data.temperature,
         max_tokens: data.max_tokens,
         top_p: data.top_p,
+        frequency_penalty: data.frequency_penalty,
+        presence_penalty: data.presence_penalty,
         is_active: data.is_active,
         tenant_id: profile?.tenant_id
       };
@@ -608,23 +626,71 @@ export default function ChatbotManagement() {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="top_p"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Top P: {field.value}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={[field.value]}
+                            onValueChange={(values) => field.onChange(values[0])}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Nucleus sampling (0.1 = focused, 1.0 = diverse)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="frequency_penalty"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Frequency Penalty: {field.value}</FormLabel>
+                        <FormControl>
+                          <Slider
+                            min={0}
+                            max={2}
+                            step={0.1}
+                            value={[field.value]}
+                            onValueChange={(values) => field.onChange(values[0])}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Reduce repetition (0 = none, 2 = maximum)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="top_p"
+                  name="presence_penalty"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Top P: {field.value}</FormLabel>
+                      <FormLabel>Presence Penalty: {field.value}</FormLabel>
                       <FormControl>
                         <Slider
                           min={0}
-                          max={1}
-                          step={0.05}
+                          max={2}
+                          step={0.1}
                           value={[field.value]}
                           onValueChange={(values) => field.onChange(values[0])}
                         />
                       </FormControl>
                       <FormDescription>
-                        Nucleus sampling parameter (0.1 = focused, 1.0 = diverse)
+                        Encourage new topics (0 = none, 2 = maximum)
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -649,6 +715,81 @@ export default function ChatbotManagement() {
                   </FormItem>
                 )}
               />
+
+              {/* Test Section */}
+              {dialogMode === 'edit' && selectedChatbot && (
+                <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Test Chatbot</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>Test Message</FormLabel>
+                    <Textarea
+                      placeholder="Enter a test message to see how the chatbot responds..."
+                      value={testMessage}
+                      onChange={(e) => setTestMessage(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      if (!testMessage.trim()) {
+                        toast({
+                          title: "Error",
+                          description: "Please enter a test message",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      setIsTesting(true);
+                      setTestResponse('');
+                      
+                      try {
+                        const { data, error } = await supabase.functions.invoke('ai-chat', {
+                          body: {
+                            chatbot_id: selectedChatbot.id,
+                            message: testMessage,
+                            conversation_id: null
+                          }
+                        });
+
+                        if (error) throw error;
+
+                        setTestResponse(data.response || 'No response received');
+                        
+                        toast({
+                          title: "Success",
+                          description: `Response generated via ${data.provider_name || 'AI Provider'}`
+                        });
+                      } catch (error: any) {
+                        toast({
+                          title: "Error",
+                          description: error.message || 'Failed to get response',
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setIsTesting(false);
+                      }
+                    }}
+                    disabled={isTesting || !testMessage.trim()}
+                    className="w-full"
+                  >
+                    {isTesting ? 'Generating Response...' : 'Test Chatbot'}
+                  </Button>
+                  
+                  {testResponse && (
+                    <div className="space-y-2">
+                      <FormLabel>Response</FormLabel>
+                      <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap">
+                        {testResponse}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
