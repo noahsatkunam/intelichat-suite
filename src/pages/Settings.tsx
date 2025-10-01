@@ -14,22 +14,24 @@ export default function Settings() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
-  const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isSavingName, setIsSavingName] = useState(false);
 
-  // Load display name from profile
+  // Load first and last name from profile
   React.useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('name')
+        .select('first_name, last_name')
         .eq('id', user.id)
         .maybeSingle();
       
       if (data && !error) {
-        setDisplayName(data.name || '');
+        setFirstName(data.first_name || '');
+        setLastName(data.last_name || '');
       }
     };
     
@@ -41,10 +43,10 @@ export default function Settings() {
   };
 
   const handleDisplayNameSave = async () => {
-    if (!user || !displayName.trim()) {
+    if (!user || !firstName.trim()) {
       toast({
         title: "Error",
-        description: "Display name cannot be empty",
+        description: "First name cannot be empty",
         variant: "destructive",
       });
       return;
@@ -52,22 +54,28 @@ export default function Settings() {
 
     setIsSavingName(true);
     try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      
       const { error } = await supabase
         .from('profiles')
-        .update({ name: displayName.trim() })
+        .update({ 
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          name: fullName // Keep name column synced for backward compatibility
+        })
         .eq('id', user.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Display name updated successfully",
+        description: "Name updated successfully",
       });
     } catch (error) {
-      console.error('Error updating display name:', error);
+      console.error('Error updating name:', error);
       toast({
         title: "Error",
-        description: "Failed to update display name",
+        description: "Failed to update name",
         variant: "destructive",
       });
     } finally {
@@ -147,19 +155,34 @@ export default function Settings() {
                 <h4 className="font-medium">Display Name</h4>
                 <p className="text-sm text-muted-foreground">This name will be visible across the platform</p>
               </div>
-              <div className="flex gap-2">
-                <Input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Enter your display name"
-                  className="flex-1"
-                />
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="first-name">First Name</Label>
+                    <Input
+                      id="first-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="First name"
+                    />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="last-name">Last Name</Label>
+                    <Input
+                      id="last-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Last name"
+                    />
+                  </div>
+                </div>
                 <Button 
                   onClick={handleDisplayNameSave}
                   disabled={isSavingName}
                   size="sm"
+                  className="w-full"
                 >
-                  {isSavingName ? 'Saving...' : 'Save'}
+                  {isSavingName ? 'Saving...' : 'Save Name'}
                 </Button>
               </div>
             </div>
