@@ -149,6 +149,78 @@ export type Database = {
           },
         ]
       }
+      chatbot_knowledge: {
+        Row: {
+          chatbot_id: string
+          created_at: string | null
+          document_id: string
+          id: string
+        }
+        Insert: {
+          chatbot_id: string
+          created_at?: string | null
+          document_id: string
+          id?: string
+        }
+        Update: {
+          chatbot_id?: string
+          created_at?: string | null
+          document_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_knowledge_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_knowledge_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_tenants: {
+        Row: {
+          chatbot_id: string
+          created_at: string | null
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          chatbot_id: string
+          created_at?: string | null
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          chatbot_id?: string
+          created_at?: string | null
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_tenants_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_tenants_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_usage: {
         Row: {
           ai_provider_id: string | null

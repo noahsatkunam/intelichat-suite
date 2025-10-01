@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Settings, Users, Bot, Brain } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Users, Bot, Brain, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -52,10 +55,41 @@ interface ProviderModel {
   supports_function_calling: boolean;
 }
 
+interface Tenant {
+  id: string;
+  name: string;
+  subdomain: string;
+}
+
+interface Document {
+  id: string;
+  filename: string;
+  status: string;
+}
+
+const chatbotSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
+  description: z.string().optional(),
+  system_prompt: z.string().min(10, 'System prompt must be at least 10 characters').max(5000, 'System prompt too long'),
+  primary_ai_provider_id: z.string().min(1, 'Primary provider is required'),
+  fallback_ai_provider_id: z.string().optional(),
+  model_name: z.string().min(1, 'Model is required'),
+  temperature: z.number().min(0).max(2),
+  max_tokens: z.number().min(1).max(32000),
+  top_p: z.number().min(0).max(1),
+  frequency_penalty: z.number().min(0).max(2),
+  presence_penalty: z.number().min(0).max(2),
+  is_active: z.boolean(),
+  tenant_ids: z.array(z.string()).min(1, 'Select at least one tenant'),
+  document_ids: z.array(z.string()).optional()
+});
+
 export default function ChatbotManagement() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [availableModels, setAvailableModels] = useState<ProviderModel[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -67,6 +101,7 @@ export default function ChatbotManagement() {
   const [isTesting, setIsTesting] = useState(false);
 
   const form = useForm({
+    resolver: zodResolver(chatbotSchema),
     defaultValues: {
       name: '',
       description: '',
@@ -79,7 +114,9 @@ export default function ChatbotManagement() {
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
-      is_active: true
+      is_active: true,
+      tenant_ids: [],
+      document_ids: []
     }
   });
 
@@ -90,6 +127,8 @@ export default function ChatbotManagement() {
     fetchChatbots();
     fetchProviders();
     fetchProviderModels();
+    fetchTenants();
+    fetchDocuments();
   }, []);
 
   const fetchChatbots = async () => {
@@ -151,6 +190,43 @@ export default function ChatbotManagement() {
     }
   };
 
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name, subdomain')
+        .order('name');
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('id, filename, status')
+        .eq('status', 'processed')
+        .order('filename');
+
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleCreateChatbot = () => {
     form.reset({
       name: '',
@@ -164,7 +240,9 @@ export default function ChatbotManagement() {
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
-      is_active: true
+      is_active: true,
+      tenant_ids: [],
+      document_ids: []
     });
     setDialogMode('create');
     setSelectedChatbot(null);
@@ -173,7 +251,19 @@ export default function ChatbotManagement() {
     setIsDialogOpen(true);
   };
 
-  const handleEditChatbot = (chatbot: Chatbot) => {
+  const handleEditChatbot = async (chatbot: Chatbot) => {
+    // Fetch tenant assignments
+    const { data: tenantAssignments } = await supabase
+      .from('chatbot_tenants')
+      .select('tenant_id')
+      .eq('chatbot_id', chatbot.id);
+
+    // Fetch knowledge base assignments
+    const { data: knowledgeAssignments } = await supabase
+      .from('chatbot_knowledge')
+      .select('document_id')
+      .eq('chatbot_id', chatbot.id);
+
     form.reset({
       name: chatbot.name,
       description: chatbot.description || '',
@@ -186,7 +276,9 @@ export default function ChatbotManagement() {
       top_p: chatbot.top_p || 1.0,
       frequency_penalty: chatbot.frequency_penalty || 0.0,
       presence_penalty: chatbot.presence_penalty || 0.0,
-      is_active: chatbot.is_active
+      is_active: chatbot.is_active,
+      tenant_ids: tenantAssignments?.map(t => t.tenant_id) || [],
+      document_ids: knowledgeAssignments?.map(k => k.document_id) || []
     });
     setDialogMode('edit');
     setSelectedChatbot(chatbot);
@@ -195,7 +287,7 @@ export default function ChatbotManagement() {
     setIsDialogOpen(true);
   };
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: z.infer<typeof chatbotSchema>) => {
     try {
       // Get current user's tenant_id
       const { data: profile } = await supabase
@@ -207,10 +299,10 @@ export default function ChatbotManagement() {
       const chatbotData = {
         name: data.name,
         description: data.description || null,
-        system_prompt: data.system_prompt || null,
-        primary_ai_provider_id: data.primary_ai_provider_id || null,
+        system_prompt: data.system_prompt,
+        primary_ai_provider_id: data.primary_ai_provider_id,
         fallback_ai_provider_id: data.fallback_ai_provider_id || null,
-        model_name: data.model_name || null,
+        model_name: data.model_name,
         temperature: data.temperature,
         max_tokens: data.max_tokens,
         top_p: data.top_p,
@@ -220,12 +312,17 @@ export default function ChatbotManagement() {
         tenant_id: profile?.tenant_id
       };
 
+      let chatbotId: string;
+
       if (dialogMode === 'create') {
-        const { error } = await supabase
+        const { data: newChatbot, error } = await supabase
           .from('chatbots')
-          .insert([chatbotData]);
+          .insert([chatbotData])
+          .select()
+          .single();
         
         if (error) throw error;
+        chatbotId = newChatbot.id;
         
         toast({
           title: "Success",
@@ -238,11 +335,44 @@ export default function ChatbotManagement() {
           .eq('id', selectedChatbot?.id);
         
         if (error) throw error;
+        chatbotId = selectedChatbot!.id;
+        
+        // Delete existing tenant and knowledge assignments
+        await supabase.from('chatbot_tenants').delete().eq('chatbot_id', chatbotId);
+        await supabase.from('chatbot_knowledge').delete().eq('chatbot_id', chatbotId);
         
         toast({
           title: "Success",
           description: "Chatbot updated successfully"
         });
+      }
+
+      // Add tenant assignments
+      if (data.tenant_ids.length > 0) {
+        const tenantAssignments = data.tenant_ids.map(tenantId => ({
+          chatbot_id: chatbotId,
+          tenant_id: tenantId
+        }));
+        
+        const { error: tenantError } = await supabase
+          .from('chatbot_tenants')
+          .insert(tenantAssignments);
+        
+        if (tenantError) throw tenantError;
+      }
+
+      // Add knowledge base assignments
+      if (data.document_ids && data.document_ids.length > 0) {
+        const knowledgeAssignments = data.document_ids.map(documentId => ({
+          chatbot_id: chatbotId,
+          document_id: documentId
+        }));
+        
+        const { error: knowledgeError } = await supabase
+          .from('chatbot_knowledge')
+          .insert(knowledgeAssignments);
+        
+        if (knowledgeError) throw knowledgeError;
       }
 
       setIsDialogOpen(false);
@@ -568,6 +698,129 @@ export default function ChatbotManagement() {
                       <FormDescription>
                         Used when primary provider fails (will use default model)
                       </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Tenant Access Control */}
+              <div className="space-y-4 border rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Tenant Access</h3>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="tenant_ids"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel className="text-base">Select Tenants</FormLabel>
+                      <FormDescription>
+                        Choose which tenants can access this chatbot
+                      </FormDescription>
+                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                        {tenants.map((tenant) => (
+                          <FormField
+                            key={tenant.id}
+                            control={form.control}
+                            name="tenant_ids"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={tenant.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(tenant.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, tenant.id])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value !== tenant.id
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <div className="flex-1">
+                                    <FormLabel className="font-normal cursor-pointer">
+                                      {tenant.name}
+                                    </FormLabel>
+                                    <p className="text-xs text-muted-foreground">
+                                      {tenant.subdomain}
+                                    </p>
+                                  </div>
+                                </FormItem>
+                              )
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Knowledge Base */}
+              <div className="space-y-4 border rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Knowledge Base</h3>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="document_ids"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel className="text-base">Select Documents (Optional)</FormLabel>
+                      <FormDescription>
+                        Add documents to enhance the chatbot's knowledge
+                      </FormDescription>
+                      {documents.length === 0 ? (
+                        <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">
+                          No processed documents available. Upload documents in the Knowledge Base section first.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+                          {documents.map((document) => (
+                            <FormField
+                              key={document.id}
+                              control={form.control}
+                              name="document_ids"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={document.id}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(document.id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...(field.value || []), document.id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== document.id
+                                                )
+                                              )
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="font-normal cursor-pointer flex-1">
+                                      {document.filename}
+                                    </FormLabel>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
