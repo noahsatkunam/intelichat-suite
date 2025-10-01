@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Settings, Users, Bot, Brain, X } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -99,6 +99,7 @@ export default function ChatbotManagement() {
   const [testMessage, setTestMessage] = useState('');
   const [testResponse, setTestResponse] = useState('');
   const [isTesting, setIsTesting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   const form = useForm({
     resolver: zodResolver(chatbotSchema),
@@ -248,6 +249,7 @@ export default function ChatbotManagement() {
     setSelectedChatbot(null);
     setTestMessage('');
     setTestResponse('');
+    setCurrentStep(1);
     setIsDialogOpen(true);
   };
 
@@ -284,6 +286,7 @@ export default function ChatbotManagement() {
     setSelectedChatbot(chatbot);
     setTestMessage('');
     setTestResponse('');
+    setCurrentStep(1);
     setIsDialogOpen(true);
   };
 
@@ -530,443 +533,482 @@ export default function ChatbotManagement() {
 
       {/* Chatbot Configuration Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {dialogMode === 'create' ? 'Create Chatbot' : 'Edit Chatbot'}
-            </DialogTitle>
-            <DialogDescription>
-              Configure your chatbot with specific AI models and parameters.
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-gradient-primary">
+                <Bot className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl">
+                  {dialogMode === 'create' ? 'Create New Chatbot' : 'Edit Chatbot'}
+                </DialogTitle>
+                <DialogDescription>
+                  Step {currentStep} of 2: {currentStep === 1 ? 'Basic Configuration' : 'Advanced Settings'}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
+
+          {/* Progress Indicator */}
+          <div className="flex items-center gap-2 mb-6">
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 1 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Basic Setup</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 2 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Configuration</p>
+            </div>
+          </div>
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Chatbot Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Customer Support Bot" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="A helpful chatbot for customer support inquiries..."
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="system_prompt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>System Prompt</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="You are a helpful customer support assistant. Always be polite and professional..."
-                        rows={4}
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      This prompt will define the chatbot's personality and behavior.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Provider and Model Selection */}
-              <div className="space-y-4 border rounded-lg p-4">
-                <h3 className="text-lg font-semibold">AI Provider & Model</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="primary_ai_provider_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Primary API Key</FormLabel>
-                        <Select onValueChange={(value) => {
-                          field.onChange(value);
-                          form.setValue('model_name', ''); // Reset model when provider changes
-                        }} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select API key" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {providers.map((provider) => (
-                              <SelectItem key={provider.id} value={provider.id}>
-                                <div className="flex items-center gap-2">
-                                  <span>{getProviderIcon(provider.type)}</span>
-                                  {provider.name}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="model_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Model</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProviderType}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={selectedProviderType ? "Select model" : "Select provider first"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {modelsForProvider.map((model) => (
-                              <SelectItem key={model.id} value={model.model_name}>
-                                <div className="space-y-1">
-                                  <div className="font-medium">{model.display_name}</div>
-                                  {model.description && (
-                                    <div className="text-xs text-muted-foreground">{model.description}</div>
-                                  )}
-                                  <div className="text-xs text-muted-foreground flex gap-2">
-                                    {model.max_context_length && <span>{model.max_context_length.toLocaleString()} tokens</span>}
-                                    {model.supports_vision && <span>Vision</span>}
-                                    {model.supports_function_calling && <span>Functions</span>}
-                                  </div>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Available models for the selected provider
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="fallback_ai_provider_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fallback Provider (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || undefined}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="None (Optional)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {providers.map((provider) => (
-                            <SelectItem key={provider.id} value={provider.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{getProviderIcon(provider.type)}</span>
-                                {provider.name}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Used when primary provider fails (will use default model)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Tenant Access Control */}
-              <div className="space-y-4 border rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Tenant Access</h3>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="tenant_ids"
-                  render={() => (
-                    <FormItem>
-                      <FormLabel className="text-base">Select Tenants</FormLabel>
-                      <FormDescription>
-                        Choose which tenants can access this chatbot
-                      </FormDescription>
-                      <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                        {tenants.map((tenant) => (
-                          <FormField
-                            key={tenant.id}
-                            control={form.control}
-                            name="tenant_ids"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={tenant.id}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(tenant.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value, tenant.id])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== tenant.id
-                                              )
-                                            )
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <div className="flex-1">
-                                    <FormLabel className="font-normal cursor-pointer">
-                                      {tenant.name}
-                                    </FormLabel>
-                                    <p className="text-xs text-muted-foreground">
-                                      {tenant.subdomain}
-                                    </p>
-                                  </div>
-                                </FormItem>
-                              )
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Knowledge Base */}
-              <div className="space-y-4 border rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Knowledge Base</h3>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="document_ids"
-                  render={() => (
-                    <FormItem>
-                      <FormLabel className="text-base">Select Documents (Optional)</FormLabel>
-                      <FormDescription>
-                        Add documents to enhance the chatbot's knowledge
-                      </FormDescription>
-                      {documents.length === 0 ? (
-                        <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center">
-                          No processed documents available. Upload documents in the Knowledge Base section first.
-                        </div>
-                      ) : (
-                        <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
-                          {documents.map((document) => (
-                            <FormField
-                              key={document.id}
-                              control={form.control}
-                              name="document_ids"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={document.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(document.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...(field.value || []), document.id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== document.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal cursor-pointer flex-1">
-                                      {document.filename}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Model Parameters */}
-              <div className="space-y-4 border rounded-lg p-4">
-                <h3 className="text-lg font-semibold">Model Parameters</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="temperature"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Temperature: {field.value}</FormLabel>
-                        <FormControl>
-                          <Slider
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={[field.value]}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Controls randomness (0 = focused, 2 = creative)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="max_tokens"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Max Tokens</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min={1} 
-                            max={32000}
-                            {...field} 
-                            onChange={(e) => field.onChange(parseInt(e.target.value))} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Maximum response length
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="top_p"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Top P: {field.value}</FormLabel>
-                        <FormControl>
-                          <Slider
-                            min={0}
-                            max={1}
-                            step={0.05}
-                            value={[field.value]}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Nucleus sampling (0.1 = focused, 1.0 = diverse)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="frequency_penalty"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Frequency Penalty: {field.value}</FormLabel>
-                        <FormControl>
-                          <Slider
-                            min={0}
-                            max={2}
-                            step={0.1}
-                            value={[field.value]}
-                            onValueChange={(values) => field.onChange(values[0])}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Reduce repetition (0 = none, 2 = maximum)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="presence_penalty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Presence Penalty: {field.value}</FormLabel>
-                      <FormControl>
-                        <Slider
-                          min={0}
-                          max={2}
-                          step={0.1}
-                          value={[field.value]}
-                          onValueChange={(values) => field.onChange(values[0])}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Encourage new topics (0 = none, 2 = maximum)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active Chatbot</FormLabel>
-                      <FormDescription>
-                        Enable this chatbot for users
-                      </FormDescription>
+              {/* Step 1: Basic Configuration */}
+              {currentStep === 1 && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Basic Information</h3>
                     </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+                    
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Chatbot Name *</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., Customer Support Assistant" 
+                              className="text-lg"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="Describe what this chatbot does and how it helps users..."
+                              rows={3}
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="system_prompt"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>System Prompt *</FormLabel>
+                          <FormControl>
+                            <Textarea 
+                              placeholder="You are a helpful assistant that..."
+                              rows={5}
+                              className="font-mono text-sm"
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Define the chatbot's personality, role, and behavior
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* AI Provider Selection */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Zap className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">AI Provider & Model</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="primary_ai_provider_id"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Primary Provider *</FormLabel>
+                            <Select onValueChange={(value) => {
+                              field.onChange(value);
+                              form.setValue('model_name', '');
+                            }} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select provider" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {providers.map((provider) => (
+                                  <SelectItem key={provider.id} value={provider.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>{getProviderIcon(provider.type)}</span>
+                                      {provider.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="model_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Model *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProviderType}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder={selectedProviderType ? "Select model" : "Select provider first"} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {modelsForProvider.map((model) => (
+                                  <SelectItem key={model.id} value={model.model_name}>
+                                    <div className="space-y-1">
+                                      <div className="font-medium">{model.display_name}</div>
+                                      {model.description && (
+                                        <div className="text-xs text-muted-foreground">{model.description}</div>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="fallback_ai_provider_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fallback Provider (Optional)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || undefined}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="None (Optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {providers.map((provider) => (
+                                <SelectItem key={provider.id} value={provider.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{getProviderIcon(provider.type)}</span>
+                                    {provider.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Backup provider if primary fails
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Advanced Settings */}
+              {currentStep === 2 && (
+                <div className="space-y-6 animate-fade-in">
+                  {/* Tenant Access */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Access Control</h3>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="tenant_ids"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel className="text-base">Tenant Access *</FormLabel>
+                          <FormDescription>
+                            Select which tenants can use this chatbot
+                          </FormDescription>
+                          <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-background">
+                            {tenants.map((tenant) => (
+                              <FormField
+                                key={tenant.id}
+                                control={form.control}
+                                name="tenant_ids"
+                                render={({ field }) => {
+                                  return (
+                                    <FormItem
+                                      key={tenant.id}
+                                      className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
+                                    >
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value?.includes(tenant.id)}
+                                          onCheckedChange={(checked) => {
+                                            return checked
+                                              ? field.onChange([...field.value, tenant.id])
+                                              : field.onChange(
+                                                  field.value?.filter(
+                                                    (value) => value !== tenant.id
+                                                  )
+                                                )
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <div className="flex-1">
+                                        <FormLabel className="font-normal cursor-pointer">
+                                          {tenant.name}
+                                        </FormLabel>
+                                        <p className="text-xs text-muted-foreground">
+                                          {tenant.subdomain}
+                                        </p>
+                                      </div>
+                                    </FormItem>
+                                  )
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Knowledge Base */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-5">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Knowledge Base</h3>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="document_ids"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel className="text-base">Documents (Optional)</FormLabel>
+                          <FormDescription>
+                            Enhance responses with specific documents
+                          </FormDescription>
+                          {documents.length === 0 ? (
+                            <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center bg-muted/30">
+                              No documents available. Upload in Knowledge Base first.
+                            </div>
+                          ) : (
+                            <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-background">
+                              {documents.map((document) => (
+                                <FormField
+                                  key={document.id}
+                                  control={form.control}
+                                  name="document_ids"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        key={document.id}
+                                        className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
+                                      >
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(document.id)}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? field.onChange([...(field.value || []), document.id])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                      (value) => value !== document.id
+                                                    )
+                                                  )
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="font-normal cursor-pointer flex-1">
+                                          {document.filename}
+                                        </FormLabel>
+                                      </FormItem>
+                                    )
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Model Parameters */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-5">
+                    <div className="flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Model Parameters</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="temperature"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Temperature: {field.value}</FormLabel>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                value={[field.value]}
+                                onValueChange={(values) => field.onChange(values[0])}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Creativity level
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="max_tokens"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Max Tokens</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number" 
+                                min={1} 
+                                max={32000}
+                                {...field} 
+                                onChange={(e) => field.onChange(parseInt(e.target.value))} 
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Response length
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="top_p"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Top P: {field.value}</FormLabel>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={1}
+                                step={0.05}
+                                value={[field.value]}
+                                onValueChange={(values) => field.onChange(values[0])}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Nucleus sampling
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="frequency_penalty"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Frequency Penalty: {field.value}</FormLabel>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                value={[field.value]}
+                                onValueChange={(values) => field.onChange(values[0])}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Reduce repetition
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="presence_penalty"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Presence Penalty: {field.value}</FormLabel>
+                          <FormControl>
+                            <Slider
+                              min={0}
+                              max={2}
+                              step={0.1}
+                              value={[field.value]}
+                              onValueChange={(values) => field.onChange(values[0])}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Topic diversity
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Activation */}
+                  <FormField
+                    control={form.control}
+                    name="is_active"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-gradient-to-br from-primary/5 to-transparent">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base font-semibold">Activate Chatbot</FormLabel>
+                          <FormDescription>
+                            Make this chatbot available to users
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
 
               {/* Test Section */}
               {dialogMode === 'edit' && selectedChatbot && (
@@ -1043,13 +1085,58 @@ export default function ChatbotManagement() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {dialogMode === 'create' ? 'Create Chatbot' : 'Update Chatbot'}
-                </Button>
+              {/* Navigation Buttons */}
+              <div className="flex justify-between gap-2 pt-4 border-t">
+                {currentStep === 1 ? (
+                  <>
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={() => {
+                        // Validate step 1 fields
+                        const step1Fields = ['name', 'system_prompt', 'primary_ai_provider_id', 'model_name'];
+                        const hasErrors = step1Fields.some(field => {
+                          const error = form.getFieldState(field as any).error;
+                          return error !== undefined;
+                        });
+                        
+                        if (!form.getValues('name') || !form.getValues('system_prompt') || 
+                            !form.getValues('primary_ai_provider_id') || !form.getValues('model_name')) {
+                          toast({
+                            title: "Missing Required Fields",
+                            description: "Please fill in all required fields marked with *",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        setCurrentStep(2);
+                      }}
+                      className="gap-2"
+                    >
+                      Next: Advanced Settings
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setCurrentStep(1)}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                    <Button type="submit" className="gap-2">
+                      {dialogMode === 'create' ? 'Create Chatbot' : 'Update Chatbot'}
+                      <Sparkles className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </form>
           </Form>
