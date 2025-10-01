@@ -9,6 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface DocumentUploadProps {
   isOpen: boolean;
@@ -28,6 +30,7 @@ interface UploadedFile {
 export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const { toast } = useToast();
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -66,44 +69,95 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
 
     setUploadedFiles(prev => [...prev, ...newFiles]);
 
-    // Simulate upload and processing
-    newFiles.forEach(file => {
-      simulateUpload(file.id);
+    // Upload each file
+    newFiles.forEach((fileData, index) => {
+      uploadToSupabase(files[index], fileData.id);
     });
   };
 
-  const simulateUpload = async (fileId: string) => {
-    // Upload simulation
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setUploadedFiles(prev => prev.map(file => 
-        file.id === fileId ? { ...file, progress: i } : file
+  const uploadToSupabase = async (file: File, fileId: string) => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Get user's tenant_id
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.tenant_id) {
+        throw new Error('User tenant not found');
+      }
+
+      // Show upload progress
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, progress: 50 } : f
       ));
-    }
 
-    // Switch to processing
-    setUploadedFiles(prev => prev.map(file => 
-      file.id === fileId ? { ...file, status: 'processing', progress: 0 } : file
-    ));
+      // Upload to storage
+      const filePath = `${profile.tenant_id}/${Date.now()}_${file.name}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
 
-    // Processing simulation
-    for (let i = 0; i <= 100; i += 5) {
-      await new Promise(resolve => setTimeout(resolve, 150));
-      setUploadedFiles(prev => prev.map(file => 
-        file.id === fileId ? { ...file, progress: i } : file
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Switch to processing
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'processing', progress: 0 } : f
       ));
-    }
 
-    // Complete or error (90% success rate)
-    const isSuccess = Math.random() > 0.1;
-    setUploadedFiles(prev => prev.map(file => 
-      file.id === fileId ? { 
-        ...file, 
-        status: isSuccess ? 'completed' : 'error',
-        progress: 100,
-        error: isSuccess ? undefined : 'Processing failed. Please try again.'
-      } : file
-    ));
+      // Create document record
+      const { error: dbError } = await supabase
+        .from('documents')
+        .insert({
+          filename: file.name,
+          file_url: urlData.publicUrl,
+          status: 'ready',
+          uploaded_by: user.id,
+          tenant_id: profile.tenant_id
+        });
+
+      if (dbError) throw dbError;
+
+      // Mark as completed
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, status: 'completed', progress: 100 } : f
+      ));
+
+      toast({
+        title: "Success",
+        description: `${file.name} uploaded successfully`
+      });
+
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      setUploadedFiles(prev => prev.map(f => 
+        f.id === fileId ? { 
+          ...f, 
+          status: 'error',
+          progress: 0,
+          error: error.message || 'Upload failed'
+        } : f
+      ));
+
+      toast({
+        title: "Error",
+        description: error.message || 'Failed to upload document',
+        variant: "destructive"
+      });
+    }
   };
 
   const removeFile = (fileId: string) => {

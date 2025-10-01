@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { DocumentUpload } from '@/components/knowledge/DocumentUpload';
+import { useToast } from '@/hooks/use-toast';
 
 const categories = ['All', 'Technical', 'Business', 'Compliance', 'Integration', 'Best Practices'];
 
@@ -38,6 +40,8 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [selectedTab, setSelectedTab] = useState<'all' | 'document' | 'video' | 'link'>('all');
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadDocuments();
@@ -85,6 +89,61 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
     }
   };
 
+  const handleDownload = async (doc: KnowledgeDocument) => {
+    try {
+      if (!doc.url) {
+        toast({
+          title: "Error",
+          description: "Document URL not found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Extract file path from the URL
+      const urlParts = doc.url.split('/documents/');
+      if (urlParts.length < 2) {
+        toast({
+          title: "Error",
+          description: "Invalid document URL",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const filePath = urlParts[1];
+
+      // Download from Supabase storage
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(filePath);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.filename || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Document downloaded successfully"
+      });
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download document",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = searchQuery === '' || 
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,7 +168,10 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
               </h1>
               <p className="text-muted-foreground">Access documentation, guides, and resources</p>
             </div>
-            <Button className="gap-2 bg-gradient-primary hover:shadow-glow">
+            <Button 
+              className="gap-2 bg-gradient-primary hover:shadow-glow"
+              onClick={() => setIsUploadOpen(true)}
+            >
               <Plus className="w-4 h-4" />
               Upload Document
             </Button>
@@ -175,6 +237,10 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                             variant="ghost"
                             size="sm"
                             className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownload(doc);
+                            }}
                           >
                             <Download className="w-4 h-4" />
                           </Button>
@@ -224,6 +290,15 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Upload Document Dialog */}
+      <DocumentUpload 
+        isOpen={isUploadOpen} 
+        onClose={() => {
+          setIsUploadOpen(false);
+          loadDocuments(); // Reload documents after upload
+        }} 
+      />
     </div>
   );
 }
