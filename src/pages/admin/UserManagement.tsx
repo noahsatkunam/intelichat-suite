@@ -1030,11 +1030,11 @@ export default function UserManagement() {
             </Card>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-between items-center px-2">
-                <p className="text-sm text-muted-foreground">
-                  Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
-                </p>
+            <div className="flex justify-between items-center px-2">
+              <p className="text-sm text-muted-foreground">
+                Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length} users
+              </p>
+              {totalPages > 1 && (
                 <Pagination>
                   <PaginationContent>
                     <PaginationItem>
@@ -1062,8 +1062,8 @@ export default function UserManagement() {
                     </PaginationItem>
                   </PaginationContent>
                 </Pagination>
-              </div>
-            )}
+              )}
+            </div>
           </TabsContent>
 
           {/* Pending Invitations Tab */}
