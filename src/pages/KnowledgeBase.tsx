@@ -61,6 +61,7 @@ interface KnowledgeDocument {
 export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedTenant, setSelectedTenant] = useState('All');
   const [selectedTab, setSelectedTab] = useState<'all' | 'document' | 'video' | 'link'>('all');
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -351,7 +352,10 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
     const matchesCategory = selectedCategory === 'All' || doc.category === selectedCategory;
     const matchesType = selectedTab === 'all' || doc.type === selectedTab;
     
-    return matchesSearch && matchesCategory && matchesType;
+    const matchesTenant = selectedTenant === 'All' || 
+      (doc.tenant_names && doc.tenant_names.some(name => name === selectedTenant));
+    
+    return matchesSearch && matchesCategory && matchesType && matchesTenant;
   });
 
   return (
@@ -391,11 +395,23 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-full sm:w-48 h-10">
                 <Filter className="w-4 h-4 mr-1" />
-                <SelectValue />
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((category) => (
                   <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+              <SelectTrigger className="w-full sm:w-48 h-10">
+                <Filter className="w-4 h-4 mr-1" />
+                <SelectValue placeholder="Tenant" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Tenants</SelectItem>
+                {tenants.map((tenant) => (
+                  <SelectItem key={tenant.id} value={tenant.name}>{tenant.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
