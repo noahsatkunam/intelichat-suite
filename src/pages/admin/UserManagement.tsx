@@ -841,7 +841,7 @@ export default function UserManagement() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-4 gap-4 mb-6">
-            <Card>
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -852,7 +852,7 @@ export default function UserManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -863,7 +863,7 @@ export default function UserManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(234,179,8,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-yellow-500/40">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -874,7 +874,7 @@ export default function UserManagement() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(239,68,68,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-red-500/40">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
