@@ -635,7 +635,7 @@ export default function ChatbotManagement() {
 
       {/* Chatbot Configuration Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-gradient-primary">
@@ -646,32 +646,46 @@ export default function ChatbotManagement() {
                   {dialogMode === 'create' ? 'Create New Chatbot' : 'Edit Chatbot'}
                 </DialogTitle>
                 <DialogDescription>
-                  Step {currentStep} of 2: {currentStep === 1 ? 'Basic Configuration' : 'Advanced Settings'}
+                  Step {currentStep} of 4: {
+                    currentStep === 1 ? 'Basic Information' : 
+                    currentStep === 2 ? 'AI Provider & Model' :
+                    currentStep === 3 ? 'Access Control & Knowledge Base' :
+                    'Model Parameters & Activation'
+                  }
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
           {/* Progress Indicator */}
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-4">
             <div className="flex-1">
               <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 1 ? 'bg-gradient-primary' : 'bg-muted'}`} />
-              <p className="text-xs mt-1 text-center font-medium">Basic Setup</p>
+              <p className="text-xs mt-1 text-center font-medium">Basic Info</p>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
             <div className="flex-1">
               <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 2 ? 'bg-gradient-primary' : 'bg-muted'}`} />
-              <p className="text-xs mt-1 text-center font-medium">Configuration</p>
+              <p className="text-xs mt-1 text-center font-medium">AI Provider</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 3 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Access & Docs</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 4 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Parameters</p>
             </div>
           </div>
           
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Step 1: Basic Configuration */}
-              {currentStep === 1 && (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Basic Info */}
-                  <div className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-1">
+                {/* Step 1: Basic Information */}
+                {currentStep === 1 && (
+                  <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center gap-2 mb-4">
                       <Sparkles className="w-5 h-5 text-primary" />
                       <h3 className="text-lg font-semibold">Basic Information</h3>
@@ -722,7 +736,7 @@ export default function ChatbotManagement() {
                           <FormControl>
                             <Textarea 
                               placeholder="You are a helpful assistant that..."
-                              rows={5}
+                              rows={8}
                               className="font-mono text-sm"
                               {...field} 
                             />
@@ -735,9 +749,11 @@ export default function ChatbotManagement() {
                       )}
                     />
                   </div>
+                )}
 
-                  {/* AI Provider Selection */}
-                  <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
+                {/* Step 2: AI Provider & Model */}
+                {currentStep === 2 && (
+                  <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center gap-2 mb-4">
                       <Zap className="w-5 h-5 text-primary" />
                       <h3 className="text-lg font-semibold">AI Provider & Model</h3>
@@ -837,197 +853,199 @@ export default function ChatbotManagement() {
                       )}
                     />
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Step 2: Advanced Settings */}
-              {currentStep === 2 && (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Tenant Access */}
-                  <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Access Control</h3>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="tenant_ids"
-                      render={() => (
-                        <FormItem>
-                          <FormLabel className="text-base">Tenant Access *</FormLabel>
-                          <FormDescription>
-                            Select which tenants can use this chatbot
-                          </FormDescription>
-                          <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3 bg-background">
-                            {tenants.map((tenant) => (
-                              <FormField
-                                key={tenant.id}
-                                control={form.control}
-                                name="tenant_ids"
-                                render={({ field }) => {
-                                  return (
-                                    <FormItem
-                                      key={tenant.id}
-                                      className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
-                                    >
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={field.value?.includes(tenant.id)}
-                                          onCheckedChange={(checked) => {
-                                            return checked
-                                              ? field.onChange([...field.value, tenant.id])
-                                              : field.onChange(
-                                                  field.value?.filter(
-                                                    (value) => value !== tenant.id
-                                                  )
-                                                )
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <div className="flex-1">
-                                        <FormLabel className="font-normal cursor-pointer">
-                                          {tenant.name}
-                                        </FormLabel>
-                                        <p className="text-xs text-muted-foreground">
-                                          {tenant.subdomain}
-                                        </p>
-                                      </div>
-                                    </FormItem>
-                                  )
-                                }}
-                              />
-                            ))}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Knowledge Base */}
-                  <div className="space-y-4 border border-primary/20 rounded-lg p-5">
-                    <div className="flex items-center gap-2">
-                      <Brain className="w-5 h-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Knowledge Base</h3>
-                    </div>
-
-                    {/* Upload New Documents */}
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium">Upload New Documents</label>
-                      <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                        <input
-                          type="file"
-                          multiple
-                          accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
-                          onChange={(e) => handleFileUpload(e.target.files)}
-                          className="hidden"
-                          id="doc-upload"
-                        />
-                        <label htmlFor="doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                          <Upload className="w-8 h-8 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground">
-                            Click to upload or drag files here
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            PDF, Word, PowerPoint, Text (Max 10MB)
-                          </p>
-                        </label>
+                {/* Step 3: Access Control & Knowledge Base */}
+                {currentStep === 3 && (
+                  <div className="space-y-4 animate-fade-in">
+                    {/* Tenant Access */}
+                    <div className="space-y-4 border border-primary/20 rounded-lg p-4 bg-gradient-to-br from-primary/5 to-transparent">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Access Control</h3>
                       </div>
-
-                      {/* Upload Progress */}
-                      {Object.keys(uploadingFiles).length > 0 && (
-                        <div className="space-y-2">
-                          {Object.entries(uploadingFiles).map(([fileId, progress]) => (
-                            <div key={fileId} className="space-y-1">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground truncate">
-                                  Uploading...
-                                </span>
-                                <span className="text-muted-foreground">{Math.round(progress)}%</span>
-                              </div>
-                              <Progress value={progress} className="h-1" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {uploadedDocs.length > 0 && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>{uploadedDocs.length} document(s) uploaded successfully</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t border-border" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">or select existing</span>
-                      </div>
-                    </div>
-
-                    {/* Select Existing Documents */}
-                    <FormField
-                      control={form.control}
-                      name="document_ids"
-                      render={() => (
-                        <FormItem>
-                          <FormLabel className="text-base">Existing Documents (Optional)</FormLabel>
-                          <FormDescription>
-                            Select from previously uploaded documents
-                          </FormDescription>
-                          {documents.length === 0 ? (
-                            <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center bg-muted/30">
-                              No documents available. Upload new ones above.
-                            </div>
-                          ) : (
-                            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-background">
-                              {documents.map((document) => (
+                      <FormField
+                        control={form.control}
+                        name="tenant_ids"
+                        render={() => (
+                          <FormItem>
+                            <FormLabel className="text-base">Tenant Access *</FormLabel>
+                            <FormDescription>
+                              Select which tenants can use this chatbot
+                            </FormDescription>
+                            <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3 bg-background">
+                              {tenants.map((tenant) => (
                                 <FormField
-                                  key={document.id}
+                                  key={tenant.id}
                                   control={form.control}
-                                  name="document_ids"
+                                  name="tenant_ids"
                                   render={({ field }) => {
                                     return (
                                       <FormItem
-                                        key={document.id}
+                                        key={tenant.id}
                                         className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
                                       >
                                         <FormControl>
                                           <Checkbox
-                                            checked={field.value?.includes(document.id)}
+                                            checked={field.value?.includes(tenant.id)}
                                             onCheckedChange={(checked) => {
                                               return checked
-                                                ? field.onChange([...(field.value || []), document.id])
+                                                ? field.onChange([...field.value, tenant.id])
                                                 : field.onChange(
                                                     field.value?.filter(
-                                                      (value) => value !== document.id
+                                                      (value) => value !== tenant.id
                                                     )
                                                   )
                                             }}
                                           />
                                         </FormControl>
-                                        <FormLabel className="font-normal cursor-pointer flex-1">
-                                          {document.filename}
-                                        </FormLabel>
+                                        <div className="flex-1">
+                                          <FormLabel className="font-normal cursor-pointer">
+                                            {tenant.name}
+                                          </FormLabel>
+                                          <p className="text-xs text-muted-foreground">
+                                            {tenant.subdomain}
+                                          </p>
+                                        </div>
                                       </FormItem>
                                     )
                                   }}
                                 />
                               ))}
                             </div>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
-                  {/* Model Parameters */}
-                  <div className="space-y-4 border border-primary/20 rounded-lg p-5">
-                    <div className="flex items-center gap-2">
+                    {/* Knowledge Base */}
+                    <div className="space-y-4 border border-primary/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Knowledge Base</h3>
+                      </div>
+
+                      {/* Upload New Documents */}
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium">Upload New Documents</label>
+                        <div className="border-2 border-dashed border-border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                          <input
+                            type="file"
+                            multiple
+                            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
+                            onChange={(e) => handleFileUpload(e.target.files)}
+                            className="hidden"
+                            id="doc-upload"
+                          />
+                          <label htmlFor="doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                            <Upload className="w-8 h-8 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">
+                              Click to upload or drag files here
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              PDF, Word, PowerPoint, Text (Max 10MB)
+                            </p>
+                          </label>
+                        </div>
+
+                        {/* Upload Progress */}
+                        {Object.keys(uploadingFiles).length > 0 && (
+                          <div className="space-y-2">
+                            {Object.entries(uploadingFiles).map(([fileId, progress]) => (
+                              <div key={fileId} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground truncate">
+                                    Uploading...
+                                  </span>
+                                  <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                                </div>
+                                <Progress value={progress} className="h-1" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {uploadedDocs.length > 0 && (
+                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{uploadedDocs.length} document(s) uploaded successfully</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t border-border" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">or select existing</span>
+                        </div>
+                      </div>
+
+                      {/* Select Existing Documents */}
+                      <FormField
+                        control={form.control}
+                        name="document_ids"
+                        render={() => (
+                          <FormItem>
+                            <FormLabel className="text-base">Existing Documents (Optional)</FormLabel>
+                            <FormDescription>
+                              Select from previously uploaded documents
+                            </FormDescription>
+                            {documents.length === 0 ? (
+                              <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center bg-muted/30">
+                                No documents available. Upload new ones above.
+                              </div>
+                            ) : (
+                              <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3 bg-background">
+                                {documents.map((document) => (
+                                  <FormField
+                                    key={document.id}
+                                    control={form.control}
+                                    name="document_ids"
+                                    render={({ field }) => {
+                                      return (
+                                        <FormItem
+                                          key={document.id}
+                                          className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
+                                        >
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={field.value?.includes(document.id)}
+                                              onCheckedChange={(checked) => {
+                                                return checked
+                                                  ? field.onChange([...(field.value || []), document.id])
+                                                  : field.onChange(
+                                                      field.value?.filter(
+                                                        (value) => value !== document.id
+                                                      )
+                                                    )
+                                              }}
+                                            />
+                                          </FormControl>
+                                          <FormLabel className="font-normal cursor-pointer flex-1">
+                                            {document.filename}
+                                          </FormLabel>
+                                        </FormItem>
+                                      )
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Model Parameters & Activation */}
+                {currentStep === 4 && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center gap-2 mb-4">
                       <Settings className="w-5 h-5 text-primary" />
                       <h3 className="text-lg font-semibold">Model Parameters</h3>
                     </div>
@@ -1089,13 +1107,13 @@ export default function ChatbotManagement() {
                               <Slider
                                 min={0}
                                 max={1}
-                                step={0.05}
+                                step={0.1}
                                 value={[field.value]}
                                 onValueChange={(values) => field.onChange(values[0])}
                               />
                             </FormControl>
                             <FormDescription>
-                              Nucleus sampling
+                              Response diversity
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1148,28 +1166,28 @@ export default function ChatbotManagement() {
                         </FormItem>
                       )}
                     />
-                  </div>
 
-                  {/* Activation */}
-                  <FormField
-                    control={form.control}
-                    name="is_active"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-gradient-to-br from-primary/5 to-transparent">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base font-semibold">Activate Chatbot</FormLabel>
-                          <FormDescription>
-                            Make this chatbot available to users
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
+                    {/* Activation */}
+                    <FormField
+                      control={form.control}
+                      name="is_active"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border border-primary/20 p-4 bg-gradient-to-br from-primary/5 to-transparent">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base font-semibold">Activate Chatbot</FormLabel>
+                            <FormDescription>
+                              Make this chatbot available to users
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Test Section */}
               {dialogMode === 'edit' && selectedChatbot && (
@@ -1247,7 +1265,7 @@ export default function ChatbotManagement() {
               )}
 
               {/* Navigation Buttons */}
-              <div className="flex justify-between gap-2 pt-4 border-t">
+              <div className="flex justify-between gap-2 pt-4 border-t mt-4">
                 {currentStep === 1 ? (
                   <>
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -1259,15 +1277,7 @@ export default function ChatbotManagement() {
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        // Validate step 1 fields
-                        const step1Fields = ['name', 'system_prompt', 'primary_ai_provider_id', 'model_name'];
-                        const hasErrors = step1Fields.some(field => {
-                          const error = form.getFieldState(field as any).error;
-                          return error !== undefined;
-                        });
-                        
-                        if (!form.getValues('name') || !form.getValues('system_prompt') || 
-                            !form.getValues('primary_ai_provider_id') || !form.getValues('model_name')) {
+                        if (!form.getValues('name') || !form.getValues('system_prompt')) {
                           toast({
                             title: "Missing Required Fields",
                             description: "Please fill in all required fields marked with *",
@@ -1280,7 +1290,83 @@ export default function ChatbotManagement() {
                       }}
                       className="gap-2"
                     >
-                      Next: Advanced Settings
+                      Next: AI Provider
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : currentStep === 2 ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentStep(1);
+                      }}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (!form.getValues('primary_ai_provider_id') || !form.getValues('model_name')) {
+                          toast({
+                            title: "Missing Required Fields",
+                            description: "Please select a provider and model",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        setCurrentStep(3);
+                      }}
+                      className="gap-2"
+                    >
+                      Next: Access Control
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : currentStep === 3 ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentStep(2);
+                      }}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (!form.getValues('tenant_ids') || form.getValues('tenant_ids').length === 0) {
+                          toast({
+                            title: "Missing Required Fields",
+                            description: "Please select at least one tenant",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        setCurrentStep(4);
+                      }}
+                      className="gap-2"
+                    >
+                      Next: Parameters
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   </>
@@ -1292,7 +1378,7 @@ export default function ChatbotManagement() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setCurrentStep(1);
+                        setCurrentStep(3);
                       }}
                       className="gap-2"
                     >
