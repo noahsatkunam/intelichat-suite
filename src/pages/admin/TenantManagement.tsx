@@ -50,15 +50,15 @@ export default function TenantManagement() {
         .select('tenant_id')
         .not('tenant_id', 'is', null);
 
-      // Get chatbot counts for each tenant  
-      const { data: chatbotCounts } = await supabase
-        .from('chatbots')
-        .select('tenant_id');
+      // Get chatbot counts for each tenant using the junction table
+      const { data: chatbotAssignments } = await supabase
+        .from('chatbot_tenants')
+        .select('tenant_id, chatbot_id');
 
       const tenantsWithCounts = tenantsData?.map(tenant => ({
         ...tenant,
         user_count: userCounts?.filter(u => u.tenant_id === tenant.id).length || 0,
-        chatbot_count: chatbotCounts?.filter(c => c.tenant_id === tenant.id).length || 0
+        chatbot_count: chatbotAssignments?.filter(c => c.tenant_id === tenant.id).length || 0
       })) || [];
 
       setTenants(tenantsWithCounts);

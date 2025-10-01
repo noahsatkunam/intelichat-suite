@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 // Import step components
 import GeneralInformation from './steps/GeneralInformation';
 import TeamSetup from './steps/TeamSetup';
+import ChatbotAssignment from './steps/ChatbotAssignment';
 import { BrandingCustomization } from './steps/BrandingCustomization';
 
 export interface TenantFormData {
@@ -90,6 +91,9 @@ export interface TenantFormData {
   chatWidgetPosition: string;
   sslAutoProvisioning: boolean;
   
+  // Chatbot Assignment
+  chatbot_ids: string[];
+  
   // Final Review
   launchMode: string;
   sendWelcomeEmails: boolean;
@@ -108,7 +112,8 @@ interface TenantCreationWizardProps {
 const STEPS = [
   { id: 1, title: 'General Information', subtitle: 'Configure basic tenant organization settings', component: GeneralInformation },
   { id: 2, title: 'User Management', subtitle: 'Set up your team and invite users', component: TeamSetup },
-  { id: 3, title: 'Branding & Customization', subtitle: 'Customize your tenant\'s appearance for white-label deployment', component: BrandingCustomization }
+  { id: 3, title: 'Chatbot Assignment', subtitle: 'Select which chatbots this tenant can access', component: ChatbotAssignment },
+  { id: 4, title: 'Branding & Customization', subtitle: 'Customize your tenant\'s appearance for white-label deployment', component: BrandingCustomization }
 ];
 
 export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onComplete }: TenantCreationWizardProps) {
@@ -143,6 +148,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
     manualUsers: [],
     csvUsers: [],
     teamMembers: [],
+    chatbot_ids: [],
     primaryColor: '#3b82f6',
     secondaryColor: '#6366f1',
     primaryBrandColor: '#3b82f6',
@@ -200,6 +206,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
           manualUsers: [],
           csvUsers: [],
           teamMembers: tenant.settings?.teamMembers || [],
+          chatbot_ids: [],
           primaryColor: tenant.branding_config?.primaryColor || '#3b82f6',
           secondaryColor: tenant.branding_config?.secondaryColor || '#6366f1',
           primaryBrandColor: tenant.branding_config?.primaryColor || '#3b82f6',
@@ -248,6 +255,7 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
           manualUsers: [],
           csvUsers: [],
           teamMembers: [],
+          chatbot_ids: [],
           primaryColor: '#3b82f6',
           secondaryColor: '#6366f1',
           primaryBrandColor: '#3b82f6',
@@ -314,11 +322,63 @@ export function TenantCreationWizard({ open, onOpenChange, mode, tenant, onCompl
         }
       };
 
+      let tenantId: string;
+
       if (mode === 'create') {
-        await supabase.from('tenants').insert([tenantData]);
+        const { data: newTenant, error: insertError } = await supabase
+          .from('tenants')
+          .insert([tenantData])
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        tenantId = newTenant.id;
+
+        // Insert chatbot assignments
+        if (formData.chatbot_ids && formData.chatbot_ids.length > 0) {
+          const assignments = formData.chatbot_ids.map(chatbot_id => ({
+            tenant_id: tenantId,
+            chatbot_id
+          }));
+          
+          const { error: assignError } = await supabase
+            .from('chatbot_tenants')
+            .insert(assignments);
+          
+          if (assignError) throw assignError;
+        }
+
         toast({ title: "Success", description: "Tenant created successfully" });
       } else {
-        await supabase.from('tenants').update(tenantData).eq('id', tenant?.id);
+        const { error: updateError } = await supabase
+          .from('tenants')
+          .update(tenantData)
+          .eq('id', tenant?.id);
+        
+        if (updateError) throw updateError;
+        tenantId = tenant?.id;
+
+        // Update chatbot assignments - delete existing and insert new ones
+        const { error: deleteError } = await supabase
+          .from('chatbot_tenants')
+          .delete()
+          .eq('tenant_id', tenantId);
+        
+        if (deleteError) throw deleteError;
+
+        if (formData.chatbot_ids && formData.chatbot_ids.length > 0) {
+          const assignments = formData.chatbot_ids.map(chatbot_id => ({
+            tenant_id: tenantId,
+            chatbot_id
+          }));
+          
+          const { error: assignError } = await supabase
+            .from('chatbot_tenants')
+            .insert(assignments);
+          
+          if (assignError) throw assignError;
+        }
+
         toast({ title: "Success", description: "Tenant updated successfully" });
       }
 
