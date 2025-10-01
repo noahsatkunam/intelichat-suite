@@ -256,11 +256,11 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
-        <div className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
+        <div className="h-16 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between px-6 flex-shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ChevronRight className="w-4 h-4 rotate-180" />
@@ -282,13 +282,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
           <MessageList messages={messages} />
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input Area */}
-        <div className="border-t bg-card/50 backdrop-blur-sm p-4">
+        <div className="border-t bg-card/50 backdrop-blur-sm p-4 flex-shrink-0">
           {/* Attachments Preview */}
           {attachments.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
@@ -351,11 +351,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
       {/* Settings Panel */}
       {isPanelOpen && (
-        <ChatSettingsPanel
-          chatbotId={chatbotId}
-          isAdmin={isAdmin()}
-          onClose={() => setIsPanelOpen(false)}
-        />
+        <div className="flex-shrink-0">
+          <ChatSettingsPanel
+            chatbotId={chatbotId}
+            isAdmin={isAdmin()}
+            onClose={() => setIsPanelOpen(false)}
+          />
+        </div>
       )}
     </div>
   );
