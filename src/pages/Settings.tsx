@@ -150,6 +150,36 @@ export default function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Profile Picture</h4>
+                <p className="text-sm text-muted-foreground">Upload a new profile picture</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Avatar className="w-12 h-12">
+                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="Profile" />
+                  <AvatarFallback className="bg-gradient-primary text-primary-foreground">
+                    {getUserInitials(user?.email || '')}
+                  </AvatarFallback>
+                </Avatar>
+                <Label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Button variant="outline" size="sm" disabled={isUploading} asChild>
+                    <span>
+                      <Camera className="w-4 h-4 mr-2" />
+                      {isUploading ? 'Uploading...' : 'Change'}
+                    </span>
+                  </Button>
+                  <Input
+                    id="avatar-upload"
+                    type="file"
+                    accept="image/jpeg,image/jpg,application/pdf"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                </Label>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <div>
                 <h4 className="font-medium">Display Name</h4>
@@ -184,36 +214,6 @@ export default function Settings() {
                 >
                   {isSavingName ? 'Saving...' : 'Save Name'}
                 </Button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Profile Picture</h4>
-                <p className="text-sm text-muted-foreground">Upload a new profile picture</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} alt="Profile" />
-                  <AvatarFallback className="bg-gradient-primary text-primary-foreground">
-                    {getUserInitials(user?.email || '')}
-                  </AvatarFallback>
-                </Avatar>
-                <Label htmlFor="avatar-upload" className="cursor-pointer">
-                  <Button variant="outline" size="sm" disabled={isUploading} asChild>
-                    <span>
-                      <Camera className="w-4 h-4 mr-2" />
-                      {isUploading ? 'Uploading...' : 'Change'}
-                    </span>
-                  </Button>
-                  <Input
-                    id="avatar-upload"
-                    type="file"
-                    accept="image/jpeg,image/jpg,application/pdf"
-                    onChange={handleAvatarUpload}
-                    className="hidden"
-                  />
-                </Label>
               </div>
             </div>
           </CardContent>
