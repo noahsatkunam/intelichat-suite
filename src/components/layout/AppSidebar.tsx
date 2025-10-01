@@ -64,7 +64,6 @@ const mainNavItems = [
 const adminNavItems = [
   { title: 'AI Providers', url: '/admin/ai-providers', icon: Brain, roles: ['global_admin', 'tenant_admin'] },
   { title: 'Chatbot Management', url: '/admin/chatbot-management', icon: Bot, roles: ['global_admin', 'tenant_admin'] },
-  { title: 'User Invitations', url: '/admin/invitations', icon: Mail, roles: ['global_admin', 'tenant_admin'] },
   { title: 'Tenant Management', url: '/admin/tenants', icon: Building2, roles: ['global_admin'] },
   { title: 'User Management', url: '/admin/users', icon: Users, roles: ['global_admin', 'tenant_admin'] },
   { title: 'Workflow Automation', url: '/admin/workflows', icon: Workflow, roles: ['global_admin', 'tenant_admin'] },

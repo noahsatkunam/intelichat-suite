@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Plus, Shield, Mail, Upload, Download, Search, Filter, MoreVertical, Edit, Trash2, UserCheck, UserX, FileText, AlertTriangle } from 'lucide-react';
+import { Users, Plus, Shield, Mail, Upload, Download, Search, Filter, MoreVertical, Edit, Trash2, UserCheck, UserX, FileText, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,6 +36,18 @@ interface Tenant {
   name: string;
 }
 
+interface Invitation {
+  id: string;
+  email: string;
+  role: 'global_admin' | 'tenant_admin' | 'user';
+  status: string;
+  created_at: string;
+  expires_at: string;
+  invited_by: string;
+  token: string;
+  tenant_id: string | null;
+}
+
 // Validation schema for user updates
 const userUpdateSchema = z.object({
   role: z.enum(['global_admin', 'tenant_admin', 'user']),
@@ -56,6 +68,7 @@ const roles = ['Global Admin', 'Tenant Admin', 'User'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
 
 export default function UserManagement() {
+  const [activeTab, setActiveTab] = useState('users');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -85,11 +98,14 @@ export default function UserManagement() {
     department: '',
     tenant_id: null as string | null,
   });
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     loadUsers();
     loadTenants();
+    loadInvitations();
   }, []);
 
   const loadUsers = async () => {
@@ -150,6 +166,28 @@ export default function UserManagement() {
         description: 'Failed to load tenants',
         variant: 'destructive',
       });
+    }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      setInvitationsLoading(true);
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Failed to load invitations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load invitations',
+        variant: 'destructive',
+      });
+    } finally {
+      setInvitationsLoading(false);
     }
   };
 
@@ -265,8 +303,9 @@ export default function UserManagement() {
         tenant_id: null,
       });
       
-      // Reload users list to show the new invitation
+      // Reload users list and invitations to show the new invitation
       loadUsers();
+      loadInvitations();
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast({
@@ -323,6 +362,93 @@ export default function UserManagement() {
       case 'user': return 'User';
       default: return role;
     }
+  };
+
+  const resendInvitation = async (invitation: Invitation) => {
+    try {
+      if (invitation.status !== 'pending' || new Date(invitation.expires_at) < new Date()) {
+        toast({
+          title: 'Error',
+          description: 'Cannot resend expired or used invitation',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          email: invitation.email,
+          token: invitation.token,
+          role: invitation.role,
+          inviterName: 'System Administrator',
+          redirectUrl: "https://zyria.ai",
+        },
+      });
+
+      if (error) throw error;
+      toast({
+        title: 'Success',
+        description: 'Invitation resent successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to resend invitation',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const cancelInvitation = async (invitationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+      
+      toast({
+        title: 'Success',
+        description: 'Invitation cancelled',
+      });
+      loadInvitations();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to cancel invitation',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getStatusBadge = (status: string, expiresAt: string) => {
+    const isExpired = new Date(expiresAt) < new Date();
+    
+    if (status === 'pending' && isExpired) {
+      return <Badge variant="destructive">Expired</Badge>;
+    }
+    
+    switch (status) {
+      case 'pending':
+        return <Badge variant="default">Pending</Badge>;
+      case 'accepted':
+        return <Badge variant="secondary">Accepted</Badge>;
+      case 'cancelled':
+        return <Badge variant="outline">Cancelled</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getInviteRoleBadge = (role: string) => {
+    const colors = {
+      global_admin: 'destructive',
+      tenant_admin: 'default',
+      user: 'secondary'
+    } as const;
+    
+    return <Badge variant={colors[role as keyof typeof colors] || 'outline'}>{getRoleDisplayName(role)}</Badge>;
   };
 
   const downloadTemplate = () => {
@@ -790,102 +916,198 @@ export default function UserManagement() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content with Tabs */}
       <div className="flex-1 overflow-y-auto p-6">
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox 
-                      checked={selectedUsers.length === filteredUsers.length}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-12"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedUsers.includes(user.id)}
-                        onCheckedChange={() => handleSelectUser(user.id)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getRoleColor(user.role)}>
-                        {getRoleDisplayName(user.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.tenant_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{user.department}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getStatusColor(user.status)}>
-                        {user.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="users" className="gap-2">
+              <Users className="w-4 h-4" />
+              Active Users ({users.length})
+            </TabsTrigger>
+            <TabsTrigger value="invitations" className="gap-2">
+              <Mail className="w-4 h-4" />
+              Pending Invitations ({invitations.filter(i => i.status === 'pending').length})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Pagination */}
-        <div className="flex justify-center mt-6">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>1</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink>2</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink>3</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
+          {/* Active Users Tab */}
+          <TabsContent value="users" className="space-y-4">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox 
+                          checked={selectedUsers.length === filteredUsers.length}
+                          onCheckedChange={handleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Tenant</TableHead>
+                      <TableHead>Department</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedUsers.includes(user.id)}
+                            onCheckedChange={() => handleSelectUser(user.id)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{user.name}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getRoleColor(user.role)}>
+                            {getRoleDisplayName(user.role)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{user.tenant_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{user.department}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={getStatusColor(user.status)}>
+                            {user.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit User
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Pagination */}
+            <div className="flex justify-center">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink isActive>1</PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink>2</PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationLink>3</PaginationLink>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </TabsContent>
+
+          {/* Pending Invitations Tab */}
+          <TabsContent value="invitations" className="space-y-4">
+            <Card>
+              <CardContent className="p-0">
+                {invitationsLoading ? (
+                  <div className="flex items-center justify-center p-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                ) : invitations.length === 0 ? (
+                  <div className="text-center py-12">
+                    <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No invitations yet</h3>
+                    <p className="text-muted-foreground mb-4">Start by inviting users to your organization</p>
+                    <Button onClick={() => setShowAddUser(true)}>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Send First Invitation
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Tenant</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Sent</TableHead>
+                        <TableHead>Expires</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invitations.map((invitation) => {
+                        const tenant = tenants.find(t => t.id === invitation.tenant_id);
+                        return (
+                          <TableRow key={invitation.id}>
+                            <TableCell className="font-medium">{invitation.email}</TableCell>
+                            <TableCell>{getInviteRoleBadge(invitation.role)}</TableCell>
+                            <TableCell className="text-muted-foreground">{tenant?.name || 'No Tenant'}</TableCell>
+                            <TableCell>{getStatusBadge(invitation.status, invitation.expires_at)}</TableCell>
+                            <TableCell className="text-muted-foreground">{new Date(invitation.created_at).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-muted-foreground">{new Date(invitation.expires_at).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {invitation.status === 'pending' && new Date(invitation.expires_at) > new Date() && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => resendInvitation(invitation)}
+                                    title="Resend invitation email"
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                
+                                {invitation.status === 'pending' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (confirm(`Cancel invitation for ${invitation.email}? They will no longer be able to use this invitation link.`)) {
+                                        cancelInvitation(invitation.id);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Import Users Modal */}

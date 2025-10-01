@@ -30,7 +30,6 @@ import SystemMonitoring from "./pages/admin/SystemMonitoring";
 import AIProviders from "./pages/admin/AIProviders";
 import AIModelTest from "./pages/admin/AIModelTest";
 import ChatbotManagement from "./pages/admin/ChatbotManagement";
-import UserInvitations from "./pages/admin/UserInvitations";
 import EmailTest from "./pages/admin/EmailTest";
 import NotFound from "./pages/NotFound";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -136,11 +135,6 @@ const App = () => (
                 <Route path="/admin/chatbot-management" element={
                   <ProtectedRoute>
                     <AppLayout><ChatbotManagement /></AppLayout>
-                  </ProtectedRoute>
-                } />
-                <Route path="/admin/invitations" element={
-                  <ProtectedRoute>
-                    <AppLayout><UserInvitations /></AppLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/email-test" element={
