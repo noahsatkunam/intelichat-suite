@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield, Upload, CheckCircle, ChevronDown } from 'lucide-react';
+import { MessageSquare, Plus, Settings, Users, Bot, Brain, X, ChevronRight, ChevronLeft, Sparkles, Zap, Shield, Upload, CheckCircle, ChevronDown, Send } from 'lucide-react';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -101,7 +101,7 @@ export default function ChatbotManagement() {
   const { toast } = useToast();
 
   const [testMessage, setTestMessage] = useState('');
-  const [testResponse, setTestResponse] = useState('');
+  const [testConversation, setTestConversation] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
   const [isTesting, setIsTesting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: number}>({});
@@ -263,7 +263,7 @@ export default function ChatbotManagement() {
     setDialogMode('create');
     setSelectedChatbot(null);
     setTestMessage('');
-    setTestResponse('');
+    setTestConversation([]);
     setCurrentStep(1);
     setUploadingFiles({});
     setUploadedDocs([]);
@@ -303,7 +303,7 @@ export default function ChatbotManagement() {
     setDialogMode('edit');
     setSelectedChatbot(chatbot);
     setTestMessage('');
-    setTestResponse('');
+    setTestConversation([]);
     setCurrentStep(1);
     setUploadingFiles({});
     setUploadedDocs([]);
@@ -697,81 +697,155 @@ export default function ChatbotManagement() {
               <div className="flex-1 flex gap-6 overflow-hidden">
                 {/* Left Column - Test Chatbot (only in edit mode) */}
                 {dialogMode === 'edit' && selectedChatbot && (
-                  <div className="w-80 flex-shrink-0 border rounded-lg bg-muted/50 h-full flex flex-col overflow-hidden">
-                    <div className="p-4 border-b bg-muted/70">
-                      <div className="flex items-center gap-2">
-                        <Brain className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold">Test Chatbot</h3>
-                        <Badge variant="outline" className="text-xs">Optional</Badge>
+                  <div className="w-96 flex-shrink-0 border rounded-lg bg-background h-full flex flex-col overflow-hidden shadow-lg">
+                    <div className="p-4 border-b bg-gradient-to-r from-primary/10 to-primary/5">
+                      <div className="flex items-center gap-2 justify-between">
+                        <div className="flex items-center gap-2">
+                          <Brain className="w-5 h-5 text-primary" />
+                          <h3 className="text-lg font-semibold">Test Chatbot</h3>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setTestConversation([])}
+                          className="h-8 px-2"
+                        >
+                          Clear Chat
+                        </Button>
                       </div>
                     </div>
                     
-                    <div className="p-4 space-y-4 flex-1 flex flex-col overflow-y-auto">
-                      <div className="space-y-2">
-                        <FormLabel>Test Message</FormLabel>
-                        <Textarea
-                          placeholder="Enter a test message to see how the chatbot responds..."
-                          value={testMessage}
-                          onChange={(e) => setTestMessage(e.target.value)}
-                          rows={4}
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        onClick={async () => {
-                          if (!testMessage.trim()) {
-                            toast({
-                              title: "Error",
-                              description: "Please enter a test message",
-                              variant: "destructive"
-                            });
-                            return;
-                          }
-                          
-                          setIsTesting(true);
-                          setTestResponse('');
-                          
-                          try {
-                            const { data, error } = await supabase.functions.invoke('ai-chat', {
-                              body: {
-                                chatbot_id: selectedChatbot.id,
-                                message: testMessage,
-                                conversation_id: null
-                              }
-                            });
-
-                            if (error) throw error;
-
-                            setTestResponse(data.response || 'No response received');
-                            
-                            toast({
-                              title: "Success",
-                              description: `Response generated via ${data.provider_name || 'AI Provider'}`
-                            });
-                          } catch (error: any) {
-                            toast({
-                              title: "Error",
-                              description: error.message || 'Failed to get response',
-                              variant: "destructive"
-                            });
-                          } finally {
-                            setIsTesting(false);
-                          }
-                        }}
-                        disabled={isTesting || !testMessage.trim()}
-                        className="w-full"
-                      >
-                        {isTesting ? 'Generating Response...' : 'Test Chatbot'}
-                      </Button>
-                      
-                      {testResponse && (
-                        <div className="space-y-2 flex-1 flex flex-col min-h-0">
-                          <FormLabel>Response</FormLabel>
-                          <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap flex-1 overflow-y-auto">
-                            {testResponse}
+                    {/* Messages Area */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/30">
+                      {testConversation.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                          <Brain className="w-12 h-12 mb-3 opacity-30" />
+                          <p className="text-sm text-center">Send a message to test the chatbot</p>
+                        </div>
+                      ) : (
+                        testConversation.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                                msg.role === 'user'
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-background border shadow-sm'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                {msg.content}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                      {isTesting && (
+                        <div className="flex justify-start">
+                          <div className="max-w-[85%] rounded-2xl px-4 py-2.5 bg-background border shadow-sm">
+                            <div className="flex gap-1.5">
+                              <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <div className="w-2 h-2 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-4 border-t bg-background">
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder="Type your message..."
+                          value={testMessage}
+                          onChange={(e) => setTestMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              if (!testMessage.trim() || isTesting) return;
+                              
+                              const messageToSend = testMessage.trim();
+                              setTestMessage('');
+                              setTestConversation(prev => [...prev, { role: 'user', content: messageToSend }]);
+                              setIsTesting(true);
+                              
+                              supabase.functions.invoke('ai-chat', {
+                                body: {
+                                  chatbot_id: selectedChatbot.id,
+                                  message: messageToSend,
+                                  conversation_id: null
+                                }
+                              }).then(({ data, error }) => {
+                                if (error) throw error;
+                                setTestConversation(prev => [...prev, { role: 'assistant', content: data.response || 'No response received' }]);
+                                toast({
+                                  title: "Response received",
+                                  description: `via ${data.provider_name || 'AI Provider'}`
+                                });
+                              }).catch((error: any) => {
+                                toast({
+                                  title: "Error",
+                                  description: error.message || 'Failed to get response',
+                                  variant: "destructive"
+                                });
+                              }).finally(() => {
+                                setIsTesting(false);
+                              });
+                            }
+                          }}
+                          rows={2}
+                          className="resize-none"
+                          disabled={isTesting}
+                        />
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            if (!testMessage.trim() || isTesting) return;
+                            
+                            const messageToSend = testMessage.trim();
+                            setTestMessage('');
+                            setTestConversation(prev => [...prev, { role: 'user', content: messageToSend }]);
+                            setIsTesting(true);
+                            
+                            try {
+                              const { data, error } = await supabase.functions.invoke('ai-chat', {
+                                body: {
+                                  chatbot_id: selectedChatbot.id,
+                                  message: messageToSend,
+                                  conversation_id: null
+                                }
+                              });
+
+                              if (error) throw error;
+
+                              setTestConversation(prev => [...prev, { role: 'assistant', content: data.response || 'No response received' }]);
+                              
+                              toast({
+                                title: "Response received",
+                                description: `via ${data.provider_name || 'AI Provider'}`
+                              });
+                            } catch (error: any) {
+                              toast({
+                                title: "Error",
+                                description: error.message || 'Failed to get response',
+                                variant: "destructive"
+                              });
+                            } finally {
+                              setIsTesting(false);
+                            }
+                          }}
+                          disabled={isTesting || !testMessage.trim()}
+                          size="icon"
+                          className="h-auto self-end"
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">Press Enter to send, Shift+Enter for new line</p>
                     </div>
                   </div>
                 )}
