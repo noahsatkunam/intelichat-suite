@@ -194,8 +194,9 @@ export function FinalReview({ data, onDataChange }: FinalReviewProps) {
                     {validTeamMembers.length} team members will be invited
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {['Admin', 'Manager', 'Agent', 'Viewer'].map(role => {
-                      const count = validTeamMembers.filter(m => m.roles.includes(role)).length;
+                    {['Tenant Admin', 'User'].map(role => {
+                      const roleKey = role === 'Tenant Admin' ? 'tenant_admin' : 'user';
+                      const count = validTeamMembers.filter(m => m.role === roleKey).length;
                       return count > 0 ? (
                         <Badge key={role} variant="outline" className="text-xs">
                           {count} {role}{count > 1 ? 's' : ''}

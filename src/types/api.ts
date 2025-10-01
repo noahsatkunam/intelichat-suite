@@ -74,7 +74,7 @@ export interface User {
   lastLoginAt?: string;
 }
 
-export type UserRole = 'admin' | 'manager' | 'user' | 'viewer';
+export type UserRole = 'global_admin' | 'tenant_admin' | 'user';
 export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended';
 
 export interface UserPreferences {

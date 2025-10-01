@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 interface Invitation {
   id: string;
   email: string;
-  role: 'global_admin' | 'tenant_admin' | 'user' | 'admin' | 'moderator'; // Include legacy roles for backward compatibility
+  role: 'global_admin' | 'tenant_admin' | 'user';
   status: string;
   created_at: string;
   expires_at: string;

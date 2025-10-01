@@ -28,7 +28,7 @@ interface User {
   permissions: string[];
 }
 
-const roles = ['Admin', 'Manager', 'User', 'Viewer'];
+const roles = ['Global Admin', 'Tenant Admin', 'User'];
 const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
 
 export default function UserManagement() {
@@ -233,7 +233,7 @@ export default function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Admins</p>
-                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'tenant_admin' || u.role === 'global_admin').length}</p>
                   </div>
                   <Shield className="w-8 h-8 text-red-500" />
                 </div>

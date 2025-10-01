@@ -20,7 +20,7 @@ interface TeamSetupProps {
   onPrevious?: () => void;
 }
 
-const ROLES = ['admin', 'moderator', 'user', 'viewer'];
+const ROLES = ['global_admin', 'tenant_admin', 'user'];
 
 export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
   const [newMember, setNewMember] = useState({
@@ -105,7 +105,7 @@ export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
   };
 
   const downloadTemplate = () => {
-    const csvTemplate = 'First Name,Last Name,Email,Role\nJohn,Doe,john@example.com,user\nJane,Smith,jane@example.com,admin\n';
+    const csvTemplate = 'First Name,Last Name,Email,Role\nJohn,Doe,john@example.com,user\nJane,Smith,jane@example.com,tenant_admin\n';
     const blob = new Blob([csvTemplate], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -328,10 +328,9 @@ export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="moderator">Moderator</SelectItem>
+                    <SelectItem value="global_admin">Global Admin</SelectItem>
+                    <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -421,9 +420,9 @@ export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
                 <Users className="w-5 h-5" />
                 Team Members ({validMembers.length})
               </CardTitle>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => setAllRoles('admin')}>
-                  Set All Admin
+               <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setAllRoles('tenant_admin')}>
+                  Set All Tenant Admin
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setAllRoles('user')}>
                   Set All User
@@ -472,10 +471,9 @@ export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="moderator">Moderator</SelectItem>
+                              <SelectItem value="global_admin">Global Admin</SelectItem>
+                              <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
                               <SelectItem value="user">User</SelectItem>
-                              <SelectItem value="viewer">Viewer</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -568,15 +566,9 @@ export default function TeamSetup({ data, onDataChange }: TeamSetupProps) {
               </div>
               <div className="text-center p-4 bg-red-50 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">
-                  {validMembers.filter(m => m.role === 'admin').length}
+                  {validMembers.filter(m => m.role === 'tenant_admin' || m.role === 'global_admin').length}
                 </div>
                 <div className="text-sm text-muted-foreground">Admins</div>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">
-                  {validMembers.filter(m => m.role === 'moderator').length}
-                </div>
-                <div className="text-sm text-muted-foreground">Moderators</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
