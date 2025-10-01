@@ -369,7 +369,7 @@ const EmailTest = () => {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
-                Sender email: noreply@zyria.com
+                Sender email: noreply@zyria.ai
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4" />
@@ -382,8 +382,8 @@ const EmailTest = () => {
             <h3 className="font-semibold mb-2">Common Issues</h3>
             <ul className="space-y-2 text-sm text-muted-foreground list-disc list-inside">
               <li>Verify RESEND_API_KEY is set in edge function secrets</li>
-              <li>Ensure noreply@zyria.com is configured in Resend</li>
-              <li>Verify your domain (zyria.com) in Resend dashboard</li>
+              <li>Ensure noreply@zyria.ai is configured in Resend</li>
+              <li>Verify your domain (zyria.ai) in Resend dashboard</li>
               <li>Check edge function logs for detailed error messages</li>
               <li>Confirm sender email is authorized in Resend</li>
             </ul>

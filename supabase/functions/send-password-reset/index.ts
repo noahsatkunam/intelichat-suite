@@ -26,7 +26,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Password reset requested for:", email);
 
     const emailResponse = await resend.emails.send({
-      from: "Zyria <noreply@zyria.com>",
+      from: "Zyria <noreply@zyria.ai>",
       to: [email],
       subject: "Reset Your Zyria Password",
       html: `

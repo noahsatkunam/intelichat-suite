@@ -180,7 +180,7 @@ const handler = async (req: Request): Promise<Response> => {
     `;
 
     const emailResponse = await resend.emails.send({
-      from: "Zyria <noreply@zyria.com>",
+      from: "Zyria <noreply@zyria.ai>",
       to: [email],
       subject: `You're invited to join Zyria as a ${role}`,
       html: htmlContent,
