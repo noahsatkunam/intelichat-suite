@@ -245,7 +245,7 @@ export default function UserManagement() {
           token,
           role: validated.role,
           inviterName: 'System Administrator',
-          redirectUrl: window.location.origin,
+          redirectUrl: "https://zyria.ai",
         },
       });
 

@@ -103,7 +103,7 @@ const EmailTest = () => {
           token: testToken,
           role: "user",
           inviterName: "Email Test System",
-          redirectUrl: window.location.origin,
+          redirectUrl: "https://zyria.ai",
         },
       });
 
@@ -141,7 +141,7 @@ const EmailTest = () => {
       const { data, error } = await supabase.functions.invoke("test-email-system", {
         body: { 
           testEmail: fullTestEmail,
-          redirectUrl: window.location.origin,
+          redirectUrl: "https://zyria.ai",
         },
       });
 

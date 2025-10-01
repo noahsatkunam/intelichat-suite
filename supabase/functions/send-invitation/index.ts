@@ -37,7 +37,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Use provided redirectUrl or construct default from window.location.origin
-    const inviteUrl = redirectUrl ? `${redirectUrl}/invite/${token}` : `https://your-app-domain.com/invite/${token}`;
+    const inviteUrl = redirectUrl ? `${redirectUrl}/invite/${token}` : `https://zyria.ai/invite/${token}`;
     
     // Generate HTML email content
     const htmlContent = `

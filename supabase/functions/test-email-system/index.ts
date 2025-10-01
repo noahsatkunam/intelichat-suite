@@ -65,7 +65,7 @@ serve(async (req: Request) => {
           token: testToken,
           role: "user",
           inviterName: "Email Test System",
-          redirectUrl: redirectUrl || "https://your-app-domain.com",
+          redirectUrl: redirectUrl || "https://zyria.ai",
         },
       });
 
