@@ -14,6 +14,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { chatbot_id, message, conversation_id, user_id } = await req.json();
@@ -21,11 +22,7 @@ serve(async (req) => {
     // Get chatbot configuration
     const { data: chatbot, error: chatbotError } = await supabase
       .from('chatbots')
-      .select(`
-        *,
-        primary_provider:primary_ai_provider_id(*),
-        fallback_provider:fallback_ai_provider_id(*)
-      `)
+      .select('*')
       .eq('id', chatbot_id)
       .eq('is_active', true)
       .single();
@@ -34,66 +31,84 @@ serve(async (req) => {
       throw new Error('Chatbot not found or inactive');
     }
 
+    // Get knowledge base documents for this chatbot
+    const { data: knowledgeDocs } = await supabase
+      .from('chatbot_knowledge')
+      .select(`
+        documents:document_id (
+          id,
+          filename,
+          content
+        )
+      `)
+      .eq('chatbot_id', chatbot_id);
+
+    // Build enhanced system prompt with knowledge base
+    let enhancedSystemPrompt = chatbot.system_prompt || 'You are a helpful AI assistant.';
+    const citations: Array<{ title: string; url?: string }> = [];
+
+    if (knowledgeDocs && knowledgeDocs.length > 0) {
+      const knowledgeContext = knowledgeDocs
+        .map((item: any) => {
+          const doc = item.documents;
+          if (doc && doc.content) {
+            citations.push({ title: doc.filename });
+            return `Document: ${doc.filename}\n${doc.content}`;
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .join('\n\n');
+
+      if (knowledgeContext) {
+        enhancedSystemPrompt += `\n\n## Knowledge Base\nUse the following documents to answer questions when relevant:\n\n${knowledgeContext}`;
+      }
+    }
+
     let response = '';
-    let provider_used = null;
-    let model_used = '';
+    let model_used = 'google/gemini-2.5-flash';
     let success = true;
     let error_message = '';
     const start_time = Date.now();
 
     try {
-      // Try primary provider first
-      if (chatbot.primary_provider) {
-        try {
-          const result = await callAIProvider(
-            chatbot.primary_provider,
-            message,
-            chatbot.system_prompt,
-            chatbot.model_name
-          );
-          response = result.response;
-          provider_used = chatbot.primary_provider;
-          model_used = result.model_used;
-        } catch (error) {
-          console.error('Primary provider failed:', error);
-          
-          // Try fallback provider
-          if (chatbot.fallback_provider) {
-            try {
-              const result = await callAIProvider(
-                chatbot.fallback_provider,
-                message,
-                chatbot.system_prompt,
-                chatbot.model_name
-              );
-              response = result.response;
-              provider_used = chatbot.fallback_provider;
-              model_used = result.model_used;
-            } catch (fallbackError) {
-              console.error('Fallback provider failed:', fallbackError);
-              
-              // Try default OpenAI fallback
-              const defaultResult = await callDefaultOpenAI(message, chatbot.system_prompt);
-              response = defaultResult.response;
-              model_used = defaultResult.model_used;
-            }
-          } else {
-            // Try default OpenAI fallback
-            const defaultResult = await callDefaultOpenAI(message, chatbot.system_prompt);
-            response = defaultResult.response;
-            model_used = defaultResult.model_used;
-          }
+      // Call Lovable AI Gateway
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model_used,
+          messages: [
+            { role: 'system', content: enhancedSystemPrompt },
+            { role: 'user', content: message }
+          ],
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('Lovable AI error:', aiResponse.status, errorText);
+        
+        if (aiResponse.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a moment.');
         }
-      } else {
-        // Use default OpenAI
-        const defaultResult = await callDefaultOpenAI(message, chatbot.system_prompt);
-        response = defaultResult.response;
-        model_used = defaultResult.model_used;
+        if (aiResponse.status === 402) {
+          throw new Error('AI credits depleted. Please add credits to your workspace.');
+        }
+        throw new Error(`AI service error: ${aiResponse.status}`);
       }
+
+      const data = await aiResponse.json();
+      response = data.choices[0].message.content;
+
     } catch (error) {
       success = false;
       error_message = error instanceof Error ? error.message : 'Unknown error';
-      response = 'I apologize, but I\'m experiencing technical difficulties. Please try again later.';
+      response = error instanceof Error ? error.message : 'I apologize, but I\'m experiencing technical difficulties. Please try again later.';
+      console.error('AI chat error:', error);
     }
 
     const response_time = Date.now() - start_time;
@@ -104,43 +119,18 @@ serve(async (req) => {
       .insert({
         chatbot_id,
         user_id,
-        ai_provider_id: provider_used?.id || null,
+        ai_provider_id: null,
         model_used,
         response_time_ms: response_time,
         success,
         error_message: error_message || null
       });
 
-    // Save message to conversation
-    if (conversation_id) {
-      await supabase
-        .from('messages')
-        .insert([
-          {
-            conversation_id,
-            user_id,
-            role: 'user',
-            content: message
-          },
-          {
-            conversation_id,
-            user_id,
-            role: 'assistant',
-            content: response,
-            metadata: {
-              provider: provider_used?.name || 'OpenAI (Default)',
-              model: model_used,
-              response_time_ms: response_time
-            }
-          }
-        ]);
-    }
-
     return new Response(JSON.stringify({
       response,
-      provider: provider_used?.name || 'OpenAI (Default)',
       model: model_used,
-      response_time_ms: response_time
+      response_time_ms: response_time,
+      citations: citations.length > 0 ? citations : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -156,238 +146,3 @@ serve(async (req) => {
     });
   }
 });
-
-async function callAIProvider(provider: any, message: string, systemPrompt: string | null, modelOverride: string | null) {
-  const model = modelOverride || provider.config?.model || 'gpt-4o';
-  
-  switch (provider.type) {
-    case 'openai':
-      return await callOpenAI(provider.api_key_encrypted, message, systemPrompt, model, provider.config);
-    case 'anthropic':
-      return await callAnthropic(provider.api_key_encrypted, message, systemPrompt, model, provider.config);
-    case 'google':
-      return await callGoogle(provider.api_key_encrypted, message, systemPrompt, model, provider.config);
-    case 'mistral':
-      return await callMistral(provider.api_key_encrypted, message, systemPrompt, model, provider.config);
-    case 'custom':
-      return await callCustom(provider.api_key_encrypted, message, systemPrompt, model, provider.config);
-    case 'ollama':
-      return await callOllama(message, systemPrompt, model, provider.config);
-    default:
-      throw new Error(`Unsupported provider type: ${provider.type}`);
-  }
-}
-
-async function callOpenAI(apiKey: string, message: string, systemPrompt: string | null, model: string, config: any) {
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: message });
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      ...(config?.organization_id && { 'OpenAI-Organization': config.organization_id })
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: config?.max_tokens || 1000,
-      temperature: config?.temperature || 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.choices[0].message.content,
-    model_used: model
-  };
-}
-
-async function callAnthropic(apiKey: string, message: string, systemPrompt: string | null, model: string, config: any) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: config?.max_tokens || 1000,
-      system: systemPrompt || undefined,
-      messages: [{ role: 'user', content: message }]
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.content[0].text,
-    model_used: model
-  };
-}
-
-async function callGoogle(apiKey: string, message: string, systemPrompt: string | null, model: string, config: any) {
-  const prompt = systemPrompt ? `${systemPrompt}\n\nUser: ${message}` : message;
-  
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Google API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.candidates[0].content.parts[0].text,
-    model_used: model
-  };
-}
-
-async function callMistral(apiKey: string, message: string, systemPrompt: string | null, model: string, config: any) {
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: message });
-
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: config?.max_tokens || 1000,
-      temperature: config?.temperature || 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Mistral API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.choices[0].message.content,
-    model_used: model
-  };
-}
-
-async function callCustom(apiKey: string, message: string, systemPrompt: string | null, model: string, config: any) {
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: message });
-
-  const response = await fetch(`${config.endpoint_url}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: config?.max_tokens || 1000,
-      temperature: config?.temperature || 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Custom API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.choices[0].message.content,
-    model_used: model
-  };
-}
-
-async function callOllama(message: string, systemPrompt: string | null, model: string, config: any) {
-  const endpoint = config.endpoint_url || 'http://localhost:11434';
-  const prompt = systemPrompt ? `${systemPrompt}\n\nUser: ${message}\nAssistant:` : `User: ${message}\nAssistant:`;
-
-  const response = await fetch(`${endpoint}/api/generate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      prompt,
-      stream: false
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.response,
-    model_used: model
-  };
-}
-
-async function callDefaultOpenAI(message: string, systemPrompt: string | null) {
-  const openaiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openaiKey) {
-    throw new Error('No OpenAI API key configured for fallback');
-  }
-
-  const messages = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: message });
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages,
-      max_tokens: 1000,
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Default OpenAI API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return {
-    response: data.choices[0].message.content,
-    model_used: 'gpt-4o'
-  };
-}
