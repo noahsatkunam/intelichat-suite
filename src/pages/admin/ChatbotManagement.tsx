@@ -1067,7 +1067,7 @@ export default function ChatbotManagement() {
                           <input
                             type="file"
                             multiple
-                            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
+                            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx,.xls,.xlsx,.csv,.md,.rtf,.odt"
                             onChange={(e) => handleFileUpload(e.target.files)}
                             className="hidden"
                             id="doc-upload"
@@ -1078,7 +1078,7 @@ export default function ChatbotManagement() {
                               Click to upload or drag files here
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              PDF, Word, PowerPoint, Text (Max 10MB)
+                              PDF, Word, Excel, PowerPoint, Text, Markdown, CSV (Max 20MB)
                             </p>
                           </label>
                         </div>
@@ -1090,7 +1090,7 @@ export default function ChatbotManagement() {
                               <div key={fileId} className="space-y-1">
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="text-muted-foreground truncate">
-                                    Uploading...
+                                    {fileId.split('-').slice(1).join('-')}
                                   </span>
                                   <span className="text-muted-foreground">{Math.round(progress)}%</span>
                                 </div>
@@ -1123,44 +1123,52 @@ export default function ChatbotManagement() {
                         name="document_ids"
                         render={() => (
                           <FormItem>
-                            <FormLabel className="text-base">Existing Documents (Optional)</FormLabel>
+                            <FormLabel className="text-base">Knowledge Base Documents</FormLabel>
                             <FormDescription>
-                              Select from previously uploaded documents
+                              Select documents to use as knowledge base for this chatbot
                             </FormDescription>
                             {documents.length === 0 ? (
                               <div className="text-sm text-muted-foreground border rounded-lg p-4 text-center bg-muted/30">
                                 No documents available. Upload new ones above.
                               </div>
                             ) : (
-                              <div className="space-y-2 max-h-32 overflow-y-auto border rounded-lg p-3 bg-background">
+                              <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-background">
                                 {documents.map((document) => (
                                   <FormField
                                     key={document.id}
                                     control={form.control}
                                     name="document_ids"
                                     render={({ field }) => {
+                                      const isSelected = field.value?.includes(document.id);
                                       return (
                                         <FormItem
                                           key={document.id}
-                                          className="flex flex-row items-start space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors"
+                                          className="flex flex-row items-center justify-between space-x-3 space-y-0 p-2 hover:bg-muted/50 rounded transition-colors group"
                                         >
-                                          <FormControl>
-                                            <Checkbox
-                                              checked={field.value?.includes(document.id)}
-                                              onCheckedChange={(checked) => {
-                                                return checked
-                                                  ? field.onChange([...(field.value || []), document.id])
-                                                  : field.onChange(
-                                                      field.value?.filter(
-                                                        (value) => value !== document.id
+                                          <div className="flex items-center space-x-3 flex-1">
+                                            <FormControl>
+                                              <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={(checked) => {
+                                                  return checked
+                                                    ? field.onChange([...(field.value || []), document.id])
+                                                    : field.onChange(
+                                                        field.value?.filter(
+                                                          (value) => value !== document.id
+                                                        )
                                                       )
-                                                    )
-                                              }}
-                                            />
-                                          </FormControl>
-                                          <FormLabel className="font-normal cursor-pointer flex-1">
-                                            {document.filename}
-                                          </FormLabel>
+                                                }}
+                                              />
+                                            </FormControl>
+                                            <FormLabel className="font-normal cursor-pointer flex-1">
+                                              {document.filename}
+                                            </FormLabel>
+                                          </div>
+                                          {isSelected && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              Selected
+                                            </Badge>
+                                          )}
                                         </FormItem>
                                       )
                                     }}
