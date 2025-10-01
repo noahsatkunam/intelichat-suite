@@ -72,6 +72,7 @@ export default function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedTenant, setSelectedTenant] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddUser, setShowAddUser] = useState(false);
@@ -331,7 +332,8 @@ export default function UserManagement() {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     const matchesStatus = selectedStatus === 'all' || user.status === selectedStatus;
-    return matchesSearch && matchesRole && matchesStatus;
+    const matchesTenant = selectedTenant === 'all' || user.tenant_id === selectedTenant;
+    return matchesSearch && matchesRole && matchesStatus && matchesTenant;
   });
 
   const handleSelectUser = (userId: string) => {
@@ -904,6 +906,17 @@ export default function UserManagement() {
                 <SelectItem value="Active">Active</SelectItem>
                 <SelectItem value="Inactive">Inactive</SelectItem>
                 <SelectItem value="Pending">Pending</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Tenants" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tenants</SelectItem>
+                {tenants.map(tenant => (
+                  <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             {selectedUsers.length > 0 && (
