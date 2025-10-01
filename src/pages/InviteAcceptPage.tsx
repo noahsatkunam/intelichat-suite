@@ -16,6 +16,7 @@ const InviteAcceptPage = () => {
   const navigate = useNavigate();
   
   const [name, setName] = useState('');
+  const [department, setDepartment] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,6 +24,8 @@ const InviteAcceptPage = () => {
   const [inviteLoading, setInviteLoading] = useState(true);
   const [invitation, setInvitation] = useState<any>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
+  
+  const departments = ['Engineering', 'Marketing', 'Sales', 'Support', 'HR', 'Finance'];
 
   // Redirect if already authenticated
   if (user) {
@@ -51,6 +54,11 @@ const InviteAcceptPage = () => {
         } else {
           setInvitation(data);
           setName(data.email.split('@')[0]); // Default name from email
+          // Pre-populate department if it exists in metadata
+          const metadata = data.metadata as { department?: string } | null;
+          if (metadata?.department) {
+            setDepartment(metadata.department);
+          }
         }
       } catch (error) {
         setInviteError('Error validating invitation');
@@ -75,12 +83,17 @@ const InviteAcceptPage = () => {
       return;
     }
 
+    if (!department) {
+      toast.error('Please select a department');
+      return;
+    }
+
     if (!token) return;
 
     setLoading(true);
 
     try {
-      const { error } = await acceptInvitation(token, password, name);
+      const { error } = await acceptInvitation(token, password, name, department);
       if (!error) {
         toast.success('Account created successfully!');
         navigate('/dashboard');
@@ -181,6 +194,24 @@ const InviteAcceptPage = () => {
                 required
                 className="w-full"
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="department" className="text-sm font-medium text-foreground">
+                Department
+              </Label>
+              <select
+                id="department"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                required
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select department</option>
+                {departments.map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
             </div>
             
             <div className="space-y-2">

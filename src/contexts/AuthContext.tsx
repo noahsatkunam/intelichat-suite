@@ -11,7 +11,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
-  acceptInvitation: (token: string, password: string, name?: string) => Promise<{ error: any }>;
+  acceptInvitation: (token: string, password: string, name?: string, department?: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  const acceptInvitation = async (token: string, password: string, name?: string) => {
+  const acceptInvitation = async (token: string, password: string, name?: string, department?: string) => {
     try {
       // First verify the invitation token
       const { data: invitation, error: inviteError } = await supabase
@@ -114,12 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Create the user account
+      const metadata = invitation.metadata as { department?: string; name?: string } | null;
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: invitation.email,
         password,
         options: {
           data: {
             name: name || invitation.email.split('@')[0],
+            department: department || metadata?.department || '',
           },
         },
       });
