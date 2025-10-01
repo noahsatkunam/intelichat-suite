@@ -405,6 +405,7 @@ export type Database = {
           file_url: string | null
           filename: string
           id: string
+          notes: string | null
           status: string | null
           tenant_id: string
           updated_at: string | null
@@ -416,6 +417,7 @@ export type Database = {
           file_url?: string | null
           filename: string
           id?: string
+          notes?: string | null
           status?: string | null
           tenant_id: string
           updated_at?: string | null
@@ -427,6 +429,7 @@ export type Database = {
           file_url?: string | null
           filename?: string
           id?: string
+          notes?: string | null
           status?: string | null
           tenant_id?: string
           updated_at?: string | null

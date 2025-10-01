@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Search, BookOpen, FileText, Video, Link2, Download, Plus, Filter, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -53,6 +54,7 @@ interface KnowledgeDocument {
   filename?: string;
   tenant_id?: string;
   tenant_name?: string;
+  notes?: string;
 }
 
 export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
@@ -64,9 +66,10 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
-  const [editTenantDialogOpen, setEditTenantDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [documentToEdit, setDocumentToEdit] = useState<KnowledgeDocument | null>(null);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
+  const [editTenantId, setEditTenantId] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
   const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
   const { toast } = useToast();
 
@@ -104,6 +107,7 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
         filename: doc.filename,
         tenant_id: doc.tenant_id,
         tenant_name: doc.tenants?.name || undefined,
+        notes: doc.notes || undefined,
       }));
 
       setDocuments(transformedDocs);
@@ -198,26 +202,30 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
     setDeleteDialogOpen(true);
   };
 
-  const handleEditTenantClick = (doc: KnowledgeDocument) => {
+  const handleEditClick = (doc: KnowledgeDocument) => {
     setDocumentToEdit(doc);
-    setSelectedTenantId(doc.tenant_id || '');
-    setEditTenantDialogOpen(true);
+    setEditTenantId(doc.tenant_id || '');
+    setEditNotes(doc.notes || '');
+    setEditDialogOpen(true);
   };
 
-  const handleTenantUpdate = async () => {
+  const handleSaveEdit = async () => {
     if (!documentToEdit) return;
 
     try {
       const { error } = await supabase
         .from('documents')
-        .update({ tenant_id: selectedTenantId || null })
+        .update({ 
+          tenant_id: editTenantId || null,
+          notes: editNotes || null
+        })
         .eq('id', documentToEdit.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Document tenant updated successfully"
+        description: "Document updated successfully"
       });
 
       // Reload documents
@@ -226,13 +234,14 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
       console.error('Update error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to update document tenant",
+        description: error.message || "Failed to update document",
         variant: "destructive"
       });
     } finally {
-      setEditTenantDialogOpen(false);
+      setEditDialogOpen(false);
       setDocumentToEdit(null);
-      setSelectedTenantId('');
+      setEditTenantId('');
+      setEditNotes('');
     }
   };
 
@@ -381,6 +390,17 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                               className="h-8 w-8 p-0 hover:bg-accent"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                handleEditClick(doc);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-accent"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleDownload(doc);
                               }}
                             >
@@ -408,29 +428,9 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                           {doc.description}
                         </p>
                         <div className="flex flex-wrap gap-2 mb-4">
-                          {doc.tenant_name ? (
-                            <Badge 
-                              variant="default" 
-                              className="text-xs cursor-pointer hover:opacity-80"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditTenantClick(doc);
-                              }}
-                            >
+                          {doc.tenant_name && (
+                            <Badge variant="default" className="text-xs">
                               {doc.tenant_name}
-                              <Edit className="w-3 h-3 ml-1" />
-                            </Badge>
-                          ) : (
-                            <Badge 
-                              variant="outline" 
-                              className="text-xs cursor-pointer hover:bg-accent"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditTenantClick(doc);
-                              }}
-                            >
-                              Add Tenant
-                              <Plus className="w-3 h-3 ml-1" />
                             </Badge>
                           )}
                           <Badge variant="secondary" className="text-xs">
@@ -502,22 +502,51 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Tenant Dialog */}
-      <Dialog open={editTenantDialogOpen} onOpenChange={setEditTenantDialogOpen}>
-        <DialogContent className="max-w-md">
+      {/* Edit Document Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Edit Document Tenant</DialogTitle>
+            <DialogTitle>Edit Document</DialogTitle>
             <DialogDescription>
-              Assign or change the tenant tag for "{documentToEdit?.title}"
+              Update document details, assign tenant, and add notes
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto space-y-6 py-4">
+            {/* Document Preview */}
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Document Preview</Label>
+              </div>
+              
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <FileText className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-foreground truncate">
+                        {documentToEdit?.filename}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {documentToEdit?.description}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <span>Updated {documentToEdit?.lastUpdated}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tenant Selection */}
             <div className="space-y-2">
-              <Label htmlFor="tenant-select">Tenant</Label>
+              <Label htmlFor="tenant-select">Tenant Tag</Label>
               <Select 
-                value={selectedTenantId} 
-                onValueChange={setSelectedTenantId}
+                value={editTenantId} 
+                onValueChange={setEditTenantId}
               >
                 <SelectTrigger id="tenant-select">
                   <SelectValue placeholder="Select a tenant or leave unassigned" />
@@ -532,24 +561,40 @@ export default function KnowledgeBase({ className }: KnowledgeBaseProps) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Documents can be tagged with a tenant for organization purposes
+                Tag this document with a tenant for organization
+              </p>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                placeholder="Add notes or additional context about this document..."
+                className="min-h-[120px] resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add internal notes, descriptions, or metadata about this document
               </p>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="border-t pt-4">
             <Button 
               variant="outline" 
               onClick={() => {
-                setEditTenantDialogOpen(false);
+                setEditDialogOpen(false);
                 setDocumentToEdit(null);
-                setSelectedTenantId('');
+                setEditTenantId('');
+                setEditNotes('');
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleTenantUpdate}>
-              Update
+            <Button onClick={handleSaveEdit}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
