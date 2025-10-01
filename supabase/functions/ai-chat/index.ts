@@ -72,48 +72,7 @@ serve(async (req) => {
     // Prepare system prompt with knowledge base
     const systemPrompt = `${chatbot.system_prompt || 'You are a helpful AI assistant.'}\n${knowledgeContext}`;
 
-    // Map unsupported models to Lovable AI supported models
-    const supportedModels = [
-      'openai/gpt-5-mini',
-      'openai/gpt-5',
-      'openai/gpt-5-nano',
-      'google/gemini-2.5-pro',
-      'google/gemini-2.5-flash',
-      'google/gemini-2.5-flash-lite',
-      'google/gemini-2.5-flash-image-preview'
-    ];
-
-    let selectedModel = chatbot.model_name || 'google/gemini-2.5-flash';
-    
-    // If model includes provider prefix and is in supported list, use it
-    if (supportedModels.includes(selectedModel)) {
-      console.log('Using configured model:', selectedModel);
-    } else {
-      // Map unsupported models to supported ones
-      const modelLower = selectedModel.toLowerCase();
-      
-      if (modelLower.includes('claude')) {
-        selectedModel = 'google/gemini-2.5-flash';
-        console.log('Mapped Claude model to:', selectedModel);
-      } else if (modelLower.includes('gpt-4o') || modelLower.includes('gpt-4-turbo')) {
-        selectedModel = 'openai/gpt-5';
-        console.log('Mapped GPT-4 model to:', selectedModel);
-      } else if (modelLower.includes('gpt-4')) {
-        selectedModel = 'openai/gpt-5-mini';
-        console.log('Mapped GPT-4 model to:', selectedModel);
-      } else if (modelLower.includes('gpt-3.5')) {
-        selectedModel = 'openai/gpt-5-mini';
-        console.log('Mapped GPT-3.5 model to:', selectedModel);
-      } else if (modelLower.includes('gemini')) {
-        selectedModel = 'google/gemini-2.5-flash';
-        console.log('Mapped Gemini model to:', selectedModel);
-      } else {
-        selectedModel = 'google/gemini-2.5-flash';
-        console.log('Using default model for unsupported:', chatbot.model_name, '->', selectedModel);
-      }
-    }
-
-    console.log('Calling Lovable AI with model:', selectedModel);
+    console.log('Calling Lovable AI with model:', chatbot.model_name || 'google/gemini-2.5-flash');
 
     // Call Lovable AI Gateway
     const startTime = Date.now();
@@ -124,7 +83,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: selectedModel,
+        model: chatbot.model_name || 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
@@ -170,7 +129,7 @@ serve(async (req) => {
           chatbot_id,
           user_id: userId,
           ai_provider_id: null,
-          model_used: selectedModel,
+          model_used: chatbot.model_name || 'google/gemini-2.5-flash',
           response_time_ms: responseTime,
           success: true,
         });
@@ -179,7 +138,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       response: aiResponse,
       provider_name: 'Lovable AI',
-      model: selectedModel,
+      model: chatbot.model_name || 'google/gemini-2.5-flash',
       response_time_ms: responseTime,
       citations: citations.length > 0 ? citations : undefined
     }), {
