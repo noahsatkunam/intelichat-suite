@@ -18,6 +18,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import WebGLBackground from '@/components/ui/WebGLBackground';
 
 interface Chatbot {
   id: string;
@@ -531,9 +532,11 @@ export default function ChatbotManagement() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background relative">
+      <WebGLBackground />
+      
       {/* Header */}
-      <div className="border-b border-border bg-card/50 backdrop-blur-sm">
+      <div className="border-b border-border bg-card/50 backdrop-blur-sm relative z-10">
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -549,7 +552,7 @@ export default function ChatbotManagement() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 relative z-10">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {chatbots.map((chatbot) => (
             <Card key={chatbot.id} className="relative">
@@ -646,7 +649,7 @@ export default function ChatbotManagement() {
                   {dialogMode === 'create' ? 'Create New Chatbot' : 'Edit Chatbot'}
                 </DialogTitle>
                 <DialogDescription>
-                  Step {currentStep} of 2: {currentStep === 1 ? 'Basic Configuration' : 'Advanced Settings'}
+                  Step {currentStep} of 4
                 </DialogDescription>
               </div>
             </div>
@@ -656,21 +659,30 @@ export default function ChatbotManagement() {
           <div className="flex items-center gap-2 mb-6">
             <div className="flex-1">
               <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 1 ? 'bg-gradient-primary' : 'bg-muted'}`} />
-              <p className="text-xs mt-1 text-center font-medium">Basic Setup</p>
+              <p className="text-xs mt-1 text-center font-medium">Basic Info</p>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
             <div className="flex-1">
               <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 2 ? 'bg-gradient-primary' : 'bg-muted'}`} />
-              <p className="text-xs mt-1 text-center font-medium">Configuration</p>
+              <p className="text-xs mt-1 text-center font-medium">AI Config</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 3 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Access</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className={`h-2 rounded-full transition-all duration-300 ${currentStep >= 4 ? 'bg-gradient-primary' : 'bg-muted'}`} />
+              <p className="text-xs mt-1 text-center font-medium">Settings</p>
             </div>
           </div>
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Step 1: Basic Configuration */}
+              {/* Step 1: Basic Information */}
               {currentStep === 1 && (
                 <div className="space-y-6 animate-fade-in">
-                  {/* Basic Info */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 mb-4">
                       <Sparkles className="w-5 h-5 text-primary" />
@@ -722,7 +734,7 @@ export default function ChatbotManagement() {
                           <FormControl>
                             <Textarea 
                               placeholder="You are a helpful assistant that..."
-                              rows={5}
+                              rows={8}
                               className="font-mono text-sm"
                               {...field} 
                             />
@@ -735,8 +747,12 @@ export default function ChatbotManagement() {
                       )}
                     />
                   </div>
+                </div>
+              )}
 
-                  {/* AI Provider Selection */}
+              {/* Step 2: AI Provider & Model */}
+              {currentStep === 2 && (
+                <div className="space-y-6 animate-fade-in">
                   <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
                     <div className="flex items-center gap-2 mb-4">
                       <Zap className="w-5 h-5 text-primary" />
@@ -840,8 +856,11 @@ export default function ChatbotManagement() {
                 </div>
               )}
 
-              {/* Step 2: Advanced Settings */}
-              {currentStep === 2 && (
+              {/* Step 3: Access Control & Knowledge Base */}
+              {currentStep === 3 && (
+                <div className="space-y-6 animate-fade-in">
+              {/* Step 3: Access Control & Knowledge Base */}
+              {currentStep === 3 && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Tenant Access */}
                   <div className="space-y-4 border border-primary/20 rounded-lg p-5 bg-gradient-to-br from-primary/5 to-transparent">
@@ -1024,7 +1043,12 @@ export default function ChatbotManagement() {
                       )}
                     />
                   </div>
+                </div>
+              )}
 
+              {/* Step 4: Model Parameters & Activation */}
+              {currentStep === 4 && (
+                <div className="space-y-6 animate-fade-in">
                   {/* Model Parameters */}
                   <div className="space-y-4 border border-primary/20 rounded-lg p-5">
                     <div className="flex items-center gap-2">
@@ -1171,81 +1195,6 @@ export default function ChatbotManagement() {
                 </div>
               )}
 
-              {/* Test Section */}
-              {dialogMode === 'edit' && selectedChatbot && (
-                <div className="space-y-4 border rounded-lg p-4 bg-muted/50">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Test Chatbot</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <FormLabel>Test Message</FormLabel>
-                    <Textarea
-                      placeholder="Enter a test message to see how the chatbot responds..."
-                      value={testMessage}
-                      onChange={(e) => setTestMessage(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={async () => {
-                      if (!testMessage.trim()) {
-                        toast({
-                          title: "Error",
-                          description: "Please enter a test message",
-                          variant: "destructive"
-                        });
-                        return;
-                      }
-                      
-                      setIsTesting(true);
-                      setTestResponse('');
-                      
-                      try {
-                        const { data, error } = await supabase.functions.invoke('ai-chat', {
-                          body: {
-                            chatbot_id: selectedChatbot.id,
-                            message: testMessage,
-                            conversation_id: null
-                          }
-                        });
-
-                        if (error) throw error;
-
-                        setTestResponse(data.response || 'No response received');
-                        
-                        toast({
-                          title: "Success",
-                          description: `Response generated via ${data.provider_name || 'AI Provider'}`
-                        });
-                      } catch (error: any) {
-                        toast({
-                          title: "Error",
-                          description: error.message || 'Failed to get response',
-                          variant: "destructive"
-                        });
-                      } finally {
-                        setIsTesting(false);
-                      }
-                    }}
-                    disabled={isTesting || !testMessage.trim()}
-                    className="w-full"
-                  >
-                    {isTesting ? 'Generating Response...' : 'Test Chatbot'}
-                  </Button>
-                  
-                  {testResponse && (
-                    <div className="space-y-2">
-                      <FormLabel>Response</FormLabel>
-                      <div className="p-3 rounded-lg bg-background border whitespace-pre-wrap">
-                        {testResponse}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Navigation Buttons */}
               <div className="flex justify-between gap-2 pt-4 border-t">
                 {currentStep === 1 ? (
@@ -1259,15 +1208,7 @@ export default function ChatbotManagement() {
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        // Validate step 1 fields
-                        const step1Fields = ['name', 'system_prompt', 'primary_ai_provider_id', 'model_name'];
-                        const hasErrors = step1Fields.some(field => {
-                          const error = form.getFieldState(field as any).error;
-                          return error !== undefined;
-                        });
-                        
-                        if (!form.getValues('name') || !form.getValues('system_prompt') || 
-                            !form.getValues('primary_ai_provider_id') || !form.getValues('model_name')) {
+                        if (!form.getValues('name') || !form.getValues('system_prompt')) {
                           toast({
                             title: "Missing Required Fields",
                             description: "Please fill in all required fields marked with *",
@@ -1280,7 +1221,84 @@ export default function ChatbotManagement() {
                       }}
                       className="gap-2"
                     >
-                      Next: Advanced Settings
+                      Next: AI Configuration
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : currentStep === 2 ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentStep(1);
+                      }}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        if (!form.getValues('primary_ai_provider_id') || !form.getValues('model_name')) {
+                          toast({
+                            title: "Missing Required Fields",
+                            description: "Please select an AI provider and model",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        setCurrentStep(3);
+                      }}
+                      className="gap-2"
+                    >
+                      Next: Access Control
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : currentStep === 3 ? (
+                  <>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentStep(2);
+                      }}
+                      className="gap-2"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                    <Button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const tenantIds = form.getValues('tenant_ids');
+                        if (!tenantIds || tenantIds.length === 0) {
+                          toast({
+                            title: "Missing Required Fields",
+                            description: "Please select at least one tenant",
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        setCurrentStep(4);
+                      }}
+                      className="gap-2"
+                    >
+                      Next: Model Settings
                       <ChevronRight className="w-4 h-4" />
                     </Button>
                   </>
@@ -1292,7 +1310,7 @@ export default function ChatbotManagement() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        setCurrentStep(1);
+                        setCurrentStep(3);
                       }}
                       className="gap-2"
                     >
