@@ -30,6 +30,7 @@ export default function Chat() {
   const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<any[]>([]);
+  const [newChatCounter, setNewChatCounter] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -180,12 +181,14 @@ export default function Chat() {
     setSelectedChatbot(null);
     setSelectedConversationId(null);
     setConversationMessages([]);
+    setNewChatCounter(prev => prev + 1);
   };
 
   const handleNewChatSameChatbot = () => {
     // Reset conversation but keep the selected chatbot
     setSelectedConversationId(null);
     setConversationMessages([]);
+    setNewChatCounter(prev => prev + 1);
     // Force a re-render by creating a new chatbot reference
     if (selectedChatbot) {
       setSelectedChatbot({ ...selectedChatbot });
@@ -209,7 +212,7 @@ export default function Chat() {
         </div>
         <div className="flex-1">
           <ConversationInterface
-            key={selectedConversationId || 'new'} // Force re-render on conversation change
+            key={selectedConversationId || `new-${newChatCounter}`} // Force re-render on conversation change or new chat
             chatbotId={selectedChatbot.id}
             chatbotName={selectedChatbot.name}
             onBack={handleNewChat}
@@ -233,6 +236,7 @@ export default function Chat() {
         </div>
         <div className="flex-1">
           <ConversationInterface
+            key={selectedConversationId || `new-${newChatCounter}`}
             chatbotId={selectedChatbot?.id || ''}
             chatbotName="Conversation"
             onBack={handleNewChat}

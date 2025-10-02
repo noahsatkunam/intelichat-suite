@@ -57,6 +57,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         citations: msg.metadata?.citations,
       }));
       setMessages(formattedMessages);
+    } else if (!existingConversationId) {
+      // Clear state when starting a new conversation
+      setConversationId(null);
+      setMessages([]);
+      setInputMessage('');
+      setAttachments([]);
+      setIsLoading(false);
     }
     // Don't create conversation on mount - wait for first message
     checkUserRole();
