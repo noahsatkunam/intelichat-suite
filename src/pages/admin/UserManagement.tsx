@@ -840,7 +840,7 @@ export default function UserManagement() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-5 gap-4 mb-6">
             <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -878,10 +878,21 @@ export default function UserManagement() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Admins</p>
-                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'tenant_admin' || u.role === 'global_admin').length}</p>
+                    <p className="text-sm text-muted-foreground">Tenant Admin</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'tenant_admin').length}</p>
                   </div>
                   <Shield className="w-8 h-8 text-red-500" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(168,85,247,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-purple-500/40">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Global Admin</p>
+                    <p className="text-2xl font-bold">{users.filter(u => u.role === 'global_admin').length}</p>
+                  </div>
+                  <Shield className="w-8 h-8 text-purple-500" />
                 </div>
               </CardContent>
             </Card>
