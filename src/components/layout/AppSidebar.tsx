@@ -109,7 +109,7 @@ export function AppSidebar() {
   };
   
   const getNavClassName = (path: string, variant?: 'primary') => {
-    const baseClasses = "w-full justify-start transition-all duration-200 hover:bg-accent hover:text-accent-foreground";
+    const baseClasses = "w-full justify-start transition-all duration-300 hover:bg-accent hover:text-accent-foreground hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)]";
     const activeClasses = "bg-accent text-accent-foreground font-medium";
     const primaryClasses = variant === 'primary' 
       ? "bg-gradient-primary text-primary-foreground hover:shadow-glow hover:bg-gradient-primary" 
@@ -235,7 +235,7 @@ export function AppSidebar() {
                       <SidebarMenuButton asChild>
                         <NavLink 
                           to={`/chat/${conversation.id}`} 
-                          className="flex items-start gap-3 p-3 hover:bg-sidebar-accent rounded-lg transition-colors group"
+                          className="flex items-start gap-3 p-3 hover:bg-sidebar-accent rounded-lg transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group"
                         >
                           <FolderOpen className="w-4 h-4 mt-0.5 text-muted-foreground group-hover:text-sidebar-foreground" />
                           <div className="flex-1 min-w-0">
@@ -298,7 +298,7 @@ export function AppSidebar() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="w-full justify-start p-3 hover:bg-sidebar-accent transition-colors"
+              className="w-full justify-start p-3 hover:bg-sidebar-accent transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)]"
             >
               <Avatar className="w-8 h-8 mr-3">
                 <AvatarImage src={user?.user_metadata?.avatar_url} alt="User Avatar" />
