@@ -277,6 +277,7 @@ export type Database = {
       }
       chatbots: {
         Row: {
+          auto_map_fallback_model: boolean | null
           avatar_url: string | null
           created_at: string
           created_by: string | null
@@ -298,6 +299,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_map_fallback_model?: boolean | null
           avatar_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -319,6 +321,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_map_fallback_model?: boolean | null
           avatar_url?: string | null
           created_at?: string
           created_by?: string | null
@@ -577,6 +580,7 @@ export type Database = {
       }
       provider_models: {
         Row: {
+          capability_tier: string | null
           cost_per_1k_input_tokens: number | null
           cost_per_1k_output_tokens: number | null
           created_at: string | null
@@ -585,6 +589,7 @@ export type Database = {
           id: string
           is_deprecated: boolean | null
           max_context_length: number | null
+          modality: string | null
           model_name: string
           provider_type: string
           supports_function_calling: boolean | null
@@ -592,6 +597,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          capability_tier?: string | null
           cost_per_1k_input_tokens?: number | null
           cost_per_1k_output_tokens?: number | null
           created_at?: string | null
@@ -600,6 +606,7 @@ export type Database = {
           id?: string
           is_deprecated?: boolean | null
           max_context_length?: number | null
+          modality?: string | null
           model_name: string
           provider_type: string
           supports_function_calling?: boolean | null
@@ -607,6 +614,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          capability_tier?: string | null
           cost_per_1k_input_tokens?: number | null
           cost_per_1k_output_tokens?: number | null
           created_at?: string | null
@@ -615,6 +623,7 @@ export type Database = {
           id?: string
           is_deprecated?: boolean | null
           max_context_length?: number | null
+          modality?: string | null
           model_name?: string
           provider_type?: string
           supports_function_calling?: boolean | null

@@ -14,6 +14,8 @@ interface ModelInfo {
   supports_function_calling?: boolean;
   cost_per_1k_input_tokens?: number;
   cost_per_1k_output_tokens?: number;
+  capability_tier?: 'flagship' | 'standard' | 'fast' | 'lightweight';
+  modality?: 'text' | 'vision' | 'multimodal';
 }
 
 Deno.serve(async (req) => {
@@ -142,17 +144,27 @@ async function fetchOpenAIModels(apiKey: string): Promise<ModelInfo[]> {
 
   const data = await response.json();
   return data.data
-    .filter((m: any) => m.id.includes('gpt') || m.id.includes('o1'))
+    .filter((m: any) => m.id.includes('gpt') || m.id.includes('o1') || m.id.includes('o3') || m.id.includes('o4'))
     .map((m: any) => ({
       model_name: m.id,
       display_name: formatModelName(m.id),
       description: `OpenAI ${formatModelName(m.id)}`,
       max_context_length: getOpenAIContextLength(m.id),
-      supports_vision: m.id.includes('vision') || m.id.includes('gpt-4o') || m.id.includes('gpt-4-turbo'),
+      supports_vision: m.id.includes('vision') || m.id.includes('gpt-4o') || m.id.includes('gpt-4-turbo') || m.id.includes('o3') || m.id.includes('o4'),
       supports_function_calling: true,
       cost_per_1k_input_tokens: getOpenAICost(m.id, 'input'),
-      cost_per_1k_output_tokens: getOpenAICost(m.id, 'output')
+      cost_per_1k_output_tokens: getOpenAICost(m.id, 'output'),
+      capability_tier: getOpenAICapability(m.id),
+      modality: (m.id.includes('vision') || m.id.includes('gpt-4o') || m.id.includes('gpt-4-turbo') || m.id.includes('o3') || m.id.includes('o4')) ? 'multimodal' : 'text'
     }));
+}
+
+function getOpenAICapability(modelId: string): 'flagship' | 'standard' | 'fast' | 'lightweight' {
+  if (modelId.includes('o3') || modelId.includes('o4') || modelId.includes('gpt-5')) return 'flagship';
+  if (modelId.includes('gpt-4o') || modelId.includes('gpt-4-turbo') || modelId.includes('o1-preview')) return 'standard';
+  if (modelId.includes('gpt-4o-mini') || modelId.includes('o1-mini')) return 'fast';
+  if (modelId.includes('gpt-3.5') || modelId.includes('nano')) return 'lightweight';
+  return 'standard';
 }
 
 async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
@@ -166,7 +178,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.015,
-      cost_per_1k_output_tokens: 0.075
+      cost_per_1k_output_tokens: 0.075,
+      capability_tier: 'flagship',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-sonnet-4-20250514',
@@ -176,7 +190,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.003,
-      cost_per_1k_output_tokens: 0.015
+      cost_per_1k_output_tokens: 0.015,
+      capability_tier: 'flagship',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-3-5-sonnet-20241022',
@@ -186,7 +202,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.003,
-      cost_per_1k_output_tokens: 0.015
+      cost_per_1k_output_tokens: 0.015,
+      capability_tier: 'standard',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-3-5-haiku-20241022',
@@ -196,7 +214,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.001,
-      cost_per_1k_output_tokens: 0.005
+      cost_per_1k_output_tokens: 0.005,
+      capability_tier: 'fast',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-3-opus-20240229',
@@ -206,7 +226,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.015,
-      cost_per_1k_output_tokens: 0.075
+      cost_per_1k_output_tokens: 0.075,
+      capability_tier: 'flagship',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-3-sonnet-20240229',
@@ -216,7 +238,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.003,
-      cost_per_1k_output_tokens: 0.015
+      cost_per_1k_output_tokens: 0.015,
+      capability_tier: 'standard',
+      modality: 'multimodal'
     },
     {
       model_name: 'claude-3-haiku-20240307',
@@ -226,7 +250,9 @@ async function fetchAnthropicModels(apiKey: string): Promise<ModelInfo[]> {
       supports_vision: true,
       supports_function_calling: true,
       cost_per_1k_input_tokens: 0.00025,
-      cost_per_1k_output_tokens: 0.00125
+      cost_per_1k_output_tokens: 0.00125,
+      capability_tier: 'fast',
+      modality: 'multimodal'
     }
   ];
 }
@@ -239,16 +265,29 @@ async function fetchGoogleModels(apiKey: string): Promise<ModelInfo[]> {
   const data = await response.json();
   return data.models
     .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-    .map((m: any) => ({
-      model_name: m.name.replace('models/', ''),
-      display_name: formatModelName(m.displayName || m.name),
-      description: m.description || `Google ${formatModelName(m.displayName || m.name)}`,
-      max_context_length: m.inputTokenLimit || 32000,
-      supports_vision: m.name.includes('vision') || m.name.includes('gemini-1.5') || m.name.includes('gemini-2.0'),
-      supports_function_calling: true,
-      cost_per_1k_input_tokens: getGoogleCost(m.name, 'input'),
-      cost_per_1k_output_tokens: getGoogleCost(m.name, 'output')
-    }));
+    .map((m: any) => {
+      const modelName = m.name.replace('models/', '');
+      const isVision = m.name.includes('vision') || m.name.includes('gemini-1.5') || m.name.includes('gemini-2.0') || m.name.includes('gemini-2.5');
+      return {
+        model_name: modelName,
+        display_name: formatModelName(m.displayName || m.name),
+        description: m.description || `Google ${formatModelName(m.displayName || m.name)}`,
+        max_context_length: m.inputTokenLimit || 32000,
+        supports_vision: isVision,
+        supports_function_calling: true,
+        cost_per_1k_input_tokens: getGoogleCost(m.name, 'input'),
+        cost_per_1k_output_tokens: getGoogleCost(m.name, 'output'),
+        capability_tier: getGoogleCapability(modelName),
+        modality: isVision ? 'multimodal' : 'text'
+      };
+    });
+}
+
+function getGoogleCapability(modelName: string): 'flagship' | 'standard' | 'fast' | 'lightweight' {
+  if (modelName.includes('pro') || modelName.includes('2.5-pro')) return 'flagship';
+  if (modelName.includes('flash') && !modelName.includes('lite')) return 'fast';
+  if (modelName.includes('lite') || modelName.includes('nano')) return 'lightweight';
+  return 'standard';
 }
 
 async function fetchMistralModels(apiKey: string): Promise<ModelInfo[]> {
@@ -373,7 +412,16 @@ async function updateProviderModels(
       // Insert new model
       await supabase.from('provider_models').insert({
         provider_type: providerType,
-        ...model,
+        model_name: model.model_name,
+        display_name: model.display_name,
+        description: model.description,
+        max_context_length: model.max_context_length,
+        supports_vision: model.supports_vision,
+        supports_function_calling: model.supports_function_calling,
+        cost_per_1k_input_tokens: model.cost_per_1k_input_tokens,
+        cost_per_1k_output_tokens: model.cost_per_1k_output_tokens,
+        capability_tier: model.capability_tier || 'standard',
+        modality: model.modality || 'text',
         is_deprecated: false
       });
       added++;
@@ -400,6 +448,8 @@ async function updateProviderModels(
           supports_function_calling: model.supports_function_calling,
           cost_per_1k_input_tokens: model.cost_per_1k_input_tokens,
           cost_per_1k_output_tokens: model.cost_per_1k_output_tokens,
+          capability_tier: model.capability_tier || existing.capability_tier || 'standard',
+          modality: model.modality || existing.modality || 'text',
           updated_at: new Date().toISOString()
         })
         .eq('id', existing.id);

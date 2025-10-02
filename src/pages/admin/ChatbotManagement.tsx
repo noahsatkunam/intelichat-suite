@@ -86,18 +86,10 @@ const chatbotSchema = z.object({
   frequency_penalty: z.number().min(0).max(2),
   presence_penalty: z.number().min(0).max(2),
   is_active: z.boolean(),
+  auto_map_fallback_model: z.boolean(),
   tenant_ids: z.array(z.string()).min(1, 'Select at least one tenant'),
   document_ids: z.array(z.string()).optional(),
   avatar_url: z.string().optional()
-}).refine((data) => {
-  // Ensure that if fallback provider is selected, fallback model is also selected
-  if (data.fallback_ai_provider_id && !data.fallback_model_name) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Fallback model is required when fallback provider is selected",
-  path: ["fallback_model_name"]
 });
 
 export default function ChatbotManagement() {
@@ -137,6 +129,7 @@ export default function ChatbotManagement() {
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
       is_active: true,
+      auto_map_fallback_model: true,
       tenant_ids: [],
       document_ids: [],
       avatar_url: ''
@@ -315,6 +308,7 @@ export default function ChatbotManagement() {
       frequency_penalty: chatbot.frequency_penalty || 0.0,
       presence_penalty: chatbot.presence_penalty || 0.0,
       is_active: chatbot.is_active,
+      auto_map_fallback_model: (chatbot as any).auto_map_fallback_model !== false,
       tenant_ids: tenantAssignments?.map(t => t.tenant_id) || [],
       document_ids: knowledgeAssignments?.map(k => k.document_id) || [],
       avatar_url: (chatbot as any).avatar_url || ''
@@ -509,6 +503,7 @@ export default function ChatbotManagement() {
         frequency_penalty: data.frequency_penalty,
         presence_penalty: data.presence_penalty,
         is_active: data.is_active,
+        auto_map_fallback_model: data.auto_map_fallback_model,
         tenant_id: profile?.tenant_id,
         avatar_url: avatarUrl || null
       };
@@ -1170,38 +1165,66 @@ export default function ChatbotManagement() {
 
                     {/* Fallback Model Selection */}
                     {form.watch('fallback_ai_provider_id') && (
-                      <FormField
-                        control={form.control}
-                        name="fallback_model_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fallback Model *</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value || undefined} disabled={!fallbackProviderType}>
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="fallback_model_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fallback Model</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value || undefined} disabled={!fallbackProviderType}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder={fallbackProviderType ? "Select fallback model" : "Select provider first"} />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {modelsForFallbackProvider.map((model) => (
+                                    <SelectItem key={model.id} value={model.model_name}>
+                                      <div className="space-y-1">
+                                        <div className="font-medium">{model.display_name}</div>
+                                        {model.description && (
+                                          <div className="text-xs text-muted-foreground">{model.description}</div>
+                                        )}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                {fallbackProviderType ? `${modelsForFallbackProvider.length} compatible model${modelsForFallbackProvider.length !== 1 ? 's' : ''} available. ` : ''}Model to use when falling back to backup provider
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        {/* Auto-Map Fallback Model */}
+                        <FormField
+                          control={form.control}
+                          name="auto_map_fallback_model"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-border p-4 bg-muted/30">
+                              <div className="space-y-0.5 flex-1">
+                                <FormLabel className="text-base flex items-center gap-2">
+                                  <Sparkles className="w-4 h-4 text-primary" />
+                                  Smart Model Mapping
+                                </FormLabel>
+                                <FormDescription className="text-sm">
+                                  Automatically select closest matching model on fallback provider based on capability tier and modality. 
+                                  When disabled, requires exact model match.
+                                </FormDescription>
+                              </div>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder={fallbackProviderType ? "Select fallback model" : "Select provider first"} />
-                                </SelectTrigger>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
                               </FormControl>
-                              <SelectContent>
-                                {modelsForFallbackProvider.map((model) => (
-                                  <SelectItem key={model.id} value={model.model_name}>
-                                    <div className="space-y-1">
-                                      <div className="font-medium">{model.display_name}</div>
-                                      {model.description && (
-                                        <div className="text-xs text-muted-foreground">{model.description}</div>
-                                      )}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              {fallbackProviderType ? `${modelsForFallbackProvider.length} compatible model${modelsForFallbackProvider.length !== 1 ? 's' : ''} available. ` : ''}Model to use when falling back to backup provider
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                            </FormItem>
+                          )}
+                        />
+                      </>
                     )}
                   </div>
                 )}

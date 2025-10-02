@@ -386,6 +386,93 @@ async function getSupportedModels(supabase: any, providerType: string): Promise<
   return models?.map(m => m.model_name) || [];
 }
 
+// Helper function to find the closest matching model based on capability and modality
+async function findClosestModel(
+  supabase: any,
+  targetProviderType: string,
+  requestedModelName: string,
+  sourceProviderType: string
+): Promise<string | null> {
+  console.log(`🔍 Finding closest model for ${targetProviderType} to match ${requestedModelName} from ${sourceProviderType}`);
+  
+  // Get the requested model's metadata
+  const { data: requestedModel } = await supabase
+    .from('provider_models')
+    .select('capability_tier, modality, supports_vision, supports_function_calling')
+    .eq('provider_type', sourceProviderType)
+    .eq('model_name', requestedModelName)
+    .maybeSingle();
+
+  if (!requestedModel) {
+    console.log(`⚠️  Could not find metadata for requested model: ${requestedModelName}`);
+    return null;
+  }
+
+  console.log(`📋 Requested model metadata:`, {
+    capability_tier: requestedModel.capability_tier,
+    modality: requestedModel.modality,
+    supports_vision: requestedModel.supports_vision
+  });
+
+  // Find the best matching model on the target provider
+  // Priority: 1) Exact capability + modality, 2) Same capability, 3) Closest capability
+  const { data: candidateModels } = await supabase
+    .from('provider_models')
+    .select('model_name, capability_tier, modality, supports_vision, supports_function_calling, display_name')
+    .eq('provider_type', targetProviderType)
+    .eq('is_deprecated', false);
+
+  if (!candidateModels || candidateModels.length === 0) {
+    console.log(`❌ No candidate models found for provider: ${targetProviderType}`);
+    return null;
+  }
+
+  // Score each candidate model
+  const scoredModels = candidateModels.map((candidate: any) => {
+    let score = 0;
+    
+    // Capability tier match (highest priority)
+    if (candidate.capability_tier === requestedModel.capability_tier) {
+      score += 100;
+    } else {
+      // Partial score for similar tiers
+      const tierMap = { flagship: 4, standard: 3, fast: 2, lightweight: 1 };
+      const requestedTier = tierMap[requestedModel.capability_tier as keyof typeof tierMap] || 0;
+      const candidateTier = tierMap[candidate.capability_tier as keyof typeof tierMap] || 0;
+      score += Math.max(0, 50 - Math.abs(requestedTier - candidateTier) * 15);
+    }
+    
+    // Modality match
+    if (candidate.modality === requestedModel.modality) {
+      score += 50;
+    } else if (requestedModel.modality === 'multimodal' && candidate.modality === 'vision') {
+      score += 30; // Partial match
+    }
+    
+    // Vision support match
+    if (candidate.supports_vision === requestedModel.supports_vision) {
+      score += 25;
+    }
+    
+    // Function calling support match
+    if (candidate.supports_function_calling === requestedModel.supports_function_calling) {
+      score += 10;
+    }
+
+    return { ...candidate, score };
+  });
+
+  // Sort by score descending
+  scoredModels.sort((a, b) => b.score - a.score);
+
+  const bestMatch = scoredModels[0];
+  console.log(`✅ Best match found: ${bestMatch.display_name} (${bestMatch.model_name})`);
+  console.log(`   Score: ${bestMatch.score}/185`);
+  console.log(`   Capability: ${bestMatch.capability_tier}, Modality: ${bestMatch.modality}`);
+
+  return bestMatch.model_name;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -440,11 +527,13 @@ serve(async (req) => {
     }
 
     const model = chatbot.model_name || 'gpt-4o-mini';
-    const fallbackModel = chatbot.fallback_model_name || model;
+    let fallbackModel = chatbot.fallback_model_name || model;
+    const autoMapFallback = chatbot.auto_map_fallback_model !== false; // Default to true
 
     // Validate model compatibility with providers
     let compatiblePrimaryProvider = null;
     let compatibleFallbackProvider = null;
+    let fallbackModelSubstituted = false;
 
     if (primaryProvider) {
       const isCompatible = await validateModelForProvider(supabase, primaryProvider.type, model);
@@ -463,8 +552,23 @@ serve(async (req) => {
         compatibleFallbackProvider = fallbackProvider;
         console.log(`✓ Fallback provider ${fallbackProvider.name} supports model ${fallbackModel}`);
       } else {
-        const supportedModels = await getSupportedModels(supabase, fallbackProvider.type);
-        console.warn(`✗ Fallback provider ${fallbackProvider.name} does not support model ${fallbackModel}. Supported models: ${supportedModels.join(', ')}`);
+        // Fallback model not supported - try auto-mapping if enabled
+        if (autoMapFallback && primaryProvider) {
+          console.log(`🔄 Auto-mapping enabled: Finding closest model for fallback provider`);
+          const closestModel = await findClosestModel(supabase, fallbackProvider.type, model, primaryProvider.type);
+          
+          if (closestModel) {
+            fallbackModel = closestModel;
+            fallbackModelSubstituted = true;
+            compatibleFallbackProvider = fallbackProvider;
+            console.log(`✅ Fallback model auto-mapped: ${fallbackModel}`);
+          } else {
+            console.warn(`⚠️  Could not find suitable fallback model for ${fallbackProvider.name}`);
+          }
+        } else {
+          const supportedModels = await getSupportedModels(supabase, fallbackProvider.type);
+          console.warn(`✗ Fallback provider ${fallbackProvider.name} does not support model ${fallbackModel}. Auto-mapping disabled. Supported models: ${supportedModels.join(', ')}`);
+        }
       }
     }
 
@@ -672,6 +776,19 @@ serve(async (req) => {
 
     // Log usage with actual provider used
     if (userId && usedProvider) {
+      const usageMetadata: any = {
+        fallback_used: usedProvider.id !== primaryProvider?.id,
+        requested_model: usedProvider.id === primaryProvider?.id ? model : fallbackModel,
+        returned_model: usedModel
+      };
+
+      // Log model substitution if it occurred
+      if (fallbackModelSubstituted) {
+        usageMetadata.model_substituted = true;
+        usageMetadata.original_fallback_model = chatbot.fallback_model_name || model;
+        console.log(`📝 Logging model substitution: ${usageMetadata.original_fallback_model} → ${usedModel}`);
+      }
+
       await supabase
         .from('chatbot_usage')
         .insert({
@@ -682,6 +799,18 @@ serve(async (req) => {
           response_time_ms: responseTime,
           success: true,
         });
+
+      // Also log to audit trail if model was substituted
+      if (fallbackModelSubstituted) {
+        await supabase
+          .from('ai_provider_audit_log')
+          .insert({
+            action: 'model_auto_mapped',
+            provider_id: usedProvider.id,
+            user_id: userId,
+            details: usageMetadata
+          });
+      }
     }
 
     return new Response(JSON.stringify({
