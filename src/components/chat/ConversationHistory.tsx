@@ -84,119 +84,152 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   };
 
   const subscribeToConversations = () => {
+    let cleanupFn: (() => void) = () => {}; // Initialize to no-op
+
     const setupSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id, role')
-        .eq('id', user.id)
-        .single();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id, role')
+          .eq('id', user.id)
+          .single();
 
-      if (!profile) return;
+        if (!profile) return;
 
-      // Subscribe to INSERT events for new conversations
-      const insertChannel = supabase
-        .channel('conversations-inserts')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'conversations',
-            filter: `user_id=eq.${user.id}`,
-          },
-          async (payload) => {
-            console.log('New conversation detected:', payload);
-            // Fetch the full conversation with chatbot info
-            const { data: newConv } = await supabase
-              .from('conversations')
-              .select(`
-                id,
-                title,
-                created_at,
-                updated_at,
-                user_id,
-                tenant_id,
-                chatbot_id,
-                chatbots:chatbot_id (
-                  name,
-                  avatar_url
-                )
-              `)
-              .eq('id', payload.new.id)
-              .single();
+        const isGlobalAdmin = profile.role === 'global_admin';
+        const tenantId = isGlobalAdmin ? null : profile.tenant_id;
 
-            if (newConv) {
-              // Prepend the new conversation to the list
-              setConversations(prev => [{
-                ...newConv,
-                chatbot: newConv.chatbots,
-              }, ...prev]);
+        // Build filter - include tenant_id for non-global admins
+        const baseFilter = `user_id=eq.${user.id}`;
+        const fullFilter = isGlobalAdmin 
+          ? baseFilter 
+          : `${baseFilter},tenant_id=eq.${tenantId}`;
+
+        // Subscribe to INSERT events for new conversations
+        const insertChannel = supabase
+          .channel('conversations-inserts')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'conversations',
+              filter: fullFilter,
+            },
+            async (payload) => {
+              console.log('New conversation detected:', payload);
+              try {
+                // Fetch the full conversation with chatbot info
+                const { data: newConv, error } = await supabase
+                  .from('conversations')
+                  .select(`
+                    id,
+                    title,
+                    created_at,
+                    updated_at,
+                    user_id,
+                    tenant_id,
+                    chatbot_id,
+                    chatbots:chatbot_id (
+                      name,
+                      avatar_url
+                    )
+                  `)
+                  .eq('id', payload.new.id)
+                  .single();
+
+                if (error) throw error;
+
+                if (newConv) {
+                  // Prepend the new conversation to the list
+                  setConversations(prev => [{
+                    ...newConv,
+                    chatbot: newConv.chatbots,
+                  }, ...prev]);
+                }
+              } catch (err) {
+                console.error('Failed to fetch conversation after insert:', err);
+                toast({
+                  title: 'Error',
+                  description: 'Failed to load new conversation',
+                  variant: 'destructive',
+                });
+              }
             }
-          }
-        )
-        .subscribe();
+          )
+          .subscribe((status) => {
+            console.log('Insert channel subscribed:', status);
+            if (status !== 'SUBSCRIBED') {
+              console.error('Failed to subscribe to insert channel:', status);
+            }
+          });
 
-      // Subscribe to UPDATE events for title changes
-      const updateChannel = supabase
-        .channel('conversations-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'conversations',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            console.log('Conversation updated:', payload);
-            setConversations(prev =>
-              prev.map(conv =>
-                conv.id === payload.new.id
-                  ? { ...conv, title: payload.new.title, updated_at: payload.new.updated_at }
-                  : conv
-              )
-            );
-          }
-        )
-        .subscribe();
+        // Subscribe to UPDATE events for title changes
+        const updateChannel = supabase
+          .channel('conversations-updates')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'conversations',
+              filter: fullFilter,
+            },
+            (payload) => {
+              console.log('Conversation updated:', payload);
+              setConversations(prev =>
+                prev.map(conv =>
+                  conv.id === payload.new.id
+                    ? { ...conv, title: payload.new.title, updated_at: payload.new.updated_at }
+                    : conv
+                )
+              );
+            }
+          )
+          .subscribe();
 
-      // Subscribe to DELETE events for conversation removal
-      const deleteChannel = supabase
-        .channel('conversations-deletes')
-        .on(
-          'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'conversations',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            console.log('Conversation deleted:', payload);
-            setConversations(prev =>
-              prev.filter(conv => conv.id !== payload.old.id)
-            );
-          }
-        )
-        .subscribe();
+        // Subscribe to DELETE events for conversation removal
+        const deleteChannel = supabase
+          .channel('conversations-deletes')
+          .on(
+            'postgres_changes',
+            {
+              event: 'DELETE',
+              schema: 'public',
+              table: 'conversations',
+              filter: fullFilter,
+            },
+            (payload) => {
+              console.log('Conversation deleted:', payload);
+              setConversations(prev =>
+                prev.filter(conv => conv.id !== payload.old.id)
+              );
+            }
+          )
+          .subscribe();
 
-      return () => {
-        supabase.removeChannel(insertChannel);
-        supabase.removeChannel(updateChannel);
-        supabase.removeChannel(deleteChannel);
-      };
+        cleanupFn = () => {
+          supabase.removeChannel(insertChannel);
+          supabase.removeChannel(updateChannel);
+          supabase.removeChannel(deleteChannel);
+        };
+      } catch (err) {
+        console.error('Error setting up subscriptions:', err);
+        toast({
+          title: 'Error',
+          description: 'Failed to set up real-time updates',
+          variant: 'destructive',
+        });
+      }
     };
 
-    let cleanupFn: (() => void) | undefined;
-    setupSubscription().then(cleanup => {
-      if (cleanup) cleanupFn = cleanup;
-    });
+    setupSubscription();
 
     return () => {
-      if (cleanupFn) cleanupFn();
+      cleanupFn();
     };
   };
 
