@@ -57,6 +57,7 @@ import { NotificationsSheet } from '@/components/notifications/NotificationsShee
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, variant: 'primary' as const },
   { title: 'Chat', url: '/chat', icon: MessageSquarePlus },
+  { title: 'Recent Conversations', url: '/recent-conversations', icon: History },
   { title: 'Knowledge Base', url: '/knowledge', icon: BookOpen },
   { title: 'Analytics', url: '/analytics', icon: BarChart3 },
 ];
@@ -83,8 +84,6 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showRecentChats, setShowRecentChats] = useState(true);
-  const [recentConversations, setRecentConversations] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   
   const isCollapsed = state === 'collapsed';
@@ -97,39 +96,6 @@ export function AppSidebar() {
   const allowedAdminItems = adminNavItems.filter(item => 
     item.roles.includes(userRole)
   );
-
-  // Load recent conversations
-  useEffect(() => {
-    const fetchRecentConversations = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const { data, error } = await supabase
-          .from('conversations')
-          .select(`
-            id,
-            title,
-            updated_at,
-            chatbot_id,
-            chatbots:chatbot_id (
-              name,
-              avatar_url
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(10);
-
-        if (error) throw error;
-        setRecentConversations(data || []);
-      } catch (error) {
-        console.error('Error fetching recent conversations:', error);
-      }
-    };
-
-    fetchRecentConversations();
-  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -222,95 +188,6 @@ export function AppSidebar() {
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>
-
-        <Separator className="my-4 bg-sidebar-border" />
-
-        {/* Recent Conversations */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center justify-between text-sidebar-foreground">
-            <span className="font-medium">Recent Conversations</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 hover:bg-sidebar-accent"
-              onClick={() => setShowRecentChats(!showRecentChats)}
-            >
-              {showRecentChats ? (
-                <ChevronDown className="w-3 h-3" />
-              ) : (
-                <ChevronRight className="w-3 h-3" />
-              )}
-            </Button>
-          </SidebarGroupLabel>
-          
-          {showRecentChats && (
-            <SidebarGroupContent>
-              {/* Search */}
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-9 bg-sidebar-accent border-sidebar-border focus:border-sidebar-ring"
-                />
-              </div>
-
-              {/* Chat List */}
-              <SidebarMenu className="space-y-1">
-                {recentConversations
-                  .filter(conversation => 
-                    searchQuery === '' || 
-                    conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  .map((conversation) => (
-                    <SidebarMenuItem key={conversation.id}>
-                      <SidebarMenuButton asChild>
-                        <button
-                          onClick={() => navigate('/chat', { state: { conversationId: conversation.id, chatbotId: conversation.chatbot_id } })}
-                          className="flex items-start gap-3 p-3 w-full hover:bg-sidebar-accent rounded-lg transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
-                        >
-                          {conversation.chatbots?.avatar_url ? (
-                            <Avatar className="w-4 h-4 mt-0.5">
-                              <AvatarImage src={conversation.chatbots.avatar_url} alt="Chatbot" />
-                              <AvatarFallback>
-                                <Bot className="w-3 h-3" />
-                              </AvatarFallback>
-                            </Avatar>
-                          ) : (
-                            <Bot className="w-4 h-4 mt-0.5 text-muted-foreground group-hover:text-sidebar-foreground" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm text-sidebar-foreground truncate">
-                              {conversation.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {conversation.chatbots?.name && (
-                                <span className="text-xs text-muted-foreground truncate">
-                                  {conversation.chatbots.name}
-                                </span>
-                              )}
-                              <span className="text-xs text-muted-foreground">•</span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(conversation.updated_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                {recentConversations.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No conversations yet</p>
-                    <p className="text-xs">Start a new chat to get started</p>
-                  </div>
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          )}
         </SidebarGroup>
 
         <Separator className="my-4 bg-sidebar-border" />

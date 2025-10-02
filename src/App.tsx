@@ -18,6 +18,7 @@ import AuthPage from "./pages/AuthPage";
 import InviteAcceptPage from "./pages/InviteAcceptPage";
 import ContactPage from "./pages/ContactPage";
 import Chat from "./pages/Chat";
+import RecentConversations from "./pages/RecentConversations";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
@@ -66,6 +67,11 @@ const App = () => (
                 <Route path="/chat" element={
                   <ProtectedRoute>
                     <ChatLayout><Chat /></ChatLayout>
+                  </ProtectedRoute>
+                } />
+                <Route path="/recent-conversations" element={
+                  <ProtectedRoute>
+                    <AppLayout><RecentConversations /></AppLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/chat/:id" element={
