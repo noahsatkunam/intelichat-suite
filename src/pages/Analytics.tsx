@@ -466,6 +466,47 @@ export default function Analytics() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Per-User Breakdown (for specific tenant selected) */}
+            {selectedTenant !== 'all' && analyticsData.messagesByUser && analyticsData.messagesByUser.length > 0 && (
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
+                <CardHeader>
+                  <CardTitle className="text-lg">Message Analytics by User</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Activity breakdown for users in {tenants.find(t => t.id === selectedTenant)?.name || 'this tenant'} for the selected period
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {analyticsData.messagesByUser.map((user, index) => (
+                      <div key={user.userId} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/50 hover:border-primary/20 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{user.userName}</span>
+                            <span className="text-xs text-muted-foreground">{user.userEmail}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {user.conversationCount} conversations
+                            </Badge>
+                          </div>
+                          <div className="mt-2 w-full bg-secondary rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all" 
+                              style={{ 
+                                width: `${Math.max((user.messageCount / Math.max(...analyticsData.messagesByUser!.map(u => u.messageCount))) * 100, 5)}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <div className="text-2xl font-bold">{user.messageCount.toLocaleString()}</div>
+                          <p className="text-xs text-muted-foreground">messages</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="conversations" className="space-y-6">

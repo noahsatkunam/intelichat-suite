@@ -18,6 +18,7 @@ export interface AnalyticsData {
   messagesTrend: Array<{ date: string; count: number }>;
   conversationsTrend: Array<{ date: string; count: number }>;
   messagesByTenant?: Array<{ tenantId: string; tenantName: string; messageCount: number; conversationCount: number }>;
+  messagesByUser?: Array<{ userId: string; userName: string; userEmail: string; messageCount: number; conversationCount: number }>;
 }
 
 export interface ChatbotAnalytics {
@@ -253,6 +254,56 @@ class AnalyticsService {
         }
       }
 
+      // Get per-user breakdown if viewing a specific tenant
+      let messagesByUser: Array<{ userId: string; userName: string; userEmail: string; messageCount: number; conversationCount: number }> | undefined;
+      
+      if (targetTenantId) {
+        // Get users in this tenant
+        const { data: users } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .eq('tenant_id', targetTenantId);
+
+        if (users && users.length > 0) {
+          messagesByUser = await Promise.all(
+            users.map(async (user) => {
+              // Get conversations for this user
+              const { data: userConversations } = await supabase
+                .from('conversations')
+                .select('id')
+                .eq('tenant_id', targetTenantId)
+                .eq('user_id', user.id)
+                .gte('created_at', periodStart);
+
+              const conversationIds = userConversations?.map(c => c.id) || [];
+              
+              // Get message count for this user
+              let messageCount = 0;
+              if (conversationIds.length > 0) {
+                const { count } = await supabase
+                  .from('messages')
+                  .select('id', { count: 'exact', head: true })
+                  .in('conversation_id', conversationIds)
+                  .eq('user_id', user.id)
+                  .gte('timestamp', periodStart);
+                messageCount = count || 0;
+              }
+
+              return {
+                userId: user.id,
+                userName: user.name || user.email,
+                userEmail: user.email,
+                messageCount,
+                conversationCount: conversationIds.length
+              };
+            })
+          );
+
+          // Sort by message count descending
+          messagesByUser.sort((a, b) => b.messageCount - a.messageCount);
+        }
+      }
+
       return {
         totalMessages: messagesCount.count || 0,
         totalConversations: conversationsCount.count || 0,
@@ -261,6 +312,7 @@ class AnalyticsService {
         messagesTrend: processTrendData(messagesTrend.data || [], 'timestamp'),
         conversationsTrend: processTrendData(conversationsTrend.data || [], 'created_at'),
         messagesByTenant,
+        messagesByUser,
       };
     } catch (error) {
       console.error('Error fetching analytics:', error);
