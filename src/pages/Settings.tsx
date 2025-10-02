@@ -19,55 +19,42 @@ export default function Settings() {
   const [isSavingName, setIsSavingName] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Image prep: validate & downscale large images
-  const prepareImageForUpload = async (file: File): Promise<{ blob: Blob; ext: string; mime: string }> => {
-    const MAX_FILE_SIZE_MB = 5; // hard cap
-    const MAX_DIMENSION = 512; // avatars don't need to be huge
+  // Optimize large images while maintaining quality
+  const prepareImageForUpload = async (file: File): Promise<{ blob: Blob; ext: string }> => {
+    const MAX_DIMENSION = 1024; // Reasonable size for avatars
 
     if (!file.type.startsWith('image/')) {
       throw new Error('Please upload a valid image file.');
     }
 
-    // If under size limit, keep original
-    if (file.size <= MAX_FILE_SIZE_MB * 1024 * 1024) {
-      const mime = file.type;
-      const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
-      return { blob: file, ext, mime };
+    // For small images, keep original
+    const img = await createImageBitmap(file);
+    if (img.width <= MAX_DIMENSION && img.height <= MAX_DIMENSION) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      return { blob: file, ext };
     }
 
-    // Downscale via canvas
-    const imgDataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image();
-      i.onload = () => resolve(i);
-      i.onerror = reject;
-      i.src = imgDataUrl;
-    });
-
+    // Resize larger images
     const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
-    const w = Math.max(1, Math.round(img.width * scale));
-    const h = Math.max(1, Math.round(img.height * scale));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
 
     const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
+    canvas.width = w;
+    canvas.height = h;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not supported');
     ctx.drawImage(img, 0, 0, w, h);
 
-    // Prefer PNG for transparency, else JPEG
-    const preferPng = file.type === 'image/png' || file.type === 'image/webp';
-    const mime = preferPng ? 'image/png' : 'image/jpeg';
-    const quality = preferPng ? 1.0 : 0.9;
-
-    const blob: Blob = await new Promise((resolve) => canvas.toBlob(b => resolve(b as Blob), mime, quality));
+    // Use high quality JPEG for photos, PNG for graphics
+    const mime = file.type.includes('png') ? 'image/png' : 'image/jpeg';
+    const quality = 0.92;
+    
+    const blob: Blob = await new Promise((resolve) => 
+      canvas.toBlob(b => resolve(b as Blob), mime, quality)
+    );
     const ext = mime === 'image/png' ? 'png' : 'jpg';
-    return { blob, ext, mime };
+    return { blob, ext };
   };
 
   // Load profile data including avatar
@@ -84,9 +71,12 @@ export default function Settings() {
       if (data && !error) {
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
-        setAvatarUrl(data.avatar_url || (user.user_metadata?.avatar_url ?? null));
+        // Add cache busting to avatar URL for fresh display
+        const baseUrl = data.avatar_url || user.user_metadata?.avatar_url;
+        setAvatarUrl(baseUrl ? `${baseUrl}?v=${Date.now()}` : null);
       } else {
-        setAvatarUrl(user.user_metadata?.avatar_url ?? null);
+        const baseUrl = user.user_metadata?.avatar_url;
+        setAvatarUrl(baseUrl ? `${baseUrl}?v=${Date.now()}` : null);
       }
     };
     
@@ -144,47 +134,53 @@ export default function Settings() {
 
     setIsUploading(true);
     try {
+      // Validate and optimize image
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please upload a valid image file');
+      }
+
+      // Prepare image (resize if needed)
+      const { blob, ext } = await prepareImageForUpload(file);
+      
       // Upload to Supabase storage with user folder for RLS
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/avatar.${fileExt}`;
+      const timestamp = Date.now();
+      const fileName = `${user.id}/avatar-${timestamp}.${ext}`;
       
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, file, { 
-          upsert: true,
-          contentType: file.type 
+        .upload(fileName, blob, { 
+          contentType: blob.type,
+          cacheControl: '3600',
+          upsert: true
         });
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
+      // Get public URL with cache busting
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(fileName);
 
-      // Add cache busting parameter
-      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
-
-      // Update profiles table
+      // Update profiles table with new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ avatar_url: cacheBustedUrl })
+        .update({ avatar_url: publicUrl })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
 
-      // Update local state
-      setAvatarUrl(cacheBustedUrl);
+      // Update local state with cache-busted URL for immediate display
+      setAvatarUrl(`${publicUrl}?v=${timestamp}`);
 
       toast({
         title: "Success",
         description: "Profile picture updated successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading avatar:', error);
       toast({
         title: "Error",
-        description: "Failed to update profile picture",
+        description: error.message || "Failed to update profile picture",
         variant: "destructive",
       });
     } finally {
@@ -237,7 +233,7 @@ export default function Settings() {
                   <Input
                     id="avatar-upload"
                     type="file"
-                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    accept="image/*"
                     onChange={handleAvatarUpload}
                     className="hidden"
                   />
