@@ -92,10 +92,6 @@ class AnalyticsService {
       }
 
       // Build queries based on filters
-      let messagesQuery = supabase
-        .from('messages')
-        .select('id', { count: 'exact', head: true });
-
       let conversationsQuery = supabase
         .from('conversations')
         .select('id', { count: 'exact', head: true });
@@ -104,10 +100,32 @@ class AnalyticsService {
         .from('documents')
         .select('id', { count: 'exact', head: true });
 
-      // Apply filters
+      // Apply tenant filter to conversations and documents
       if (targetTenantId) {
         conversationsQuery = conversationsQuery.eq('tenant_id', targetTenantId);
         documentsQuery = documentsQuery.eq('tenant_id', targetTenantId);
+      }
+
+      // Get conversation IDs for tenant filtering messages
+      let conversationIdsForMessages: string[] = [];
+      if (targetTenantId) {
+        const { data: tenantConversations } = await supabase
+          .from('conversations')
+          .select('id')
+          .eq('tenant_id', targetTenantId);
+        conversationIdsForMessages = tenantConversations?.map(c => c.id) || [];
+      }
+
+      // Build messages query with tenant and user filters
+      let messagesQuery = supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true });
+
+      if (targetTenantId && conversationIdsForMessages.length > 0) {
+        messagesQuery = messagesQuery.in('conversation_id', conversationIdsForMessages);
+      } else if (targetTenantId && conversationIdsForMessages.length === 0) {
+        // No conversations for this tenant, so no messages either
+        messagesQuery = messagesQuery.eq('conversation_id', '00000000-0000-0000-0000-000000000000');
       }
 
       if (targetUserId) {
@@ -134,6 +152,14 @@ class AnalyticsService {
         .from('conversations')
         .select('created_at')
         .gte('created_at', periodStart);
+
+      // Apply tenant filter to messages trend through conversations
+      if (targetTenantId && conversationIdsForMessages.length > 0) {
+        messagesTrendQuery = messagesTrendQuery.in('conversation_id', conversationIdsForMessages);
+      } else if (targetTenantId && conversationIdsForMessages.length === 0) {
+        // No conversations for this tenant
+        messagesTrendQuery = messagesTrendQuery.eq('conversation_id', '00000000-0000-0000-0000-000000000000');
+      }
 
       if (targetUserId) {
         messagesTrendQuery = messagesTrendQuery.eq('user_id', targetUserId);
