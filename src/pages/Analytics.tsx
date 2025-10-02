@@ -462,55 +462,67 @@ export default function Analytics() {
               <>
                 {/* Overall Metrics */}
                 <div className="grid gap-6 md:grid-cols-4">
-                  <Card>
+                  <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
                       <MessageCircle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{chatbotAnalytics.totalMessages.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">Across all chatbots</p>
+                      <p className="text-xs text-muted-foreground">
+                        <TrendingUp className="inline h-3 w-3 mr-1" />
+                        Across all chatbots
+                      </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
                       <Clock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{Math.round(chatbotAnalytics.averageResponseTime)}ms</div>
-                      <p className="text-xs text-muted-foreground">Average latency</p>
+                      <p className="text-xs text-muted-foreground">
+                        <Activity className="inline h-3 w-3 mr-1" />
+                        Average latency
+                      </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
                       <Activity className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{chatbotAnalytics.overallSuccessRate.toFixed(1)}%</div>
-                      <p className="text-xs text-muted-foreground">Successful requests</p>
+                      <p className="text-xs text-muted-foreground">
+                        <TrendingUp className="inline h-3 w-3 mr-1" />
+                        Successful requests
+                      </p>
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-purple-500/40">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Tokens Used</CardTitle>
                       <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{chatbotAnalytics.totalTokensUsed.toLocaleString()}</div>
-                      <p className="text-xs text-muted-foreground">Total consumption</p>
+                      <p className="text-xs text-muted-foreground">
+                        <TrendingUp className="inline h-3 w-3 mr-1" />
+                        Total consumption
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
 
                 {/* Message Trend */}
-                <Card>
+                <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
                   <CardHeader>
-                    <CardTitle>Message Volume Trend</CardTitle>
+                    <CardTitle className="text-lg">Message Volume Trend</CardTitle>
                     <p className="text-sm text-muted-foreground">
                       Successful messages over {selectedPeriod === '1day' ? 'the last day' : selectedPeriod === '7days' ? 'the last 7 days' : selectedPeriod === '30days' ? 'the last 30 days' : 'the last 90 days'}
                     </p>
@@ -523,7 +535,7 @@ export default function Analytics() {
                             {new Date(day.date).toLocaleDateString()}
                           </span>
                           <div className="flex items-center gap-2">
-                            <div className="w-32 bg-secondary rounded-full h-2">
+                            <div className="w-20 bg-secondary rounded-full h-2">
                               <div 
                                 className="bg-primary h-2 rounded-full" 
                                 style={{ 
@@ -531,7 +543,7 @@ export default function Analytics() {
                                 }}
                               />
                             </div>
-                            <span className="text-sm font-medium w-12 text-right">{day.count}</span>
+                            <span className="text-sm font-medium w-8">{day.count}</span>
                           </div>
                         </div>
                       ))}
