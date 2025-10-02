@@ -367,7 +367,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 pt-16 min-h-0">
-          <MessageList messages={messages} />
+          <MessageList messages={messages} isLoading={isLoading} />
           <div ref={messagesEndRef} />
         </div>
 

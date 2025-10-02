@@ -3,6 +3,7 @@ import { Bot, User, Paperclip, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { TypingIndicator } from './TypingIndicator';
 
 interface Message {
   id: string;
@@ -15,9 +16,10 @@ interface Message {
 
 interface MessageListProps {
   messages: Message[];
+  isLoading?: boolean;
 }
 
-export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }) => {
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -132,6 +134,9 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
           )}
         </div>
       ))}
+      
+      {/* Typing Indicator */}
+      {isLoading && <TypingIndicator />}
     </div>
   );
 };
