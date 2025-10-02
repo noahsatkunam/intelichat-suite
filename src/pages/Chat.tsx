@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useToast } from '@/hooks/use-toast';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { ConversationInterface } from '@/components/chat/ConversationInterface';
@@ -249,8 +251,18 @@ export default function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-6">
-      <div className="w-full max-w-6xl">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Header with controls */}
+      <div className="h-16 border-b flex items-center px-6 bg-card/30 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <SidebarTrigger className="p-2 hover:bg-accent rounded-lg transition-colors" />
+        </div>
+      </div>
+      
+      {/* Main content */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-6xl">
         {/* Header */}
         <div className="text-center mb-12 animate-fade-in">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-primary mb-6 shadow-glow">
@@ -382,6 +394,7 @@ export default function Chat() {
           <p className="text-sm text-muted-foreground">
             Your conversations are secure and private
           </p>
+        </div>
         </div>
       </div>
     </div>

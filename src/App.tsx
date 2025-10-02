@@ -9,6 +9,7 @@ import { OfflineIndicator } from '@/components/ui/offline-indicator';
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { ChatLayout } from "@/components/layout/ChatLayout";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import HomePage from "./pages/HomePage";
@@ -64,7 +65,7 @@ const App = () => (
                 } />
                 <Route path="/chat" element={
                   <ProtectedRoute>
-                    <AppLayout><Chat /></AppLayout>
+                    <ChatLayout><Chat /></ChatLayout>
                   </ProtectedRoute>
                 } />
                 <Route path="/chat/:id" element={

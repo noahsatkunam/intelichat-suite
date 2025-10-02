@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useToast } from '@/hooks/use-toast';
 import { MessageList } from './MessageList';
 import { ChatSettingsPanel } from './ChatSettingsPanel';
@@ -341,8 +343,16 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-h-0">
         {/* Header */}
-        <div className="h-16 border-b flex items-center justify-between px-6 flex-shrink-0 bg-card/30 backdrop-blur-sm rounded-br-2xl">
+        <div className="h-16 border-b flex items-center justify-between px-4 flex-shrink-0 bg-card/30 backdrop-blur-sm">
           <div className="flex items-center gap-3">
+            {/* Theme Toggle and Sidebar Toggle */}
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <SidebarTrigger className="p-2 hover:bg-accent rounded-lg transition-colors" />
+            </div>
+            
+            <div className="h-6 w-px bg-border" />
+            
             <Button variant="ghost" size="sm" onClick={onBack}>
               <ChevronRight className="w-4 h-4 rotate-180" />
             </Button>
