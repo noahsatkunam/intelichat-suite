@@ -44,7 +44,7 @@ class AnalyticsService {
     }
   }
 
-  async getAnalyticsData(filters?: { tenantId?: string; userId?: string }): Promise<AnalyticsData> {
+  async getAnalyticsData(filters?: { tenantId?: string; userId?: string; period?: string }): Promise<AnalyticsData> {
     try {
       // Get user's profile to check role
       const { data: { user } } = await supabase.auth.getUser();
@@ -100,18 +100,19 @@ class AnalyticsService {
         documentsQuery,
       ]);
 
-      // Get trend data for the last 7 days
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      // Get trend data based on selected period
+      const periodDays = filters?.period === '1day' ? 1 : filters?.period === '30days' ? 30 : filters?.period === '90days' ? 90 : 7;
+      const periodStart = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
 
       let messagesTrendQuery = supabase
         .from('messages')
         .select('timestamp')
-        .gte('timestamp', sevenDaysAgo);
+        .gte('timestamp', periodStart);
 
       let conversationsTrendQuery = supabase
         .from('conversations')
         .select('created_at')
-        .gte('created_at', sevenDaysAgo);
+        .gte('created_at', periodStart);
 
       if (targetUserId) {
         messagesTrendQuery = messagesTrendQuery.eq('user_id', targetUserId);
@@ -141,7 +142,7 @@ class AnalyticsService {
       const processTrendData = (data: any[], dateField: string) => {
         const counts: { [key: string]: number } = {};
         
-        for (let i = 6; i >= 0; i--) {
+        for (let i = periodDays - 1; i >= 0; i--) {
           const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
             .toISOString()
             .split('T')[0];

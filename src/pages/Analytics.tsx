@@ -50,7 +50,7 @@ export default function Analytics() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [selectedTenant, selectedUser]);
+  }, [selectedTenant, selectedUser, selectedPeriod]);
 
   useEffect(() => {
     if (selectedTenant && selectedTenant !== 'all') {
@@ -96,7 +96,7 @@ export default function Analytics() {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const filters: { tenantId?: string; userId?: string } = {};
+      const filters: { tenantId?: string; userId?: string; period?: string } = {};
       
       if (selectedTenant !== 'all') {
         filters.tenantId = selectedTenant;
@@ -105,6 +105,8 @@ export default function Analytics() {
       if (selectedUser !== 'all') {
         filters.userId = selectedUser;
       }
+
+      filters.period = selectedPeriod;
 
       const data = await analyticsService.getAnalyticsData(filters);
       setAnalyticsData(data);
@@ -227,6 +229,7 @@ export default function Analytics() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="1day">Last 1 day</SelectItem>
                   <SelectItem value="7days">Last 7 days</SelectItem>
                   <SelectItem value="30days">Last 30 days</SelectItem>
                   <SelectItem value="90days">Last 90 days</SelectItem>
@@ -320,7 +323,9 @@ export default function Analytics() {
               <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
                 <CardHeader>
                   <CardTitle className="text-lg">Message Trends</CardTitle>
-                  <p className="text-sm text-muted-foreground">Messages over the last 7 days</p>
+                  <p className="text-sm text-muted-foreground">
+                    Messages over the {selectedPeriod === '1day' ? 'last day' : selectedPeriod === '7days' ? 'last 7 days' : selectedPeriod === '30days' ? 'last 30 days' : 'last 90 days'}
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -349,7 +354,9 @@ export default function Analytics() {
               <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
                 <CardHeader>
                   <CardTitle className="text-lg">Conversation Trends</CardTitle>
-                  <p className="text-sm text-muted-foreground">New conversations over the last 7 days</p>
+                  <p className="text-sm text-muted-foreground">
+                    New conversations over the {selectedPeriod === '1day' ? 'last day' : selectedPeriod === '7days' ? 'last 7 days' : selectedPeriod === '30days' ? 'last 30 days' : 'last 90 days'}
+                  </p>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
