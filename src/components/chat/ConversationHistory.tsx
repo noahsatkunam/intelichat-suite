@@ -46,7 +46,8 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
 
   useEffect(() => {
     fetchConversations();
-    subscribeToConversations();
+    const cleanup = subscribeToConversations();
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -83,23 +84,119 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   };
 
   const subscribeToConversations = () => {
-    const channel = supabase
-      .channel('conversations-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-        },
-        () => {
-          fetchConversations();
-        }
-      )
-      .subscribe();
+    const setupSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile) return;
+
+      // Subscribe to INSERT events for new conversations
+      const insertChannel = supabase
+        .channel('conversations-inserts')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'conversations',
+            filter: `user_id=eq.${user.id}`,
+          },
+          async (payload) => {
+            console.log('New conversation detected:', payload);
+            // Fetch the full conversation with chatbot info
+            const { data: newConv } = await supabase
+              .from('conversations')
+              .select(`
+                id,
+                title,
+                created_at,
+                updated_at,
+                user_id,
+                tenant_id,
+                chatbot_id,
+                chatbots:chatbot_id (
+                  name,
+                  avatar_url
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single();
+
+            if (newConv) {
+              // Prepend the new conversation to the list
+              setConversations(prev => [{
+                ...newConv,
+                chatbot: newConv.chatbots,
+              }, ...prev]);
+            }
+          }
+        )
+        .subscribe();
+
+      // Subscribe to UPDATE events for title changes
+      const updateChannel = supabase
+        .channel('conversations-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'conversations',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Conversation updated:', payload);
+            setConversations(prev =>
+              prev.map(conv =>
+                conv.id === payload.new.id
+                  ? { ...conv, title: payload.new.title, updated_at: payload.new.updated_at }
+                  : conv
+              )
+            );
+          }
+        )
+        .subscribe();
+
+      // Subscribe to DELETE events for conversation removal
+      const deleteChannel = supabase
+        .channel('conversations-deletes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'conversations',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log('Conversation deleted:', payload);
+            setConversations(prev =>
+              prev.filter(conv => conv.id !== payload.old.id)
+            );
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(insertChannel);
+        supabase.removeChannel(updateChannel);
+        supabase.removeChannel(deleteChannel);
+      };
+    };
+
+    let cleanupFn: (() => void) | undefined;
+    setupSubscription().then(cleanup => {
+      if (cleanup) cleanupFn = cleanup;
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (cleanupFn) cleanupFn();
     };
   };
 
