@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp,
   MessageSquare,
@@ -12,6 +12,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface MetricCardProps {
   title: string;
@@ -94,6 +96,45 @@ interface DashboardWidgetsProps {
 }
 
 export function DashboardWidgets({ className }: DashboardWidgetsProps) {
+  const [activeConversations, setActiveConversations] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
+
+  const fetchMetrics = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch active conversations count
+      const { count: convCount } = await supabase
+        .from('conversations')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Fetch completed tasks this week
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const { count: taskCount } = await supabase
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('completed', true)
+        .gte('updated_at', weekAgo.toISOString());
+
+      setActiveConversations(convCount || 0);
+      setCompletedTasks(taskCount || 0);
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const notifications: SystemNotificationProps[] = [
     {
       title: 'New AI Provider Available',
@@ -121,98 +162,119 @@ export function DashboardWidgets({ className }: DashboardWidgetsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Active Conversations"
-          value={12}
+          value={loading ? '...' : activeConversations}
           description="Ongoing AI interactions"
-          trend={{ value: 15, direction: 'up' }}
           icon={<MessageSquare className="w-4 h-4" />}
         />
         
         <MetricCard
           title="Completed Tasks"
-          value={47}
+          value={loading ? '...' : completedTasks}
           description="Tasks finished this week"
-          trend={{ value: 22, direction: 'up' }}
           icon={<CheckCircle2 className="w-4 h-4" />}
         />
         
-        <MetricCard
-          title="AI Responses"
-          value="1.2s"
-          description="Average response time"
-          trend={{ value: -8, direction: 'up' }}
-          icon={<Brain className="w-4 h-4" />}
-        />
+        <div className="relative">
+          <Badge className="absolute top-2 right-2 z-10 text-xs bg-primary/80">
+            Coming Soon
+          </Badge>
+          <MetricCard
+            title="AI Responses"
+            value="1.2s"
+            description="Average response time"
+            icon={<Brain className="w-4 h-4" />}
+          />
+          <div className="absolute inset-0 bg-muted/20 backdrop-blur-[2px] rounded-lg" />
+        </div>
         
-        <MetricCard
-          title="Active Users"
-          value={8}
-          description="Team members online"
-          icon={<Users className="w-4 h-4" />}
-        />
+        <div className="relative">
+          <Badge className="absolute top-2 right-2 z-10 text-xs bg-primary/80">
+            Coming Soon
+          </Badge>
+          <MetricCard
+            title="Active Users"
+            value={8}
+            description="Team members online"
+            icon={<Users className="w-4 h-4" />}
+          />
+          <div className="absolute inset-0 bg-muted/20 backdrop-blur-[2px] rounded-lg" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* System Status */}
-        <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">System Status</CardTitle>
-            <CardDescription>Current performance indicators</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>API Health</span>
-                <Badge variant="secondary" className="bg-success/10 text-success">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Operational
-                </Badge>
+        <div className="relative">
+          <Badge className="absolute top-4 right-4 z-10 text-xs bg-primary/80">
+            Coming Soon
+          </Badge>
+          <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">System Status</CardTitle>
+              <CardDescription>Current performance indicators</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>API Health</span>
+                  <Badge variant="secondary" className="bg-success/10 text-success">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Operational
+                  </Badge>
+                </div>
+                <Progress value={98} className="h-2" />
               </div>
-              <Progress value={98} className="h-2" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Model Availability</span>
-                <Badge variant="secondary" className="bg-success/10 text-success">
-                  <Activity className="w-3 h-3 mr-1" />
-                  All Online
-                </Badge>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Model Availability</span>
+                  <Badge variant="secondary" className="bg-success/10 text-success">
+                    <Activity className="w-3 h-3 mr-1" />
+                    All Online
+                  </Badge>
+                </div>
+                <Progress value={100} className="h-2" />
               </div>
-              <Progress value={100} className="h-2" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Storage Usage</span>
-                <span className="text-muted-foreground">65% used</span>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Storage Usage</span>
+                  <span className="text-muted-foreground">65% used</span>
+                </div>
+                <Progress value={65} className="h-2" />
               </div>
-              <Progress value={65} className="h-2" />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Monthly Quota</span>
-                <span className="text-muted-foreground">78% consumed</span>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>Monthly Quota</span>
+                  <span className="text-muted-foreground">78% consumed</span>
+                </div>
+                <Progress value={78} className="h-2" />
               </div>
-              <Progress value={78} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+          <div className="absolute inset-0 bg-muted/20 backdrop-blur-[2px] rounded-lg" />
+        </div>
 
         {/* System Notifications */}
-        <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">System Notifications</CardTitle>
-            <CardDescription>Recent updates and alerts</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-64 overflow-y-auto chat-scroll">
-              {notifications.map((notification, index) => (
-                <SystemNotification key={index} {...notification} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="relative">
+          <Badge className="absolute top-4 right-4 z-10 text-xs bg-primary/80">
+            Coming Soon
+          </Badge>
+          <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">System Notifications</CardTitle>
+              <CardDescription>Recent updates and alerts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-64 overflow-y-auto chat-scroll">
+                {notifications.map((notification, index) => (
+                  <SystemNotification key={index} {...notification} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <div className="absolute inset-0 bg-muted/20 backdrop-blur-[2px] rounded-lg" />
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -223,25 +285,37 @@ export function DashboardWidgets({ className }: DashboardWidgetsProps) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
+            <button 
+              onClick={() => navigate('/chat')}
+              className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
+            >
               <MessageSquare className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">New Chat</p>
               <p className="text-xs text-muted-foreground">Start conversation</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
+            <button 
+              onClick={() => navigate('/admin/ai-providers')}
+              className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
+            >
               <Brain className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">AI Models</p>
               <p className="text-xs text-muted-foreground">Manage providers</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
+            <button 
+              onClick={() => navigate('/admin/users')}
+              className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
+            >
               <Users className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">Team</p>
               <p className="text-xs text-muted-foreground">Manage users</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
+            <button 
+              onClick={() => navigate('/analytics')}
+              className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
+            >
               <Activity className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">Analytics</p>
               <p className="text-xs text-muted-foreground">View reports</p>

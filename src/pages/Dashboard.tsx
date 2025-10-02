@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageSquarePlus, Brain, TrendingUp, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ConversationOverview } from '@/components/dashboard/ConversationOverview';
 import { TaskManagement } from '@/components/dashboard/TaskManagement';
 import { DashboardWidgets } from '@/components/dashboard/DashboardWidgets';
@@ -84,7 +85,10 @@ export default function Dashboard() {
               <TaskManagement />
               
               {/* AI Insights Card */}
-              <div className="p-6 rounded-lg border bg-gradient-surface transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
+              <div className="relative p-6 rounded-lg border bg-gradient-surface transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
+                <Badge className="absolute top-4 right-4 z-10 text-xs bg-primary/80">
+                  Coming Soon
+                </Badge>
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-lg bg-primary/10">
                     <Brain className="w-6 h-6 text-primary" />
@@ -122,6 +126,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+                <div className="absolute inset-0 bg-muted/20 backdrop-blur-[2px] rounded-lg" />
               </div>
             </div>
           </div>

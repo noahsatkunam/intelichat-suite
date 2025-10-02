@@ -24,20 +24,18 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Conversation {
   id: string;
   title: string;
-  lastMessage: string;
-  timestamp: string;
-  participants: number;
-  unreadCount: number;
-  status: 'active' | 'archived' | 'pending';
-  aiProvider?: string;
-  messageCount: number;
+  updated_at: string;
+  chatbot_id: string;
+  chatbots?: {
+    name: string;
+    avatar_url: string | null;
+  };
 }
-
-// Mock conversations removed - using live data from Supabase
 
 interface ConversationOverviewProps {
   className?: string;
@@ -47,142 +45,113 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'pending' | 'archived'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Placeholder - will be rebuilt
-    setIsLoading(false);
-    setConversations([]);
+    fetchConversations();
   }, []);
 
+  const fetchConversations = async () => {
+    try {
+      setIsLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('conversations')
+        .select(`
+          id,
+          title,
+          updated_at,
+          chatbot_id,
+          chatbots:chatbot_id (
+            name,
+            avatar_url
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setConversations(data || []);
+      setFilteredConversations(data || []);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let filtered = conversations;
-    
-    if (searchQuery) {
-      filtered = filtered.filter(conv => 
+    if (!searchQuery.trim()) {
+      setFilteredConversations(conversations);
+    } else {
+      const filtered = conversations.filter(conv =>
         conv.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+        conv.chatbots?.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+      setFilteredConversations(filtered);
     }
-    
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(conv => conv.status === statusFilter);
-    }
-    
-    setFilteredConversations(filtered);
-  }, [conversations, searchQuery, statusFilter]);
+  }, [searchQuery, conversations]);
 
-  const getStatusColor = (status: Conversation['status']) => {
-    switch (status) {
-      case 'active':
-        return 'bg-success/10 text-success';
-      case 'pending':
-        return 'bg-warning/10 text-warning';
-      case 'archived':
-        return 'bg-muted text-muted-foreground';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
+  const handleContinueChat = (conversationId: string, chatbotId: string) => {
+    navigate('/chat', { state: { conversationId, chatbotId } });
   };
 
-  const handleContinueChat = (conversationId: string) => {
-    navigate(`/chat/${conversationId}`);
-  };
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  const handleArchiveChat = (conversationId: string) => {
-    setConversations(prev => prev.map(conv => 
-      conv.id === conversationId ? { ...conv, status: 'archived' as const } : conv
-    ));
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return date.toLocaleDateString();
   };
 
   const renderConversation = (conversation: Conversation) => (
     <div 
       key={conversation.id}
-      className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group"
+      className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group cursor-pointer"
+      onClick={() => handleContinueChat(conversation.id, conversation.chatbot_id)}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {conversation.chatbots?.avatar_url ? (
+            <Avatar className="w-10 h-10 mt-1">
+              <AvatarImage src={conversation.chatbots.avatar_url} alt="Chatbot" />
+              <AvatarFallback>
+                <Bot className="w-5 h-5" />
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mt-1">
+              <Bot className="w-5 h-5 text-primary" />
+            </div>
+          )}
+          
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1">
               {conversation.title}
             </h4>
-            {conversation.unreadCount > 0 && (
-              <Badge variant="destructive" className="h-5 text-xs">
-                {conversation.unreadCount}
-              </Badge>
+            
+            {conversation.chatbots?.name && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {conversation.chatbots.name}
+              </p>
             )}
-          </div>
-          
-          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-            {conversation.lastMessage}
-          </p>
-          
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
+            
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
               <Clock className="w-3 h-3" />
-              {conversation.timestamp}
+              {getTimeAgo(conversation.updated_at)}
             </div>
-            <div className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              {conversation.participants} participant{conversation.participants !== 1 ? 's' : ''}
-            </div>
-            <div className="flex items-center gap-1">
-              <MessageSquare className="w-3 h-3" />
-              {conversation.messageCount} messages
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant="outline" className={`text-xs ${getStatusColor(conversation.status)}`}>
-              {conversation.status}
-            </Badge>
-            {conversation.aiProvider && (
-              <Badge variant="secondary" className="text-xs">
-                <Bot className="w-3 h-3 mr-1" />
-                {conversation.aiProvider}
-              </Badge>
-            )}
           </div>
         </div>
         
-        <div className="flex items-center gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => handleContinueChat(conversation.id)}
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleContinueChat(conversation.id)}>
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Continue Chat
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleArchiveChat(conversation.id)}>
-                <Archive className="w-4 h-4 mr-2" />
-                Archive
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity mt-3" />
       </div>
     </div>
   );
@@ -208,40 +177,21 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2">
-            {['all', 'active', 'pending', 'archived'].map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setStatusFilter(status as typeof statusFilter)}
-                className="h-9 text-xs"
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </Button>
-            ))}
-          </div>
         </div>
         
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-surface rounded-lg border">
+        <div className="grid grid-cols-2 gap-4 p-4 bg-gradient-surface rounded-lg border">
           <div className="text-center">
             <p className="text-2xl font-bold text-primary">
-              {conversations.filter(c => c.status === 'active').length}
+              {conversations.length}
             </p>
-            <p className="text-xs text-muted-foreground">Active Chats</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-warning">
-              {conversations.reduce((sum, c) => sum + c.unreadCount, 0)}
-            </p>
-            <p className="text-xs text-muted-foreground">Unread</p>
+            <p className="text-xs text-muted-foreground">Total Conversations</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-foreground">
-              {conversations.reduce((sum, c) => sum + c.messageCount, 0)}
+              {conversations.length > 0 ? conversations[0].title.length : 0}
             </p>
-            <p className="text-xs text-muted-foreground">Total Messages</p>
+            <p className="text-xs text-muted-foreground">Recent Activity</p>
           </div>
         </div>
         
@@ -266,7 +216,7 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
         {/* Quick Actions */}
         <div className="pt-4 border-t">
           <Button 
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/chat')}
             className="w-full bg-gradient-primary hover:shadow-glow"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
