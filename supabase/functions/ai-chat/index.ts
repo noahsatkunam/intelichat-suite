@@ -587,11 +587,12 @@ serve(async (req) => {
       fallback: compatibleFallbackProvider?.name,
     });
 
-    // Get knowledge base documents for this chatbot
+    // Get enabled knowledge base documents for this chatbot
     const { data: knowledgeDocs } = await supabase
       .from('chatbot_knowledge')
       .select(`
         document_id,
+        is_enabled,
         documents:document_id (
           id,
           filename,
@@ -599,9 +600,10 @@ serve(async (req) => {
           file_url
         )
       `)
-      .eq('chatbot_id', chatbot_id);
+      .eq('chatbot_id', chatbot_id)
+      .eq('is_enabled', true); // Only get enabled documents
 
-    console.log('Knowledge base docs:', knowledgeDocs?.length || 0);
+    console.log('Enabled knowledge base docs:', knowledgeDocs?.length || 0);
 
     // Build context from knowledge base
     let knowledgeContext = '';

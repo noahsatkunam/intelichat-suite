@@ -155,18 +155,24 @@ export type Database = {
           created_at: string | null
           document_id: string
           id: string
+          is_enabled: boolean
+          updated_at: string | null
         }
         Insert: {
           chatbot_id: string
           created_at?: string | null
           document_id: string
           id?: string
+          is_enabled?: boolean
+          updated_at?: string | null
         }
         Update: {
           chatbot_id?: string
           created_at?: string | null
           document_id?: string
           id?: string
+          is_enabled?: boolean
+          updated_at?: string | null
         }
         Relationships: [
           {

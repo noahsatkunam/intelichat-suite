@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import ProviderLogo from '@/components/ai/ProviderLogo';
@@ -33,6 +35,8 @@ interface ProviderModel {
 interface KnowledgeDocument {
   id: string;
   filename: string;
+  is_enabled: boolean;
+  join_id: string; // ID of the chatbot_knowledge record
 }
 
 export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
@@ -114,7 +118,9 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
       const { data, error } = await supabase
         .from('chatbot_knowledge')
         .select(`
+          id,
           document_id,
+          is_enabled,
           documents:document_id (
             id,
             filename
@@ -125,8 +131,13 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
       if (error) throw error;
 
       const docs = (data || [])
-        .map((item: any) => item.documents)
-        .filter(Boolean);
+        .map((item: any) => ({
+          id: item.documents?.id,
+          filename: item.documents?.filename,
+          is_enabled: item.is_enabled,
+          join_id: item.id,
+        }))
+        .filter((doc: any) => doc.id && doc.filename);
 
       setKnowledgeDocuments(docs);
     } catch (error: any) {
@@ -164,6 +175,33 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
       });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleDocument = async (joinId: string, currentState: boolean) => {
+    if (!isAdmin) return;
+
+    try {
+      const { error } = await supabase
+        .from('chatbot_knowledge')
+        .update({ is_enabled: !currentState })
+        .eq('id', joinId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Document ${!currentState ? 'enabled' : 'disabled'}`,
+      });
+
+      loadKnowledgeBase();
+    } catch (error: any) {
+      console.error('Error toggling document:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update document status",
+        variant: "destructive",
+      });
     }
   };
 
@@ -347,26 +385,63 @@ export const ChatSettingsPanel: React.FC<ChatSettingsPanelProps> = ({
                     No documents in knowledge base
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {knowledgeDocuments.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-2 rounded bg-muted/50 hover:bg-muted transition-colors"
-                      >
-                        <span className="text-sm truncate flex-1">{doc.filename}</span>
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive"
-                            onClick={() => handleRemoveDocument(doc.id)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <TooltipProvider>
+                    <div className="space-y-2">
+                      {knowledgeDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className={`flex items-center justify-between p-3 rounded border transition-colors ${
+                            doc.is_enabled
+                              ? 'bg-card border-border'
+                              : 'bg-muted/30 border-muted opacity-60'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0 mr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm truncate font-medium">{doc.filename}</span>
+                              <Badge variant={doc.is_enabled ? 'default' : 'secondary'} className="text-xs">
+                                {doc.is_enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            </div>
+                            {!doc.is_enabled && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Will not be used for knowledge retrieval
+                              </p>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center gap-2">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center">
+                                    <Switch
+                                      checked={doc.is_enabled}
+                                      onCheckedChange={() => handleToggleDocument(doc.join_id, doc.is_enabled)}
+                                    />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {doc.is_enabled
+                                      ? 'Disable to exclude from AI responses'
+                                      : 'Enable to include in AI responses'}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 hover:bg-destructive/20 hover:text-destructive"
+                                onClick={() => handleRemoveDocument(doc.id)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </TooltipProvider>
                 )}
 
                 {isAdmin && (
