@@ -87,19 +87,23 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
       if (!profile) return;
       if (profile.role !== 'global_admin' && !profile.tenant_id) return;
 
-      // Create a new conversation
-      const { data: conversation, error } = await supabase
+      // Pre-generate an ID so we don't need to SELECT (which can be blocked by RLS)
+      const newConversationId = (window.crypto && 'randomUUID' in window.crypto)
+        ? window.crypto.randomUUID()
+        : `${user.id}-${Date.now()}`;
+
+      // Create a new conversation (no .select() to avoid SELECT RLS on return)
+      const { error } = await supabase
         .from('conversations')
         .insert({
+          id: newConversationId,
           user_id: user.id,
-          tenant_id: profile.tenant_id, // Can be null for global admins
+          tenant_id: profile.tenant_id ?? null, // Can be null for global admins
           title: `Chat with ${chatbotName}`,
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
-      setConversationId(conversation.id);
+      setConversationId(newConversationId);
     } catch (error: any) {
       console.error('Error initializing conversation:', error);
       toast({
