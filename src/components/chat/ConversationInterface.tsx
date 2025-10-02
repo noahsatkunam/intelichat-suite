@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useToast } from '@/hooks/use-toast';
 import { MessageList } from './MessageList';
 import { ChatSettingsPanel } from './ChatSettingsPanel';
@@ -341,39 +339,34 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   return (
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
-        {/* Header */}
-        <div className="h-16 border-b flex items-center justify-between px-4 flex-shrink-0 bg-card/30 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            {/* Theme Toggle and Sidebar Toggle */}
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <SidebarTrigger className="p-2 hover:bg-accent rounded-lg transition-colors" />
-            </div>
-            
-            <div className="h-6 w-px bg-border" />
-            
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ChevronRight className="w-4 h-4 rotate-180" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Brain className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold">{chatbotName}</h2>
-            </div>
-          </div>
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        {/* Floating Action Buttons */}
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="gap-2 bg-card/80 backdrop-blur-sm border shadow-md hover:bg-card"
+          >
+            <ChevronRight className="w-4 h-4 rotate-180" />
+            Back
+          </Button>
+        </div>
+        
+        {isAdmin && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsPanelOpen(!isPanelOpen)}
-            className="gap-2"
+            className="absolute top-4 right-4 z-10 gap-2 bg-card/80 backdrop-blur-sm border shadow-md hover:bg-card"
           >
             <Settings className="w-4 h-4" />
             {isPanelOpen ? 'Hide' : 'Show'} Settings
           </Button>
-        </div>
-
+        )}
+        
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 min-h-0">
+        <div className="flex-1 overflow-y-auto p-6 pt-16 min-h-0">
           <MessageList messages={messages} />
           <div ref={messagesEndRef} />
         </div>

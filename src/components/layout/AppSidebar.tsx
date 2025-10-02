@@ -168,7 +168,10 @@ export function AppSidebar() {
       <div className="sticky top-0 z-10 bg-sidebar border-b border-sidebar-border p-4">
         <div className="flex items-center justify-between p-4 bg-gradient-surface rounded-lg border border-sidebar-border shadow-soft">
           <ZyriaLogo size="md" showText={true} variant="default" />
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <SidebarTrigger className="p-2 hover:bg-accent rounded-lg transition-colors" />
+          </div>
         </div>
       </div>
 
