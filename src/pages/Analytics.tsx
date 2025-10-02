@@ -54,6 +54,9 @@ export default function Analytics() {
 
   useEffect(() => {
     loadAnalytics();
+    if (chatbotAnalytics) {
+      loadChatbotAnalytics();
+    }
   }, [selectedTenant, selectedUser, selectedPeriod]);
 
   useEffect(() => {
@@ -63,6 +66,10 @@ export default function Analytics() {
       setUsers([]);
       setSelectedUser('all');
       setChatbotFilterUser('all');
+    }
+    // Reload chatbot analytics when tenant changes
+    if (chatbotAnalytics) {
+      loadChatbotAnalytics();
     }
   }, [selectedTenant]);
 
@@ -422,12 +429,24 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold">Chatbot Performance</h2>
-                <p className="text-sm text-muted-foreground">Analyze chatbot usage and performance metrics</p>
+                <p className="text-sm text-muted-foreground">
+                  {isGlobalAdmin 
+                    ? selectedTenant === 'all' 
+                      ? 'Platform-wide chatbot analytics across all tenants'
+                      : chatbotFilterUser === 'all'
+                        ? `Chatbot analytics for ${tenants.find(t => t.id === selectedTenant)?.name || 'selected tenant'}`
+                        : `Chatbot analytics for ${users.find(u => u.id === chatbotFilterUser)?.name || 'selected user'}`
+                    : chatbotFilterUser === 'all'
+                      ? 'Analyze chatbot usage and performance metrics'
+                      : `Analytics for ${users.find(u => u.id === chatbotFilterUser)?.name || 'selected user'}`
+                  }
+                </p>
               </div>
-              {(isGlobalAdmin || isTenantAdmin) && (
+              {(isGlobalAdmin || isTenantAdmin) && users.length > 0 && (
                 <Select value={chatbotFilterUser} onValueChange={(value) => {
                   setChatbotFilterUser(value);
-                  loadChatbotAnalytics();
+                  // Trigger reload with updated filter
+                  setTimeout(() => loadChatbotAnalytics(), 0);
                 }}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Users" />
