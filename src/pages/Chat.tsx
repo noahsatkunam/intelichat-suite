@@ -36,7 +36,7 @@ export default function Chat() {
     try {
       setLoading(true);
       
-      // Get current user's tenant
+      // Get current user's tenant and role
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
@@ -49,11 +49,42 @@ export default function Chat() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('tenant_id')
+        .select('tenant_id, role')
         .eq('id', user.id)
         .single();
 
-      if (!profile?.tenant_id) {
+      if (!profile) {
+        toast({
+          title: "Error",
+          description: "User profile not found",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Global admins can see all chatbots
+      if (profile.role === 'global_admin') {
+        const { data: chatbotData, error: chatbotError } = await supabase
+          .from('chatbots')
+          .select(`
+            id,
+            name,
+            description,
+            avatar_url,
+            is_active,
+            model_name,
+            ai_providers!primary_ai_provider_id(name, type)
+          `)
+          .eq('is_active', true)
+          .order('name');
+
+        if (chatbotError) throw chatbotError;
+        setChatbots((chatbotData || []) as Chatbot[]);
+        return;
+      }
+
+      // Regular users see chatbots assigned to their tenant
+      if (!profile.tenant_id) {
         toast({
           title: "Error",
           description: "User profile not found",
