@@ -19,6 +19,27 @@ export interface AnalyticsData {
   conversationsTrend: Array<{ date: string; count: number }>;
 }
 
+export interface ChatbotAnalytics {
+  chatbotId: string;
+  chatbotName: string;
+  totalMessages: number;
+  totalConversations: number;
+  averageResponseTime: number;
+  successRate: number;
+  totalTokens: number;
+  totalRequests: number;
+  failedRequests: number;
+}
+
+export interface ChatbotAnalyticsData {
+  chatbots: ChatbotAnalytics[];
+  totalMessages: number;
+  averageResponseTime: number;
+  overallSuccessRate: number;
+  totalTokensUsed: number;
+  messagesTrend: Array<{ date: string; count: number }>;
+}
+
 class AnalyticsService {
   async trackMetric(metricType: string, value: number, metadata?: any): Promise<void> {
     try {
@@ -189,6 +210,186 @@ class AnalyticsService {
       activeUsers: 0,
       messagesTrend: emptyTrend,
       conversationsTrend: emptyTrend,
+    };
+  }
+
+  async getChatbotAnalytics(filters?: { tenantId?: string; userId?: string; period?: string }): Promise<ChatbotAnalyticsData> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return this.getEmptyChatbotAnalytics();
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id, role')
+        .eq('id', user.id)
+        .single();
+
+      let targetTenantId: string | null = null;
+      let targetUserId: string | null = null;
+
+      if (profile?.role === 'global_admin') {
+        targetTenantId = filters?.tenantId || null;
+        targetUserId = filters?.userId || null;
+      } else {
+        targetTenantId = profile?.tenant_id || null;
+        targetUserId = filters?.userId || user.id;
+      }
+
+      const periodDays = filters?.period === '1day' ? 1 : filters?.period === '30days' ? 30 : filters?.period === '90days' ? 90 : 7;
+      const periodStart = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000).toISOString();
+
+      // Build chatbot usage query
+      let usageQuery = supabase
+        .from('chatbot_usage')
+        .select('chatbot_id, model_used, response_time_ms, tokens_used, success, timestamp')
+        .gte('timestamp', periodStart);
+
+      if (targetUserId) {
+        usageQuery = usageQuery.eq('user_id', targetUserId);
+      }
+
+      const { data: usageData } = await usageQuery;
+
+      // Get chatbots with tenant filter
+      let chatbotsQuery = supabase
+        .from('chatbots')
+        .select('id, name, tenant_id');
+
+      if (targetTenantId) {
+        chatbotsQuery = chatbotsQuery.eq('tenant_id', targetTenantId);
+      }
+
+      const { data: chatbots } = await chatbotsQuery;
+
+      // Get conversations count per chatbot
+      let conversationsQuery = supabase
+        .from('conversations')
+        .select('chatbot_id, created_at')
+        .gte('created_at', periodStart);
+
+      if (targetTenantId) {
+        conversationsQuery = conversationsQuery.eq('tenant_id', targetTenantId);
+      }
+
+      if (targetUserId) {
+        conversationsQuery = conversationsQuery.eq('user_id', targetUserId);
+      }
+
+      const { data: conversations } = await conversationsQuery;
+
+      // Process chatbot analytics
+      const chatbotMap = new Map<string, ChatbotAnalytics>();
+      
+      chatbots?.forEach(chatbot => {
+        chatbotMap.set(chatbot.id, {
+          chatbotId: chatbot.id,
+          chatbotName: chatbot.name,
+          totalMessages: 0,
+          totalConversations: 0,
+          averageResponseTime: 0,
+          successRate: 0,
+          totalTokens: 0,
+          totalRequests: 0,
+          failedRequests: 0,
+        });
+      });
+
+      // Aggregate usage data
+      let totalResponseTime = 0;
+      let totalMessages = 0;
+      let totalTokens = 0;
+      let totalSuccessful = 0;
+      let totalRequests = usageData?.length || 0;
+
+      usageData?.forEach(usage => {
+        if (usage.chatbot_id && chatbotMap.has(usage.chatbot_id)) {
+          const chatbot = chatbotMap.get(usage.chatbot_id)!;
+          chatbot.totalRequests++;
+          chatbot.totalTokens += usage.tokens_used || 0;
+          
+          if (usage.success) {
+            totalSuccessful++;
+            totalMessages++;
+            chatbot.totalMessages++;
+          } else {
+            chatbot.failedRequests++;
+          }
+          
+          if (usage.response_time_ms) {
+            totalResponseTime += usage.response_time_ms;
+            chatbot.averageResponseTime = 
+              (chatbot.averageResponseTime * (chatbot.totalMessages - 1) + usage.response_time_ms) / chatbot.totalMessages;
+          }
+        }
+        
+        totalTokens += usage.tokens_used || 0;
+      });
+
+      // Add conversation counts
+      conversations?.forEach(conv => {
+        if (conv.chatbot_id && chatbotMap.has(conv.chatbot_id)) {
+          chatbotMap.get(conv.chatbot_id)!.totalConversations++;
+        }
+      });
+
+      // Calculate success rates
+      chatbotMap.forEach(chatbot => {
+        if (chatbot.totalRequests > 0) {
+          chatbot.successRate = ((chatbot.totalRequests - chatbot.failedRequests) / chatbot.totalRequests) * 100;
+        }
+      });
+
+      // Process trend data
+      const processTrendData = (data: any[]) => {
+        const counts: { [key: string]: number } = {};
+        
+        for (let i = periodDays - 1; i >= 0; i--) {
+          const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split('T')[0];
+          counts[date] = 0;
+        }
+
+        data?.forEach(item => {
+          const date = new Date(item.timestamp).toISOString().split('T')[0];
+          if (counts.hasOwnProperty(date) && item.success) {
+            counts[date]++;
+          }
+        });
+
+        return Object.entries(counts).map(([date, count]) => ({ date, count }));
+      };
+
+      return {
+        chatbots: Array.from(chatbotMap.values()).sort((a, b) => b.totalMessages - a.totalMessages),
+        totalMessages,
+        averageResponseTime: totalMessages > 0 ? totalResponseTime / totalMessages : 0,
+        overallSuccessRate: totalRequests > 0 ? (totalSuccessful / totalRequests) * 100 : 0,
+        totalTokensUsed: totalTokens,
+        messagesTrend: processTrendData(usageData || []),
+      };
+    } catch (error) {
+      console.error('Error fetching chatbot analytics:', error);
+      toast.error('Failed to load chatbot analytics');
+      return this.getEmptyChatbotAnalytics();
+    }
+  }
+
+  private getEmptyChatbotAnalytics(): ChatbotAnalyticsData {
+    const emptyTrend = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0];
+      return { date, count: 0 };
+    });
+
+    return {
+      chatbots: [],
+      totalMessages: 0,
+      averageResponseTime: 0,
+      overallSuccessRate: 0,
+      totalTokensUsed: 0,
+      messagesTrend: emptyTrend,
     };
   }
 

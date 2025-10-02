@@ -24,22 +24,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { analyticsService, type AnalyticsData } from '@/services/analyticsService';
+import { analyticsService, type AnalyticsData, type ChatbotAnalyticsData } from '@/services/analyticsService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Analytics() {
   const { user, userProfile } = useAuth();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [chatbotAnalytics, setChatbotAnalytics] = useState<ChatbotAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingChatbotAnalytics, setLoadingChatbotAnalytics] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('7days');
   const [selectedTenant, setSelectedTenant] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [chatbotFilterUser, setChatbotFilterUser] = useState<string>('all');
   const [tenants, setTenants] = useState<Array<{ id: string; name: string }>>([]);
   const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
   const isGlobalAdmin = userProfile?.role === 'global_admin';
+  const isTenantAdmin = userProfile?.role === 'tenant_admin';
 
   useEffect(() => {
     loadAnalytics();
@@ -58,6 +62,7 @@ export default function Analytics() {
     } else {
       setUsers([]);
       setSelectedUser('all');
+      setChatbotFilterUser('all');
     }
   }, [selectedTenant]);
 
@@ -114,6 +119,30 @@ export default function Analytics() {
       console.error('Failed to load analytics:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadChatbotAnalytics = async () => {
+    try {
+      setLoadingChatbotAnalytics(true);
+      const filters: { tenantId?: string; userId?: string; period?: string } = {};
+      
+      if (selectedTenant !== 'all') {
+        filters.tenantId = selectedTenant;
+      }
+      
+      if (chatbotFilterUser !== 'all') {
+        filters.userId = chatbotFilterUser;
+      }
+
+      filters.period = selectedPeriod;
+
+      const data = await analyticsService.getChatbotAnalytics(filters);
+      setChatbotAnalytics(data);
+    } catch (error) {
+      console.error('Failed to load chatbot analytics:', error);
+    } finally {
+      setLoadingChatbotAnalytics(false);
     }
   };
 
@@ -250,10 +279,14 @@ export default function Analytics() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs defaultValue="overview" className="space-y-6" onValueChange={(value) => {
+          if (value === 'conversations' && !chatbotAnalytics) {
+            loadChatbotAnalytics();
+          }
+        }}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="conversations">Conversations</TabsTrigger>
+            <TabsTrigger value="conversations">Chatbot Analytics</TabsTrigger>
             <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
           </TabsList>
@@ -385,21 +418,183 @@ export default function Analytics() {
           </TabsContent>
 
           <TabsContent value="conversations" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Conversation Analytics</CardTitle>
-                <p className="text-sm text-muted-foreground">Detailed conversation metrics and patterns</p>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
+            {/* Chatbot Analytics Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Chatbot Performance</h2>
+                <p className="text-sm text-muted-foreground">Analyze chatbot usage and performance metrics</p>
+              </div>
+              {(isGlobalAdmin || isTenantAdmin) && (
+                <Select value={chatbotFilterUser} onValueChange={(value) => {
+                  setChatbotFilterUser(value);
+                  loadChatbotAnalytics();
+                }}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {loadingChatbotAnalytics ? (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : !chatbotAnalytics || chatbotAnalytics.chatbots.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
                   <MessageCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Conversation Analytics</h3>
+                  <h3 className="text-lg font-semibold mb-2">No Chatbot Data</h3>
                   <p className="text-muted-foreground">
-                    Detailed conversation analytics will be available as you use the platform more.
+                    Start using your chatbots to see performance analytics
                   </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Overall Metrics */}
+                <div className="grid gap-6 md:grid-cols-4">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
+                      <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{chatbotAnalytics.totalMessages.toLocaleString()}</div>
+                      <p className="text-xs text-muted-foreground">Across all chatbots</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{Math.round(chatbotAnalytics.averageResponseTime)}ms</div>
+                      <p className="text-xs text-muted-foreground">Average latency</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+                      <Activity className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{chatbotAnalytics.overallSuccessRate.toFixed(1)}%</div>
+                      <p className="text-xs text-muted-foreground">Successful requests</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Tokens Used</CardTitle>
+                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{chatbotAnalytics.totalTokensUsed.toLocaleString()}</div>
+                      <p className="text-xs text-muted-foreground">Total consumption</p>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Message Trend */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Message Volume Trend</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      Successful messages over {selectedPeriod === '1day' ? 'the last day' : selectedPeriod === '7days' ? 'the last 7 days' : selectedPeriod === '30days' ? 'the last 30 days' : 'the last 90 days'}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {chatbotAnalytics.messagesTrend.map((day, index) => (
+                        <div key={index} className="flex items-center justify-between">
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(day.date).toLocaleDateString()}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-32 bg-secondary rounded-full h-2">
+                              <div 
+                                className="bg-primary h-2 rounded-full" 
+                                style={{ 
+                                  width: `${Math.max((day.count / Math.max(...chatbotAnalytics.messagesTrend.map(d => d.count), 1)) * 100, 5)}%` 
+                                }}
+                              />
+                            </div>
+                            <span className="text-sm font-medium w-12 text-right">{day.count}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Per Chatbot Analytics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Chatbot Performance Breakdown</CardTitle>
+                    <p className="text-sm text-muted-foreground">Individual chatbot metrics</p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {chatbotAnalytics.chatbots.map((chatbot) => (
+                        <div key={chatbot.chatbotId} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-semibold text-lg">{chatbot.chatbotName}</h3>
+                            <Badge variant={chatbot.successRate >= 95 ? 'default' : chatbot.successRate >= 90 ? 'secondary' : 'destructive'}>
+                              {chatbot.successRate.toFixed(1)}% Success
+                            </Badge>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div>
+                              <p className="text-sm text-muted-foreground">Messages</p>
+                              <p className="text-xl font-bold">{chatbot.totalMessages}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Conversations</p>
+                              <p className="text-xl font-bold">{chatbot.totalConversations}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Avg Response</p>
+                              <p className="text-xl font-bold">{Math.round(chatbot.averageResponseTime)}ms</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Tokens</p>
+                              <p className="text-xl font-bold">{chatbot.totalTokens.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground">Failed</p>
+                              <p className="text-xl font-bold text-destructive">{chatbot.failedRequests}</p>
+                            </div>
+                          </div>
+
+                          {chatbot.totalMessages > 0 && (
+                            <div className="mt-4">
+                              <div className="flex items-center justify-between text-sm mb-1">
+                                <span className="text-muted-foreground">Performance</span>
+                                <span className="font-medium">{chatbot.successRate.toFixed(1)}%</span>
+                              </div>
+                              <Progress value={chatbot.successRate} className="h-2" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
 
           <TabsContent value="knowledge" className="space-y-6">
