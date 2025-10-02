@@ -79,18 +79,20 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('tenant_id')
+        .select('tenant_id, role')
         .eq('id', user.id)
         .single();
 
-      if (!profile?.tenant_id) return;
+      // Allow null tenant_id for global admins, but require it for other users
+      if (!profile) return;
+      if (profile.role !== 'global_admin' && !profile.tenant_id) return;
 
       // Create a new conversation
       const { data: conversation, error } = await supabase
         .from('conversations')
         .insert({
           user_id: user.id,
-          tenant_id: profile.tenant_id,
+          tenant_id: profile.tenant_id, // Can be null for global admins
           title: `Chat with ${chatbotName}`,
         })
         .select()
