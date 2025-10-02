@@ -170,6 +170,12 @@ export default function Chat() {
     setConversationMessages([]);
   };
 
+  const handleNewChatSameChatbot = () => {
+    // Reset conversation but keep the selected chatbot
+    setSelectedConversationId(null);
+    setConversationMessages([]);
+  };
+
   const handleCustomAI = () => {
     // TODO: Navigate to custom AI configuration
     console.log('Custom AI selected');
@@ -181,7 +187,7 @@ export default function Chat() {
         <div className="w-80 border-r bg-card/30">
           <ConversationHistory
             onSelectConversation={handleSelectConversation}
-            onNewChat={handleNewChat}
+            onNewChat={handleNewChatSameChatbot}
             currentConversationId={selectedConversationId}
           />
         </div>
@@ -190,6 +196,7 @@ export default function Chat() {
             chatbotId={selectedChatbot.id}
             chatbotName={selectedChatbot.name}
             onBack={handleNewChat}
+            onNewChat={handleNewChatSameChatbot}
           />
         </div>
       </div>
