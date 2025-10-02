@@ -12,8 +12,8 @@ export const TypingIndicator: React.FC = () => {
         </AvatarFallback>
       </Avatar>
 
-      <div className="flex-1 max-w-[80%] items-start">
-        <Card className="p-4 bg-card">
+      <div className="items-start">
+        <Card className="p-3 bg-card w-fit">
           <div className="flex items-center gap-1">
             <div className="flex gap-1">
               <span className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>

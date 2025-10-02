@@ -52,14 +52,14 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = 
           )}
 
           <div
-            className={`flex-1 max-w-[80%] ${
-              message.role === 'user' ? 'items-end' : 'items-start'
+            className={`w-fit max-w-[80%] ${
+              message.role === 'user' ? 'items-end ml-auto' : 'items-start'
             }`}
           >
             <Card
-              className={`p-4 transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] ${
+              className={`p-4 transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] animate-scale-in ${
                 message.role === 'user'
-                  ? 'bg-primary text-primary-foreground ml-auto'
+                  ? 'bg-primary text-primary-foreground'
                   : 'bg-card'
               }`}
             >
