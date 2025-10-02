@@ -56,7 +56,7 @@ export const conversationService = {
           .eq('conversation_id', conv.id)
           .order('timestamp', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle(); // Use maybeSingle() to handle 0 rows gracefully
 
         return {
           ...conv,
