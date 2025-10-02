@@ -72,37 +72,79 @@ function adaptMessagesForProvider(config: {
 
 // Helper function to call OpenAI API
 async function callOpenAI(apiKey: string, model: string, adaptedPayload: any, params: any) {
+  console.log(`[OpenAI] Requesting model: ${model}`);
+  console.log(`[OpenAI] Request params:`, { 
+    max_tokens: params.max_tokens, 
+    temperature: params.temperature,
+    message_count: adaptedPayload.messages.length 
+  });
+
+  const requestBody = {
+    model,
+    messages: adaptedPayload.messages,
+    max_tokens: params.max_tokens,
+    temperature: params.temperature,
+    top_p: params.top_p,
+    frequency_penalty: params.frequency_penalty,
+    presence_penalty: params.presence_penalty,
+  };
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      messages: adaptedPayload.messages,
-      max_tokens: params.max_tokens,
-      temperature: params.temperature,
-      top_p: params.top_p,
-      frequency_penalty: params.frequency_penalty,
-      presence_penalty: params.presence_penalty,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[OpenAI] API error ${response.status}:`, errorText);
+    
+    // Check for specific error types
+    if (response.status === 403) {
+      console.error(`[OpenAI] 403 Forbidden - API key may not have access to model: ${model}`);
+    } else if (response.status === 429) {
+      console.error(`[OpenAI] 429 Rate Limit - Quota exceeded or rate limit hit`);
+    } else if (response.status === 404) {
+      console.error(`[OpenAI] 404 Not Found - Model may not exist: ${model}`);
+    }
+    
     throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  const returnedModel = data.model;
+  
+  // Log model mismatch warnings
+  if (returnedModel !== model) {
+    console.warn(`[OpenAI] ⚠️  MODEL MISMATCH - Requested: ${model}, Received: ${returnedModel}`);
+    console.warn(`[OpenAI] This may indicate API key restrictions or automatic downgrade`);
+  } else {
+    console.log(`[OpenAI] ✓ Model match confirmed: ${returnedModel}`);
+  }
+
+  // Log usage information if available
+  if (data.usage) {
+    console.log(`[OpenAI] Token usage:`, data.usage);
+  }
+
   return {
     content: data.choices[0].message.content,
-    model: data.model,
+    model: returnedModel,
   };
 }
 
 // Helper function to call Anthropic API
 async function callAnthropic(apiKey: string, model: string, adaptedPayload: any, params: any) {
+  console.log(`[Anthropic] Requesting model: ${model}`);
+  console.log(`[Anthropic] Request params:`, { 
+    max_tokens: params.max_tokens, 
+    temperature: params.temperature,
+    message_count: adaptedPayload.messages.length 
+  });
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -122,18 +164,44 @@ async function callAnthropic(apiKey: string, model: string, adaptedPayload: any,
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Anthropic] API error ${response.status}:`, errorText);
+    
+    if (response.status === 403) {
+      console.error(`[Anthropic] 403 Forbidden - API key may not have access to model: ${model}`);
+    } else if (response.status === 429) {
+      console.error(`[Anthropic] 429 Rate Limit - Quota exceeded`);
+    }
+    
     throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  const returnedModel = data.model;
+  
+  if (returnedModel !== model) {
+    console.warn(`[Anthropic] ⚠️  MODEL MISMATCH - Requested: ${model}, Received: ${returnedModel}`);
+  } else {
+    console.log(`[Anthropic] ✓ Model match confirmed: ${returnedModel}`);
+  }
+
+  if (data.usage) {
+    console.log(`[Anthropic] Token usage:`, data.usage);
+  }
+
   return {
     content: data.content[0].text,
-    model: data.model,
+    model: returnedModel,
   };
 }
 
 // Helper function to call Google Gemini API
 async function callGoogle(apiKey: string, model: string, adaptedPayload: any, params: any) {
+  console.log(`[Google] Requesting model: ${model}`);
+  console.log(`[Google] Request params:`, { 
+    max_tokens: params.max_tokens, 
+    temperature: params.temperature 
+  });
+
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
@@ -152,10 +220,26 @@ async function callGoogle(apiKey: string, model: string, adaptedPayload: any, pa
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error(`[Google] API error ${response.status}:`, errorText);
+    
+    if (response.status === 403) {
+      console.error(`[Google] 403 Forbidden - API key may not have access to model: ${model}`);
+    } else if (response.status === 429) {
+      console.error(`[Google] 429 Rate Limit - Quota exceeded`);
+    } else if (response.status === 404) {
+      console.error(`[Google] 404 Not Found - Model may not exist: ${model}`);
+    }
+    
     throw new Error(`Google API error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`[Google] ✓ Response received for model: ${model}`);
+  
+  if (data.usageMetadata) {
+    console.log(`[Google] Token usage:`, data.usageMetadata);
+  }
+
   return {
     content: data.candidates[0].content.parts[0].text,
     model,
@@ -451,9 +535,23 @@ serve(async (req) => {
     let usedProvider: any = null;
     let providerName: string;
 
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🤖 CHATBOT REQUEST DETAILS');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`Chatbot: ${chatbot.name} (${chatbot_id})`);
+    console.log(`Requested Primary Model: ${model}`);
+    console.log(`Fallback Model: ${fallbackModel}`);
+    console.log(`System Prompt Length: ${systemPrompt.length} characters`);
+    console.log(`Knowledge Base Documents: ${knowledgeDocs?.length || 0}`);
+    console.log(`User Message Length: ${message.length} characters`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     // Try compatible primary provider first
     if (compatiblePrimaryProvider) {
       try {
+        console.log(`🔄 Attempting PRIMARY provider: ${compatiblePrimaryProvider.name} (${compatiblePrimaryProvider.type})`);
+        console.log(`   Requesting model: ${model}`);
+        
         // Adapt messages for the provider's expected format
         const adaptedPayload = adaptMessagesForProvider({
           providerType: compatiblePrimaryProvider.type,
@@ -468,13 +566,25 @@ serve(async (req) => {
         usedModel = result.model;
         usedProvider = compatiblePrimaryProvider;
         providerName = compatiblePrimaryProvider.name;
-        console.log(`✓ Primary provider succeeded: ${providerName}`);
+        
+        console.log(`✅ PRIMARY PROVIDER SUCCESS`);
+        console.log(`   Provider: ${providerName}`);
+        console.log(`   Requested Model: ${model}`);
+        console.log(`   Returned Model: ${usedModel}`);
+        if (model !== usedModel) {
+          console.error(`   ⚠️  MODEL MISMATCH DETECTED!`);
+        }
       } catch (primaryError) {
-        console.error(`✗ Primary provider failed: ${primaryError.message}`);
+        console.error(`❌ PRIMARY PROVIDER FAILED`);
+        console.error(`   Provider: ${compatiblePrimaryProvider.name}`);
+        console.error(`   Error: ${primaryError.message}`);
         
         // Try compatible fallback provider
         if (compatibleFallbackProvider) {
           try {
+            console.log(`🔄 Attempting FALLBACK provider: ${compatibleFallbackProvider.name} (${compatibleFallbackProvider.type})`);
+            console.log(`   Requesting model: ${fallbackModel}`);
+            
             // Adapt messages for fallback provider's expected format
             const adaptedPayload = adaptMessagesForProvider({
               providerType: compatibleFallbackProvider.type,
@@ -489,9 +599,18 @@ serve(async (req) => {
             usedModel = result.model;
             usedProvider = compatibleFallbackProvider;
             providerName = compatibleFallbackProvider.name;
-            console.log(`✓ Fallback provider succeeded: ${providerName}`);
+            
+            console.log(`✅ FALLBACK PROVIDER SUCCESS`);
+            console.log(`   Provider: ${providerName}`);
+            console.log(`   Requested Model: ${fallbackModel}`);
+            console.log(`   Returned Model: ${usedModel}`);
+            if (fallbackModel !== usedModel) {
+              console.error(`   ⚠️  MODEL MISMATCH DETECTED!`);
+            }
           } catch (fallbackError) {
-            console.error(`✗ Fallback provider failed: ${fallbackError.message}`);
+            console.error(`❌ FALLBACK PROVIDER FAILED`);
+            console.error(`   Provider: ${compatibleFallbackProvider.name}`);
+            console.error(`   Error: ${fallbackError.message}`);
             throw new Error(`Both primary and fallback providers failed. Primary: ${primaryError.message}. Fallback: ${fallbackError.message}`);
           }
         } else {
@@ -501,6 +620,9 @@ serve(async (req) => {
     } else if (compatibleFallbackProvider) {
       // Only fallback provider is compatible, use it directly
       try {
+        console.log(`🔄 Using FALLBACK provider (primary incompatible): ${compatibleFallbackProvider.name} (${compatibleFallbackProvider.type})`);
+        console.log(`   Requesting model: ${fallbackModel}`);
+        
         const adaptedPayload = adaptMessagesForProvider({
           providerType: compatibleFallbackProvider.type,
           systemPrompt,
@@ -525,7 +647,19 @@ serve(async (req) => {
     }
 
     const responseTime = Date.now() - startTime;
-    console.log('AI response received, time:', responseTime, 'ms');
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('📊 RESPONSE SUMMARY');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`Response Time: ${responseTime}ms`);
+    console.log(`Final Provider: ${providerName} (${usedProvider.type})`);
+    console.log(`Final Model: ${usedModel}`);
+    console.log(`Response Length: ${aiResponse.length} characters`);
+    console.log(`Citations: ${citations.length}`);
+    if (citations.length > 0) {
+      console.log(`Citation Sources:`, citations.map(c => c.title).join(', '));
+    }
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
