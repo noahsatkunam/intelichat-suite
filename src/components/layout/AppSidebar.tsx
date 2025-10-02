@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import {
   MessageSquarePlus,
   History,
@@ -97,9 +98,37 @@ export function AppSidebar() {
     item.roles.includes(userRole)
   );
 
-  // Load recent conversations - placeholder
+  // Load recent conversations
   useEffect(() => {
-    setRecentConversations([]);
+    const fetchRecentConversations = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('conversations')
+          .select(`
+            id,
+            title,
+            updated_at,
+            chatbot_id,
+            chatbots:chatbot_id (
+              name,
+              avatar_url
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+        setRecentConversations(data || []);
+      } catch (error) {
+        console.error('Error fetching recent conversations:', error);
+      }
+    };
+
+    fetchRecentConversations();
   }, []);
 
   const handleSignOut = async () => {
@@ -239,21 +268,37 @@ export function AppSidebar() {
                   .map((conversation) => (
                     <SidebarMenuItem key={conversation.id}>
                       <SidebarMenuButton asChild>
-                        <NavLink 
-                          to={`/chat/${conversation.id}`} 
-                          className="flex items-start gap-3 p-3 hover:bg-sidebar-accent rounded-lg transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group"
+                        <button
+                          onClick={() => navigate('/chat', { state: { conversationId: conversation.id, chatbotId: conversation.chatbot_id } })}
+                          className="flex items-start gap-3 p-3 w-full hover:bg-sidebar-accent rounded-lg transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left"
                         >
-                          <FolderOpen className="w-4 h-4 mt-0.5 text-muted-foreground group-hover:text-sidebar-foreground" />
+                          {conversation.chatbots?.avatar_url ? (
+                            <Avatar className="w-4 h-4 mt-0.5">
+                              <AvatarImage src={conversation.chatbots.avatar_url} alt="Chatbot" />
+                              <AvatarFallback>
+                                <Bot className="w-3 h-3" />
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <Bot className="w-4 h-4 mt-0.5 text-muted-foreground group-hover:text-sidebar-foreground" />
+                          )}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm text-sidebar-foreground truncate">
                               {conversation.title}
                             </p>
-                            <div className="flex items-center gap-1 mt-1">
-                              <Clock className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">{new Date(conversation.updated_at).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              {conversation.chatbots?.name && (
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {conversation.chatbots.name}
+                                </span>
+                              )}
+                              <span className="text-xs text-muted-foreground">•</span>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(conversation.updated_at).toLocaleDateString()}
+                              </span>
                             </div>
                           </div>
-                        </NavLink>
+                        </button>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}

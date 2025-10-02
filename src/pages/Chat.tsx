@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { ConversationInterface } from '@/components/chat/ConversationInterface';
 import { ConversationHistory } from '@/components/chat/ConversationHistory';
@@ -32,10 +33,21 @@ export default function Chat() {
   const [conversationMessages, setConversationMessages] = useState<any[]>([]);
   const [newChatCounter, setNewChatCounter] = useState(0);
   const { toast } = useToast();
+  const location = useLocation();
 
   useEffect(() => {
     fetchAvailableChatbots();
   }, []);
+
+  // Handle navigation from sidebar recent conversations
+  useEffect(() => {
+    const state = location.state as { conversationId?: string; chatbotId?: string } | null;
+    if (state?.conversationId) {
+      handleSelectConversation(state.conversationId);
+      // Clear the state to prevent reloading on subsequent renders
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const fetchAvailableChatbots = async () => {
     try {
