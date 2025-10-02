@@ -89,6 +89,15 @@ const chatbotSchema = z.object({
   tenant_ids: z.array(z.string()).min(1, 'Select at least one tenant'),
   document_ids: z.array(z.string()).optional(),
   avatar_url: z.string().optional()
+}).refine((data) => {
+  // Ensure that if fallback provider is selected, fallback model is also selected
+  if (data.fallback_ai_provider_id && !data.fallback_model_name) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Fallback model is required when fallback provider is selected",
+  path: ["fallback_model_name"]
 });
 
 export default function ChatbotManagement() {
@@ -428,6 +437,38 @@ export default function ChatbotManagement() {
 
   const onSubmit = async (data: z.infer<typeof chatbotSchema>) => {
     try {
+      // Validate model compatibility with providers
+      const primaryProvider = providers.find(p => p.id === data.primary_ai_provider_id);
+      const primaryModelValid = availableModels.some(
+        m => m.provider_type === primaryProvider?.type && m.model_name === data.model_name
+      );
+
+      if (!primaryModelValid) {
+        toast({
+          title: "Invalid Configuration",
+          description: `Model "${data.model_name}" is not compatible with the selected primary provider.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validate fallback model if fallback provider is selected
+      if (data.fallback_ai_provider_id && data.fallback_model_name) {
+        const fallbackProvider = providers.find(p => p.id === data.fallback_ai_provider_id);
+        const fallbackModelValid = availableModels.some(
+          m => m.provider_type === fallbackProvider?.type && m.model_name === data.fallback_model_name
+        );
+
+        if (!fallbackModelValid) {
+          toast({
+            title: "Invalid Configuration",
+            description: `Fallback model "${data.fallback_model_name}" is not compatible with the selected fallback provider.`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       // Get current user's tenant_id
       const { data: profile } = await supabase
         .from('profiles')
@@ -1082,6 +1123,11 @@ export default function ChatbotManagement() {
                                 ))}
                               </SelectContent>
                             </Select>
+                            {selectedProviderType && (
+                              <FormDescription>
+                                {modelsForProvider.length} compatible model{modelsForProvider.length !== 1 ? 's' : ''} available
+                              </FormDescription>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -1129,7 +1175,7 @@ export default function ChatbotManagement() {
                         name="fallback_model_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Fallback Model (Optional)</FormLabel>
+                            <FormLabel>Fallback Model *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value || undefined} disabled={!fallbackProviderType}>
                               <FormControl>
                                 <SelectTrigger>
@@ -1150,7 +1196,7 @@ export default function ChatbotManagement() {
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              Model to use when falling back to backup provider
+                              {fallbackProviderType ? `${modelsForFallbackProvider.length} compatible model${modelsForFallbackProvider.length !== 1 ? 's' : ''} available. ` : ''}Model to use when falling back to backup provider
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

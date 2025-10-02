@@ -278,6 +278,30 @@ async function callProvider(provider: any, model: string, adaptedPayload: any, p
   }
 }
 
+// Helper function to validate model compatibility with provider
+async function validateModelForProvider(supabase: any, providerType: string, modelName: string): Promise<boolean> {
+  const { data: modelInfo } = await supabase
+    .from('provider_models')
+    .select('*')
+    .eq('provider_type', providerType)
+    .eq('model_name', modelName)
+    .eq('is_deprecated', false)
+    .maybeSingle();
+  
+  return !!modelInfo;
+}
+
+// Helper function to get supported models for a provider type
+async function getSupportedModels(supabase: any, providerType: string): Promise<string[]> {
+  const { data: models } = await supabase
+    .from('provider_models')
+    .select('model_name')
+    .eq('provider_type', providerType)
+    .eq('is_deprecated', false);
+  
+  return models?.map(m => m.model_name) || [];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -316,7 +340,7 @@ serve(async (req) => {
         .eq('id', chatbot.primary_ai_provider_id)
         .eq('is_active', true)
         .eq('is_healthy', true)
-        .single();
+        .maybeSingle();
       primaryProvider = data;
     }
 
@@ -327,13 +351,52 @@ serve(async (req) => {
         .eq('id', chatbot.fallback_ai_provider_id)
         .eq('is_active', true)
         .eq('is_healthy', true)
-        .single();
+        .maybeSingle();
       fallbackProvider = data;
     }
 
-    console.log('Providers:', {
-      primary: primaryProvider?.name,
-      fallback: fallbackProvider?.name,
+    const model = chatbot.model_name || 'gpt-4o-mini';
+    const fallbackModel = chatbot.fallback_model_name || model;
+
+    // Validate model compatibility with providers
+    let compatiblePrimaryProvider = null;
+    let compatibleFallbackProvider = null;
+
+    if (primaryProvider) {
+      const isCompatible = await validateModelForProvider(supabase, primaryProvider.type, model);
+      if (isCompatible) {
+        compatiblePrimaryProvider = primaryProvider;
+        console.log(`✓ Primary provider ${primaryProvider.name} supports model ${model}`);
+      } else {
+        const supportedModels = await getSupportedModels(supabase, primaryProvider.type);
+        console.warn(`✗ Primary provider ${primaryProvider.name} does not support model ${model}. Supported models: ${supportedModels.join(', ')}`);
+      }
+    }
+
+    if (fallbackProvider) {
+      const isCompatible = await validateModelForProvider(supabase, fallbackProvider.type, fallbackModel);
+      if (isCompatible) {
+        compatibleFallbackProvider = fallbackProvider;
+        console.log(`✓ Fallback provider ${fallbackProvider.name} supports model ${fallbackModel}`);
+      } else {
+        const supportedModels = await getSupportedModels(supabase, fallbackProvider.type);
+        console.warn(`✗ Fallback provider ${fallbackProvider.name} does not support model ${fallbackModel}. Supported models: ${supportedModels.join(', ')}`);
+      }
+    }
+
+    // Check if we have any compatible providers
+    if (!compatiblePrimaryProvider && !compatibleFallbackProvider) {
+      const errorMessage = primaryProvider || fallbackProvider
+        ? `No compatible providers available. Model "${model}" is not supported by the configured providers.`
+        : 'No active and healthy providers configured for this chatbot.';
+      
+      console.error(errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    console.log('Compatible providers:', {
+      primary: compatiblePrimaryProvider?.name,
+      fallback: compatibleFallbackProvider?.name,
     });
 
     // Get knowledge base documents for this chatbot
@@ -382,62 +445,83 @@ serve(async (req) => {
       presence_penalty: chatbot.presence_penalty || 0.0,
     };
 
-    const model = chatbot.model_name || 'gpt-4o-mini';
     const startTime = Date.now();
     let aiResponse: string;
     let usedModel: string;
     let usedProvider: any = null;
     let providerName: string;
 
-    // Try primary provider first
-    if (primaryProvider) {
+    // Try compatible primary provider first
+    if (compatiblePrimaryProvider) {
       try {
         // Adapt messages for the provider's expected format
         const adaptedPayload = adaptMessagesForProvider({
-          providerType: primaryProvider.type,
+          providerType: compatiblePrimaryProvider.type,
           systemPrompt,
           userMessage: message,
           history: [], // TODO: Add conversation history support
           attachments: attachments || []
         });
 
-        const result = await callProvider(primaryProvider, model, adaptedPayload, params);
+        const result = await callProvider(compatiblePrimaryProvider, model, adaptedPayload, params);
         aiResponse = result.content;
         usedModel = result.model;
-        usedProvider = primaryProvider;
-        providerName = primaryProvider.name;
+        usedProvider = compatiblePrimaryProvider;
+        providerName = compatiblePrimaryProvider.name;
         console.log(`✓ Primary provider succeeded: ${providerName}`);
       } catch (primaryError) {
         console.error(`✗ Primary provider failed: ${primaryError.message}`);
         
-        // Try fallback provider
-        if (fallbackProvider) {
+        // Try compatible fallback provider
+        if (compatibleFallbackProvider) {
           try {
             // Adapt messages for fallback provider's expected format
             const adaptedPayload = adaptMessagesForProvider({
-              providerType: fallbackProvider.type,
+              providerType: compatibleFallbackProvider.type,
               systemPrompt,
               userMessage: message,
               history: [],
               attachments: attachments || []
             });
 
-            const result = await callProvider(fallbackProvider, chatbot.fallback_model_name || model, adaptedPayload, params);
+            const result = await callProvider(compatibleFallbackProvider, fallbackModel, adaptedPayload, params);
             aiResponse = result.content;
             usedModel = result.model;
-            usedProvider = fallbackProvider;
-            providerName = fallbackProvider.name;
+            usedProvider = compatibleFallbackProvider;
+            providerName = compatibleFallbackProvider.name;
             console.log(`✓ Fallback provider succeeded: ${providerName}`);
           } catch (fallbackError) {
             console.error(`✗ Fallback provider failed: ${fallbackError.message}`);
-            throw new Error('Both primary and fallback providers failed');
+            throw new Error(`Both primary and fallback providers failed. Primary: ${primaryError.message}. Fallback: ${fallbackError.message}`);
           }
         } else {
           throw primaryError;
         }
       }
+    } else if (compatibleFallbackProvider) {
+      // Only fallback provider is compatible, use it directly
+      try {
+        const adaptedPayload = adaptMessagesForProvider({
+          providerType: compatibleFallbackProvider.type,
+          systemPrompt,
+          userMessage: message,
+          history: [],
+          attachments: attachments || []
+        });
+
+        const result = await callProvider(compatibleFallbackProvider, fallbackModel, adaptedPayload, params);
+        aiResponse = result.content;
+        usedModel = result.model;
+        usedProvider = compatibleFallbackProvider;
+        providerName = compatibleFallbackProvider.name;
+        console.log(`✓ Fallback provider succeeded (primary incompatible): ${providerName}`);
+      } catch (fallbackError) {
+        console.error(`✗ Fallback provider failed: ${fallbackError.message}`);
+        throw fallbackError;
+      }
     } else {
-      throw new Error('No active provider configured for this chatbot');
+      // This should not happen due to earlier validation, but handle it
+      throw new Error('No compatible providers available');
     }
 
     const responseTime = Date.now() - startTime;
@@ -478,11 +562,34 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('AI chat error:', error);
+    
+    // Determine appropriate status code based on error type
+    let statusCode = 500;
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    let userMessage = 'I apologize, but I\'m experiencing technical difficulties. Please try again later.';
+    
+    if (errorMessage.includes('not found or inactive')) {
+      statusCode = 404;
+      userMessage = 'The requested chatbot is not available.';
+    } else if (errorMessage.includes('No compatible providers') || errorMessage.includes('does not support model')) {
+      statusCode = 422;
+      userMessage = 'The chatbot configuration is invalid. Please contact your administrator.';
+    } else if (errorMessage.includes('No active provider')) {
+      statusCode = 503;
+      userMessage = 'AI service is temporarily unavailable. Please try again later.';
+    } else if (errorMessage.includes('Rate limit exceeded')) {
+      statusCode = 429;
+      userMessage = 'Too many requests. Please try again in a moment.';
+    } else if (errorMessage.includes('credits depleted')) {
+      statusCode = 402;
+      userMessage = 'AI service credits depleted. Please contact your administrator.';
+    }
+    
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error',
-      response: 'I apologize, but I\'m experiencing technical difficulties. Please try again later.'
+      error: errorMessage,
+      response: userMessage
     }), {
-      status: 500,
+      status: statusCode,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
