@@ -7,6 +7,217 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to call OpenAI API
+async function callOpenAI(apiKey: string, model: string, messages: any[], params: any) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: params.max_tokens,
+      temperature: params.temperature,
+      top_p: params.top_p,
+      frequency_penalty: params.frequency_penalty,
+      presence_penalty: params.presence_penalty,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices[0].message.content,
+    model: data.model,
+  };
+}
+
+// Helper function to call Anthropic API
+async function callAnthropic(apiKey: string, model: string, messages: any[], params: any) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages: messages.filter(m => m.role !== 'system'),
+      system: messages.find(m => m.role === 'system')?.content || '',
+      max_tokens: params.max_tokens,
+      temperature: params.temperature,
+      top_p: params.top_p,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.content[0].text,
+    model: data.model,
+  };
+}
+
+// Helper function to call Google Gemini API
+async function callGoogle(apiKey: string, model: string, messages: any[], params: any) {
+  const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+  
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: params.temperature,
+        topP: params.top_p,
+        maxOutputTokens: params.max_tokens,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.candidates[0].content.parts[0].text,
+    model,
+  };
+}
+
+// Helper function to call Mistral API
+async function callMistral(apiKey: string, model: string, messages: any[], params: any) {
+  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: params.max_tokens,
+      temperature: params.temperature,
+      top_p: params.top_p,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Mistral API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices[0].message.content,
+    model: data.model,
+  };
+}
+
+// Helper function to call xAI API
+async function callXai(apiKey: string, model: string, messages: any[], params: any) {
+  const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: params.max_tokens,
+      temperature: params.temperature,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`xAI API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices[0].message.content,
+    model: data.model,
+  };
+}
+
+// Helper function to call custom provider
+async function callCustom(provider: any, model: string, messages: any[], params: any) {
+  const headers: any = {
+    'Content-Type': 'application/json',
+  };
+
+  if (provider.api_key_encrypted) {
+    headers['Authorization'] = `Bearer ${provider.api_key_encrypted}`;
+  }
+
+  if (provider.custom_headers) {
+    Object.assign(headers, provider.custom_headers);
+  }
+
+  const response = await fetch(provider.base_url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model,
+      messages,
+      max_tokens: params.max_tokens,
+      temperature: params.temperature,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Custom provider error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices[0].message.content,
+    model: data.model || model,
+  };
+}
+
+// Main routing function
+async function callProvider(provider: any, model: string, messages: any[], params: any) {
+  console.log(`Routing to provider: ${provider.name} (${provider.type})`);
+
+  switch (provider.type) {
+    case 'openai':
+      return await callOpenAI(provider.api_key_encrypted, model, messages, params);
+    case 'anthropic':
+      return await callAnthropic(provider.api_key_encrypted, model, messages, params);
+    case 'google':
+      return await callGoogle(provider.api_key_encrypted, model, messages, params);
+    case 'mistral':
+      return await callMistral(provider.api_key_encrypted, model, messages, params);
+    case 'xai':
+      return await callXai(provider.api_key_encrypted, model, messages, params);
+    case 'custom':
+      return await callCustom(provider, model, messages, params);
+    default:
+      throw new Error(`Unsupported provider type: ${provider.type}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -15,7 +226,6 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { chatbot_id, message, conversation_id, attachments } = await req.json();
@@ -34,6 +244,37 @@ serve(async (req) => {
       console.error('Chatbot error:', chatbotError);
       throw new Error('Chatbot not found or inactive');
     }
+
+    // Get provider configurations
+    let primaryProvider = null;
+    let fallbackProvider = null;
+
+    if (chatbot.primary_ai_provider_id) {
+      const { data } = await supabase
+        .from('ai_providers')
+        .select('*')
+        .eq('id', chatbot.primary_ai_provider_id)
+        .eq('is_active', true)
+        .eq('is_healthy', true)
+        .single();
+      primaryProvider = data;
+    }
+
+    if (chatbot.fallback_ai_provider_id) {
+      const { data } = await supabase
+        .from('ai_providers')
+        .select('*')
+        .eq('id', chatbot.fallback_ai_provider_id)
+        .eq('is_active', true)
+        .eq('is_healthy', true)
+        .single();
+      fallbackProvider = data;
+    }
+
+    console.log('Providers:', {
+      primary: primaryProvider?.name,
+      fallback: fallbackProvider?.name,
+    });
 
     // Get knowledge base documents for this chatbot
     const { data: knowledgeDocs } = await supabase
@@ -72,44 +313,62 @@ serve(async (req) => {
     // Prepare system prompt with knowledge base
     const systemPrompt = `${chatbot.system_prompt || 'You are a helpful AI assistant.'}\n${knowledgeContext}`;
 
-    console.log('Calling Lovable AI with model:', chatbot.model_name || 'google/gemini-2.5-flash');
+    // Prepare messages
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ];
 
-    // Call Lovable AI Gateway
+    // Prepare parameters
+    const params = {
+      max_tokens: chatbot.max_tokens || 1000,
+      temperature: chatbot.temperature || 0.7,
+      top_p: chatbot.top_p || 1.0,
+      frequency_penalty: chatbot.frequency_penalty || 0.0,
+      presence_penalty: chatbot.presence_penalty || 0.0,
+    };
+
+    const model = chatbot.model_name || 'gpt-4o-mini';
     const startTime = Date.now();
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: chatbot.model_name || 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        max_tokens: chatbot.max_tokens || 1000,
-        temperature: chatbot.temperature || 0.7,
-      }),
-    });
+    let aiResponse: string;
+    let usedModel: string;
+    let usedProvider: any = null;
+    let providerName: string;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a moment.');
+    // Try primary provider first
+    if (primaryProvider) {
+      try {
+        const result = await callProvider(primaryProvider, model, messages, params);
+        aiResponse = result.content;
+        usedModel = result.model;
+        usedProvider = primaryProvider;
+        providerName = primaryProvider.name;
+        console.log(`✓ Primary provider succeeded: ${providerName}`);
+      } catch (primaryError) {
+        console.error(`✗ Primary provider failed: ${primaryError.message}`);
+        
+        // Try fallback provider
+        if (fallbackProvider) {
+          try {
+            const result = await callProvider(fallbackProvider, chatbot.fallback_model_name || model, messages, params);
+            aiResponse = result.content;
+            usedModel = result.model;
+            usedProvider = fallbackProvider;
+            providerName = fallbackProvider.name;
+            console.log(`✓ Fallback provider succeeded: ${providerName}`);
+          } catch (fallbackError) {
+            console.error(`✗ Fallback provider failed: ${fallbackError.message}`);
+            throw new Error('Both primary and fallback providers failed');
+          }
+        } else {
+          throw primaryError;
+        }
       }
-      if (response.status === 402) {
-        throw new Error('AI credits depleted. Please add credits to your workspace.');
-      }
-      throw new Error(`AI service error: ${response.status}`);
+    } else {
+      throw new Error('No active provider configured for this chatbot');
     }
 
-    const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
     const responseTime = Date.now() - startTime;
-
     console.log('AI response received, time:', responseTime, 'ms');
 
     // Get user from auth header
@@ -121,15 +380,15 @@ serve(async (req) => {
       userId = user?.id;
     }
 
-    // Log usage
-    if (userId) {
+    // Log usage with actual provider used
+    if (userId && usedProvider) {
       await supabase
         .from('chatbot_usage')
         .insert({
           chatbot_id,
           user_id: userId,
-          ai_provider_id: null,
-          model_used: chatbot.model_name || 'google/gemini-2.5-flash',
+          ai_provider_id: usedProvider.id,
+          model_used: usedModel,
           response_time_ms: responseTime,
           success: true,
         });
@@ -137,8 +396,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       response: aiResponse,
-      provider_name: 'Lovable AI',
-      model: chatbot.model_name || 'google/gemini-2.5-flash',
+      provider_name: providerName,
+      model: usedModel,
       response_time_ms: responseTime,
       citations: citations.length > 0 ? citations : undefined
     }), {
