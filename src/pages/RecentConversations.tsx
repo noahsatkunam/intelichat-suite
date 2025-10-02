@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Bot, Clock, MessageSquare, Filter } from 'lucide-react';
+import { Search, Bot, Clock, MessageSquare, Filter, Pencil, Trash2, MoreVertical } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/contexts/AuthContext';
+import { conversationService } from '@/services/conversationService';
+import { toast } from 'sonner';
 
 interface Conversation {
   id: string;
@@ -53,6 +59,10 @@ export default function RecentConversations() {
   const [users, setUsers] = useState<User[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [newTitle, setNewTitle] = useState('');
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   
@@ -207,6 +217,62 @@ export default function RecentConversations() {
         chatbotId: conversation.chatbot_id 
       } 
     });
+  };
+
+  const handleRenameClick = (e: React.MouseEvent, conversation: Conversation) => {
+    e.stopPropagation();
+    setSelectedConversation(conversation);
+    setNewTitle(conversation.title);
+    setRenameDialogOpen(true);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, conversation: Conversation) => {
+    e.stopPropagation();
+    setSelectedConversation(conversation);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!selectedConversation || !newTitle.trim()) return;
+
+    try {
+      await conversationService.updateConversationTitle(selectedConversation.id, newTitle.trim());
+      
+      // Update local state
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === selectedConversation.id 
+            ? { ...conv, title: newTitle.trim() } 
+            : conv
+        )
+      );
+      
+      toast.success('Conversation renamed successfully');
+      setRenameDialogOpen(false);
+      setSelectedConversation(null);
+      setNewTitle('');
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+      toast.error('Failed to rename conversation');
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedConversation) return;
+
+    try {
+      await conversationService.deleteConversation(selectedConversation.id);
+      
+      // Update local state
+      setConversations(prev => prev.filter(conv => conv.id !== selectedConversation.id));
+      
+      toast.success('Conversation deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedConversation(null);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      toast.error('Failed to delete conversation');
+    }
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -371,6 +437,29 @@ export default function RecentConversations() {
                         )}
                       </div>
                     </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40 bg-card z-50">
+                        <DropdownMenuItem 
+                          onClick={(e) => handleRenameClick(e, conversation)}
+                          className="cursor-pointer"
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => handleDeleteClick(e, conversation)}
+                          className="cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -384,6 +473,54 @@ export default function RecentConversations() {
           </div>
         )}
       </div>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Conversation</DialogTitle>
+            <DialogDescription>
+              Enter a new title for this conversation
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Conversation title"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameConfirm();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRenameConfirm} disabled={!newTitle.trim()}>
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedConversation?.title}"? This action cannot be undone and will permanently delete all messages in this conversation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
