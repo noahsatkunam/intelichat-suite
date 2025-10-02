@@ -40,6 +40,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   const [conversationId, setConversationId] = useState<string | null>(existingConversationId || null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [userRole, setUserRole] = useState<string>('user');
+  const [chatbotAvatar, setChatbotAvatar] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -67,6 +68,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
     }
     // Don't create conversation on mount - wait for first message
     checkUserRole();
+    fetchChatbotAvatar();
   }, [chatbotId, existingConversationId, existingMessages]);
 
   useEffect(() => {
@@ -94,6 +96,23 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
   const isAdmin = () => {
     return userRole === 'global_admin' || userRole === 'tenant_admin';
+  };
+
+  const fetchChatbotAvatar = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chatbots')
+        .select('avatar_url')
+        .eq('id', chatbotId)
+        .single();
+
+      if (error) throw error;
+      if (data?.avatar_url) {
+        setChatbotAvatar(data.avatar_url);
+      }
+    } catch (error) {
+      console.error('Error fetching chatbot avatar:', error);
+    }
   };
 
   const createConversationWithMessage = async (userMessage: string) => {
@@ -367,7 +386,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 pt-16 min-h-0">
-          <MessageList messages={messages} isLoading={isLoading} />
+          <MessageList messages={messages} isLoading={isLoading} chatbotAvatar={chatbotAvatar} />
           <div ref={messagesEndRef} />
         </div>
 

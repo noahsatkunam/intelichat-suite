@@ -2,7 +2,7 @@ import React from 'react';
 import { Bot, User, Paperclip, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TypingIndicator } from './TypingIndicator';
 
 interface Message {
@@ -17,9 +17,10 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   isLoading?: boolean;
+  chatbotAvatar?: string | null;
 }
 
-export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }) => {
+export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false, chatbotAvatar = null }) => {
   if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
@@ -45,6 +46,9 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = 
         >
           {message.role === 'assistant' && (
             <Avatar className="w-8 h-8 mt-1 bg-primary/10">
+              {chatbotAvatar ? (
+                <AvatarImage src={chatbotAvatar} alt="Chatbot" />
+              ) : null}
               <AvatarFallback>
                 <Bot className="w-4 h-4 text-primary" />
               </AvatarFallback>
@@ -136,7 +140,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = 
       ))}
       
       {/* Typing Indicator */}
-      {isLoading && <TypingIndicator />}
+      {isLoading && <TypingIndicator chatbotAvatar={chatbotAvatar} />}
     </div>
   );
 };

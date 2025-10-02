@@ -1,12 +1,19 @@
 import React from 'react';
 import { Bot } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-export const TypingIndicator: React.FC = () => {
+interface TypingIndicatorProps {
+  chatbotAvatar?: string | null;
+}
+
+export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ chatbotAvatar = null }) => {
   return (
     <div className="flex gap-4 justify-start">
       <Avatar className="w-8 h-8 mt-1 bg-primary/10">
+        {chatbotAvatar ? (
+          <AvatarImage src={chatbotAvatar} alt="Chatbot" />
+        ) : null}
         <AvatarFallback>
           <Bot className="w-4 h-4 text-primary" />
         </AvatarFallback>
