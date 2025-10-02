@@ -301,13 +301,23 @@ export function AppSidebar() {
               className="w-full justify-start p-3 hover:bg-sidebar-accent transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)]"
             >
               <Avatar className="w-8 h-8 mr-3">
-                <AvatarImage src={user?.user_metadata?.avatar_url} alt="User Avatar" />
+                <AvatarImage 
+                  src={userProfile?.avatar_url 
+                    ? `${userProfile.avatar_url}${userProfile.avatar_url.includes('?') ? '&' : '?'}v=${Date.now()}` 
+                    : user?.user_metadata?.avatar_url
+                  } 
+                  alt="User Avatar" 
+                />
                 <AvatarFallback className="bg-gradient-primary text-primary-foreground text-sm font-medium">
                   {getUserInitials(user?.email || '')}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
-                <p className="font-medium text-sm text-sidebar-foreground">{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</p>
+                <p className="font-medium text-sm text-sidebar-foreground">
+                  {userProfile?.first_name && userProfile?.last_name 
+                    ? `${userProfile.first_name} ${userProfile.last_name}`
+                    : userProfile?.name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}
+                </p>
                 <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
