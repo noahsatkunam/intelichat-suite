@@ -7,6 +7,11 @@ export interface Conversation {
   updated_at: string;
   user_id: string;
   tenant_id: string | null;
+  chatbot_id: string | null;
+  chatbot?: {
+    name: string;
+    avatar_url: string | null;
+  };
   last_message?: {
     content: string;
     timestamp: string;
@@ -23,7 +28,12 @@ export const conversationService = {
         created_at,
         updated_at,
         user_id,
-        tenant_id
+        tenant_id,
+        chatbot_id,
+        chatbots:chatbot_id (
+          name,
+          avatar_url
+        )
       `)
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
@@ -39,7 +49,7 @@ export const conversationService = {
 
     // Fetch last message for each conversation
     const conversationsWithMessages = await Promise.all(
-      (data || []).map(async (conv) => {
+      (data || []).map(async (conv: any) => {
         const { data: messages } = await supabase
           .from('messages')
           .select('content, timestamp')
@@ -50,6 +60,7 @@ export const conversationService = {
 
         return {
           ...conv,
+          chatbot: conv.chatbots,
           last_message: messages
             ? {
                 content: messages.content,

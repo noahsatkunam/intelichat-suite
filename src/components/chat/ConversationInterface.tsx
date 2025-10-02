@@ -118,6 +118,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
           id: newConversationId,
           user_id: user.id,
           tenant_id: profile.tenant_id ?? null, // Can be null for global admins
+          chatbot_id: chatbotId,
           title: `Chat with ${chatbotName}`,
         });
 

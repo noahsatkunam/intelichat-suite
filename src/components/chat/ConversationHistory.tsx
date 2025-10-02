@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { conversationService, Conversation } from '@/services/conversationService';
-import { MessageSquare, Search, MoreVertical, Pencil, Trash2, Plus } from 'lucide-react';
+import { MessageSquare, Search, MoreVertical, Pencil, Trash2, Plus, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -193,10 +194,24 @@ export const ConversationHistory: React.FC<ConversationHistoryProps> = ({
                 }`}
                 onClick={() => onSelectConversation(conv.id)}
               >
-                <MessageSquare className="w-4 h-4 mt-1 text-muted-foreground flex-shrink-0" />
+                {conv.chatbot ? (
+                  <Avatar className="w-8 h-8 flex-shrink-0">
+                    <AvatarImage src={conv.chatbot.avatar_url || ''} alt={conv.chatbot.name} />
+                    <AvatarFallback className="bg-primary/10">
+                      <Bot className="w-4 h-4 text-primary" />
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <MessageSquare className="w-4 h-4 mt-1 text-muted-foreground flex-shrink-0" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium text-sm truncate">{conv.title}</h3>
+                    <div className="min-w-0">
+                      <h3 className="font-medium text-sm truncate">{conv.title}</h3>
+                      {conv.chatbot && (
+                        <p className="text-xs text-muted-foreground">{conv.chatbot.name}</p>
+                      )}
+                    </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
