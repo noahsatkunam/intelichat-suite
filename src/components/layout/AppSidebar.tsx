@@ -51,6 +51,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ZyriaLogo } from '@/components/branding/ZyriaLogo';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
+import { NotificationsSheet } from '@/components/notifications/NotificationsSheet';
 
 const mainNavItems = [
   { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard, variant: 'primary' as const },
@@ -83,6 +84,7 @@ export function AppSidebar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRecentChats, setShowRecentChats] = useState(true);
   const [recentConversations, setRecentConversations] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   
   const isCollapsed = state === 'collapsed';
   const isActive = (path: string) => location.pathname === path;
@@ -328,7 +330,7 @@ export function AppSidebar() {
               <User className="mr-2 h-4 w-4" />
               My Account
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setNotificationsOpen(true)}>
               <Bell className="mr-2 h-4 w-4" />
               Notifications
             </DropdownMenuItem>
@@ -340,6 +342,9 @@ export function AppSidebar() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Notifications Sheet */}
+      <NotificationsSheet open={notificationsOpen} onOpenChange={setNotificationsOpen} />
     </Sidebar>
   );
 }
