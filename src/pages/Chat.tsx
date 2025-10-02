@@ -8,6 +8,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import ProviderLogo from '@/components/ai/ProviderLogo';
 import { ConversationInterface } from '@/components/chat/ConversationInterface';
+import { ConversationHistory } from '@/components/chat/ConversationHistory';
+import { conversationService } from '@/services/conversationService';
 
 interface Chatbot {
   id: string;
@@ -26,6 +28,8 @@ export default function Chat() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedChatbot, setSelectedChatbot] = useState<Chatbot | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<any[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -141,6 +145,29 @@ export default function Chat() {
 
   const handleSelectChatbot = (chatbot: Chatbot) => {
     setSelectedChatbot(chatbot);
+    setSelectedConversationId(null);
+  };
+
+  const handleSelectConversation = async (conversationId: string) => {
+    try {
+      const messages = await conversationService.fetchConversationMessages(conversationId);
+      setConversationMessages(messages);
+      setSelectedConversationId(conversationId);
+      setSelectedChatbot(null);
+    } catch (error: any) {
+      console.error('Error loading conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load conversation',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleNewChat = () => {
+    setSelectedChatbot(null);
+    setSelectedConversationId(null);
+    setConversationMessages([]);
   };
 
   const handleCustomAI = () => {
@@ -149,7 +176,47 @@ export default function Chat() {
   };
 
   if (selectedChatbot) {
-    return <ConversationInterface chatbotId={selectedChatbot.id} chatbotName={selectedChatbot.name} onBack={() => setSelectedChatbot(null)} />;
+    return (
+      <div className="flex h-screen">
+        <div className="w-80 border-r bg-card/30">
+          <ConversationHistory
+            onSelectConversation={handleSelectConversation}
+            onNewChat={handleNewChat}
+            currentConversationId={selectedConversationId}
+          />
+        </div>
+        <div className="flex-1">
+          <ConversationInterface
+            chatbotId={selectedChatbot.id}
+            chatbotName={selectedChatbot.name}
+            onBack={handleNewChat}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedConversationId) {
+    return (
+      <div className="flex h-screen">
+        <div className="w-80 border-r bg-card/30">
+          <ConversationHistory
+            onSelectConversation={handleSelectConversation}
+            onNewChat={handleNewChat}
+            currentConversationId={selectedConversationId}
+          />
+        </div>
+        <div className="flex-1">
+          <ConversationInterface
+            chatbotId={selectedChatbot?.id || ''}
+            chatbotName="Conversation"
+            onBack={handleNewChat}
+            existingConversationId={selectedConversationId}
+            existingMessages={conversationMessages}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (

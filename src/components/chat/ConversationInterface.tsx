@@ -22,18 +22,22 @@ interface ConversationInterfaceProps {
   chatbotId: string;
   chatbotName: string;
   onBack: () => void;
+  existingConversationId?: string | null;
+  existingMessages?: any[];
 }
 
 export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   chatbotId,
   chatbotName,
   onBack,
+  existingConversationId,
+  existingMessages,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(existingConversationId || null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [userRole, setUserRole] = useState<string>('user');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,9 +45,24 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   const { toast } = useToast();
 
   useEffect(() => {
-    initializeConversation();
+    if (existingConversationId && existingMessages) {
+      // Load existing conversation
+      setConversationId(existingConversationId);
+      const formattedMessages: Message[] = existingMessages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        attachments: msg.metadata?.attachments,
+        citations: msg.metadata?.citations,
+      }));
+      setMessages(formattedMessages);
+    } else {
+      // Create new conversation
+      initializeConversation();
+    }
     checkUserRole();
-  }, [chatbotId]);
+  }, [chatbotId, existingConversationId, existingMessages]);
 
   useEffect(() => {
     scrollToBottom();
