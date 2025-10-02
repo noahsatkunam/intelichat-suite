@@ -426,6 +426,46 @@ export default function Analytics() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Per-Tenant Breakdown (only for global admins viewing all tenants) */}
+            {isGlobalAdmin && selectedTenant === 'all' && analyticsData.messagesByTenant && analyticsData.messagesByTenant.length > 0 && (
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
+                <CardHeader>
+                  <CardTitle className="text-lg">Message Analytics by Tenant</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Activity breakdown across all tenants for the selected period
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {analyticsData.messagesByTenant.map((tenant, index) => (
+                      <div key={tenant.tenantId} className="flex items-center justify-between p-4 rounded-lg bg-card/50 border border-border/50 hover:border-primary/20 transition-colors">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{tenant.tenantName}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {tenant.conversationCount} conversations
+                            </Badge>
+                          </div>
+                          <div className="mt-2 w-full bg-secondary rounded-full h-2">
+                            <div 
+                              className="bg-primary h-2 rounded-full transition-all" 
+                              style={{ 
+                                width: `${Math.max((tenant.messageCount / Math.max(...analyticsData.messagesByTenant!.map(t => t.messageCount))) * 100, 5)}%` 
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <div className="text-2xl font-bold">{tenant.messageCount.toLocaleString()}</div>
+                          <p className="text-xs text-muted-foreground">messages</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="conversations" className="space-y-6">

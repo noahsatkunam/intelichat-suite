@@ -17,6 +17,7 @@ export interface AnalyticsData {
   activeUsers: number;
   messagesTrend: Array<{ date: string; count: number }>;
   conversationsTrend: Array<{ date: string; count: number }>;
+  messagesByTenant?: Array<{ tenantId: string; tenantName: string; messageCount: number; conversationCount: number }>;
 }
 
 export interface ChatbotAnalytics {
@@ -206,6 +207,52 @@ class AnalyticsService {
         return Object.entries(counts).map(([date, count]) => ({ date, count }));
       };
 
+      // Get per-tenant breakdown if global admin viewing all tenants
+      let messagesByTenant: Array<{ tenantId: string; tenantName: string; messageCount: number; conversationCount: number }> | undefined;
+      
+      if (profile?.role === 'global_admin' && !targetTenantId) {
+        // Get all tenants
+        const { data: tenants } = await supabase
+          .from('tenants')
+          .select('id, name');
+
+        if (tenants && tenants.length > 0) {
+          messagesByTenant = await Promise.all(
+            tenants.map(async (tenant) => {
+              // Get conversations for this tenant
+              const { data: tenantConversations } = await supabase
+                .from('conversations')
+                .select('id')
+                .eq('tenant_id', tenant.id)
+                .gte('created_at', periodStart);
+
+              const conversationIds = tenantConversations?.map(c => c.id) || [];
+              
+              // Get message count for this tenant
+              let messageCount = 0;
+              if (conversationIds.length > 0) {
+                const { count } = await supabase
+                  .from('messages')
+                  .select('id', { count: 'exact', head: true })
+                  .in('conversation_id', conversationIds)
+                  .gte('timestamp', periodStart);
+                messageCount = count || 0;
+              }
+
+              return {
+                tenantId: tenant.id,
+                tenantName: tenant.name,
+                messageCount,
+                conversationCount: conversationIds.length
+              };
+            })
+          );
+
+          // Sort by message count descending
+          messagesByTenant.sort((a, b) => b.messageCount - a.messageCount);
+        }
+      }
+
       return {
         totalMessages: messagesCount.count || 0,
         totalConversations: conversationsCount.count || 0,
@@ -213,6 +260,7 @@ class AnalyticsService {
         activeUsers: activeUsersCount.count || 0,
         messagesTrend: processTrendData(messagesTrend.data || [], 'timestamp'),
         conversationsTrend: processTrendData(conversationsTrend.data || [], 'created_at'),
+        messagesByTenant,
       };
     } catch (error) {
       console.error('Error fetching analytics:', error);
