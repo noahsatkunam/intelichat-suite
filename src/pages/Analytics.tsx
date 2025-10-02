@@ -108,17 +108,19 @@ export default function Analytics() {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const filters: { tenantId?: string; userId?: string; period?: string } = {};
+      const filters: { tenantId?: string; userId?: string; period?: string } = {
+        period: selectedPeriod
+      };
       
+      // Only add tenantId to filters if a specific tenant is selected
       if (selectedTenant !== 'all') {
         filters.tenantId = selectedTenant;
       }
       
+      // Only add userId to filters if a specific user is selected
       if (selectedUser !== 'all') {
         filters.userId = selectedUser;
       }
-
-      filters.period = selectedPeriod;
 
       const data = await analyticsService.getAnalyticsData(filters);
       setAnalyticsData(data);
@@ -132,17 +134,19 @@ export default function Analytics() {
   const loadChatbotAnalytics = async () => {
     try {
       setLoadingChatbotAnalytics(true);
-      const filters: { tenantId?: string; userId?: string; period?: string } = {};
+      const filters: { tenantId?: string; userId?: string; period?: string } = {
+        period: selectedPeriod
+      };
       
+      // Only add tenantId to filters if a specific tenant is selected
       if (selectedTenant !== 'all') {
         filters.tenantId = selectedTenant;
       }
       
+      // Only add userId to filters if a specific user is selected
       if (chatbotFilterUser !== 'all') {
         filters.userId = chatbotFilterUser;
       }
-
-      filters.period = selectedPeriod;
 
       const data = await analyticsService.getChatbotAnalytics(filters);
       setChatbotAnalytics(data);
