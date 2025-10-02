@@ -844,6 +844,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      trigger_model_refresh: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "global_admin" | "tenant_admin" | "user"
