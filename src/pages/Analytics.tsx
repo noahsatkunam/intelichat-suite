@@ -610,17 +610,133 @@ export default function Analytics() {
           </TabsContent>
 
           <TabsContent value="knowledge" className="space-y-6">
-            <Card>
+            {/* Knowledge Base Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Knowledge Base Analytics</h2>
+                <p className="text-sm text-muted-foreground">Track document usage and search patterns</p>
+              </div>
+            </div>
+
+            {/* Knowledge Base Metrics */}
+            <div className="grid gap-6 md:grid-cols-4">
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{analyticsData?.totalDocuments.toLocaleString() || 0}</div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    In knowledge base
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Document Views</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    Total views
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Search Queries</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <Activity className="inline h-3 w-3 mr-1" />
+                    Total searches
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-purple-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Avg Relevance</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    Search accuracy
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Popular Documents */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Most Viewed Documents</CardTitle>
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Top performing knowledge base content</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      Document view tracking coming soon
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Search Trends</CardTitle>
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Popular search queries over time</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      Search analytics coming soon
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Document Usage Patterns */}
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
               <CardHeader>
-                <CardTitle>Knowledge Base Analytics</CardTitle>
-                <p className="text-sm text-muted-foreground">Document usage and search patterns</p>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Document Usage Over Time</CardTitle>
+                  <Badge variant="secondary">Coming Soon</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">Track how documents are accessed over time</p>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Knowledge Base Analytics</h3>
+                  <Activity className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Usage Patterns</h3>
                   <p className="text-muted-foreground">
-                    Upload documents to see detailed knowledge base analytics and usage patterns.
+                    Document usage tracking and analytics will be available soon
                   </p>
                 </div>
               </CardContent>
@@ -628,17 +744,165 @@ export default function Analytics() {
           </TabsContent>
 
           <TabsContent value="performance" className="space-y-6">
-            <Card>
+            {/* Performance Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">System Performance</h2>
+                <p className="text-sm text-muted-foreground">Monitor system health and response metrics</p>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="grid gap-6 md:grid-cols-4">
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(34,197,94,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">System Uptime</CardTitle>
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    % uptime
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Avg Latency</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {chatbotAnalytics ? `${Math.round(chatbotAnalytics.averageResponseTime)}ms` : <Badge variant="secondary">N/A</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <Activity className="inline h-3 w-3 mr-1" />
+                    System response
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(239,68,68,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-red-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+                  <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {chatbotAnalytics ? `${(100 - chatbotAnalytics.overallSuccessRate).toFixed(1)}%` : <Badge variant="secondary">N/A</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingDown className="inline h-3 w-3 mr-1" />
+                    Failed requests
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-purple-500/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Request Volume</CardTitle>
+                  <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    <TrendingUp className="inline h-3 w-3 mr-1" />
+                    Requests/min
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Response Time Breakdown */}
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Response Time Distribution</CardTitle>
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Breakdown of API response times</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      Response time analytics coming soon
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-green-500/40">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">System Health Score</CardTitle>
+                    <Badge variant="secondary">Coming Soon</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Overall system health metrics</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      Health score tracking coming soon
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Infrastructure Metrics */}
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-blue-500/40">
               <CardHeader>
-                <CardTitle>Performance Metrics</CardTitle>
-                <p className="text-sm text-muted-foreground">System performance and response times</p>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Infrastructure Monitoring</CardTitle>
+                  <Badge variant="secondary">Coming Soon</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">Database, storage, and compute metrics</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-6 md:grid-cols-3 py-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <BarChart3 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm font-medium">Database Performance</p>
+                    <p className="text-xs text-muted-foreground mt-1">Query times & connections</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm font-medium">Storage Usage</p>
+                    <p className="text-xs text-muted-foreground mt-1">Documents & media storage</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Activity className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm font-medium">Compute Usage</p>
+                    <p className="text-xs text-muted-foreground mt-1">CPU & memory metrics</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* API Performance */}
+            <Card className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-purple-500/40">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">API Endpoint Performance</CardTitle>
+                  <Badge variant="secondary">Coming Soon</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">Track performance by endpoint</p>
               </CardHeader>
               <CardContent>
                 <div className="text-center py-12">
-                  <BarChart3 className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Performance Analytics</h3>
+                  <Clock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Endpoint Analytics</h3>
                   <p className="text-muted-foreground">
-                    Performance metrics will be available as the system processes more requests.
+                    Detailed API endpoint performance tracking coming soon
                   </p>
                 </div>
               </CardContent>
