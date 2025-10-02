@@ -319,7 +319,7 @@ export default function AIProviders() {
       
       toast({
         title: "Refreshing",
-        description: `Running health checks for ${configuredProviders.length} configured providers...`,
+        description: `Running health checks and model refresh for ${configuredProviders.length} configured providers...`,
       });
 
       // Run health checks for all configured providers
@@ -340,11 +340,34 @@ export default function AIProviders() {
       const successful = results.filter(r => r.success && r.healthy).length;
       const failed = results.length - successful;
 
-      toast({
-        title: "Refresh Complete",
-        description: `${successful} providers healthy, ${failed} failed`,
-        variant: failed > 0 ? "destructive" : "default"
-      });
+      // Trigger model refresh for all active providers
+      try {
+        const { data: modelRefreshData, error: modelRefreshError } = await supabase.functions.invoke('ai-provider-model-refresh', {
+          body: {}
+        });
+
+        if (modelRefreshError) {
+          console.error('Model refresh error:', modelRefreshError);
+          toast({
+            title: "Partial Success",
+            description: `Health checks: ${successful} healthy, ${failed} failed. Model refresh encountered an error.`,
+            variant: "destructive"
+          });
+        } else {
+          const modelStats = modelRefreshData?.summary;
+          toast({
+            title: "Refresh Complete",
+            description: `Health: ${successful} healthy, ${failed} failed. Models: +${modelStats?.total_added || 0} added, ~${modelStats?.total_updated || 0} updated, -${modelStats?.total_deprecated || 0} deprecated`,
+          });
+        }
+      } catch (modelError: any) {
+        console.error('Model refresh failed:', modelError);
+        toast({
+          title: "Partial Success",
+          description: `Health checks: ${successful} healthy, ${failed} failed. Model refresh failed: ${modelError.message}`,
+          variant: "destructive"
+        });
+      }
       
       fetchProviders();
     } catch (error: any) {
