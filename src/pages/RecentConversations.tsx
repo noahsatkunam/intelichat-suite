@@ -1,45 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Bot, Clock, MessageSquare } from 'lucide-react';
+import { Search, Bot, Clock, MessageSquare, Filter } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Conversation {
   id: string;
   title: string;
   updated_at: string;
   chatbot_id: string;
+  user_id: string;
   chatbots?: {
     name: string;
     avatar_url: string | null;
   };
+  profiles?: {
+    name: string;
+    email: string;
+    tenant_id: string | null;
+  };
+}
+
+interface Chatbot {
+  id: string;
+  name: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Tenant {
+  id: string;
+  name: string;
 }
 
 export default function RecentConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedChatbot, setSelectedChatbot] = useState<string>('all');
+  const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [selectedTenant, setSelectedTenant] = useState<string>('all');
+  const [chatbots, setChatbots] = useState<Chatbot[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+  
+  const isGlobalAdmin = userProfile?.role === 'global_admin';
 
   useEffect(() => {
     fetchRecentConversations();
-  }, []);
+    fetchChatbots();
+    if (isGlobalAdmin) {
+      fetchUsers();
+      fetchTenants();
+    }
+  }, [isGlobalAdmin]);
 
   useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredConversations(conversations);
-    } else {
-      const filtered = conversations.filter(conversation =>
+    let filtered = conversations;
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(conversation =>
         conversation.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        conversation.chatbots?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        conversation.chatbots?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (isGlobalAdmin && conversation.profiles?.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (isGlobalAdmin && conversation.profiles?.email.toLowerCase().includes(searchQuery.toLowerCase()))
       );
-      setFilteredConversations(filtered);
     }
-  }, [searchQuery, conversations]);
+
+    // Filter by chatbot
+    if (selectedChatbot !== 'all') {
+      filtered = filtered.filter(conversation => conversation.chatbot_id === selectedChatbot);
+    }
+
+    // Filter by user (global admin only)
+    if (isGlobalAdmin && selectedUser !== 'all') {
+      filtered = filtered.filter(conversation => conversation.user_id === selectedUser);
+    }
+
+    // Filter by tenant (global admin only)
+    if (isGlobalAdmin && selectedTenant !== 'all') {
+      filtered = filtered.filter(conversation => conversation.profiles?.tenant_id === selectedTenant);
+    }
+
+    setFilteredConversations(filtered);
+  }, [searchQuery, conversations, selectedChatbot, selectedUser, selectedTenant, isGlobalAdmin]);
 
   const fetchRecentConversations = async () => {
     try {
@@ -47,29 +104,99 @@ export default function RecentConversations() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('conversations')
         .select(`
           id,
           title,
           updated_at,
           chatbot_id,
+          user_id,
           chatbots:chatbot_id (
             name,
             avatar_url
           )
         `)
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false })
-        .limit(50);
+        .order('updated_at', { ascending: false });
+
+      // If not global admin, filter by current user
+      if (!isGlobalAdmin) {
+        query = query.eq('user_id', user.id).limit(50);
+      } else {
+        query = query.limit(200);
+      }
+
+      const { data: conversationsData, error } = await query;
 
       if (error) throw error;
-      setConversations(data || []);
-      setFilteredConversations(data || []);
+
+      // If global admin, fetch profile data separately
+      if (isGlobalAdmin && conversationsData && conversationsData.length > 0) {
+        const userIds = [...new Set(conversationsData.map(c => c.user_id))];
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, name, email, tenant_id')
+          .in('id', userIds);
+
+        // Map profiles to conversations
+        const conversationsWithProfiles = conversationsData.map(conv => ({
+          ...conv,
+          profiles: profilesData?.find(p => p.id === conv.user_id)
+        }));
+
+        setConversations(conversationsWithProfiles as any);
+        setFilteredConversations(conversationsWithProfiles as any);
+      } else {
+        setConversations(conversationsData || []);
+        setFilteredConversations(conversationsData || []);
+      }
     } catch (error) {
       console.error('Error fetching recent conversations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchChatbots = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chatbots')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setChatbots(data || []);
+    } catch (error) {
+      console.error('Error fetching chatbots:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, name')
+        .order('name');
+
+      if (error) throw error;
+      setTenants(data || []);
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
     }
   };
 
@@ -113,22 +240,72 @@ export default function RecentConversations() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-2xl font-display font-bold text-foreground">Recent Conversations</h1>
-              <p className="text-muted-foreground">View and continue your chat history</p>
+              <p className="text-muted-foreground">
+                {isGlobalAdmin ? 'View all conversations across the platform' : 'View and continue your chat history'}
+              </p>
             </div>
             <Badge variant="secondary" className="text-sm">
-              {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+              {filteredConversations.length} / {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
             </Badge>
           </div>
           
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search conversations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          {/* Search and Filters */}
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search conversations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <Select value={selectedChatbot} onValueChange={setSelectedChatbot}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Chatbots" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Chatbots</SelectItem>
+                {chatbots.map((chatbot) => (
+                  <SelectItem key={chatbot.id} value={chatbot.id}>
+                    {chatbot.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {isGlobalAdmin && (
+              <>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name || user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Tenants" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Tenants</SelectItem>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -185,6 +362,11 @@ export default function RecentConversations() {
                         {conversation.chatbots?.name && (
                           <CardDescription className="text-xs truncate">
                             {conversation.chatbots.name}
+                          </CardDescription>
+                        )}
+                        {isGlobalAdmin && conversation.profiles && (
+                          <CardDescription className="text-xs truncate">
+                            {conversation.profiles.name || conversation.profiles.email}
                           </CardDescription>
                         )}
                       </div>
