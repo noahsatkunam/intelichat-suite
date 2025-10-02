@@ -129,10 +129,11 @@ export function AppSidebar() {
       >
         {/* Fixed Header */}
         <div className="sticky top-0 z-10 bg-sidebar border-b border-sidebar-border p-2">
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-2">
             <div className="p-2 rounded-lg bg-gradient-surface border border-sidebar-border shadow-soft hover:shadow-medium transition-all duration-300">
               <ZyriaLogo size="sm" showText={false} />
             </div>
+            <SidebarTrigger className="p-2 hover:bg-accent rounded-lg transition-colors" />
           </div>
         </div>
         
