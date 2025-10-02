@@ -177,7 +177,7 @@ export function TaskManagement({ className }: TaskManagementProps) {
     return (
       <div 
         key={task.id}
-        className={`flex items-start gap-3 p-4 rounded-lg border transition-all duration-200 hover:shadow-soft ${
+        className={`flex items-start gap-3 p-4 rounded-lg border transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] ${
           task.completed ? 'opacity-60 bg-muted/30' : 'bg-card hover:bg-accent/5'
         }`}
       >
@@ -263,7 +263,7 @@ export function TaskManagement({ className }: TaskManagementProps) {
   };
 
   return (
-    <Card className={className}>
+    <Card className={`${className} transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]`}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <div>

@@ -26,7 +26,7 @@ interface MetricCardProps {
 
 function MetricCard({ title, value, description, trend, icon }: MetricCardProps) {
   return (
-    <Card className="hover:shadow-soft transition-shadow">
+    <Card className="hover:shadow-soft transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <div className="text-muted-foreground">{icon}</div>
@@ -76,7 +76,7 @@ function SystemNotification({ title, message, type, timestamp }: SystemNotificat
   const Icon = config.icon;
 
   return (
-    <div className={`p-3 rounded-lg border ${config.bg} hover:shadow-soft transition-shadow`}>
+    <div className={`p-3 rounded-lg border ${config.bg} hover:shadow-soft transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)]`}>
       <div className="flex items-start gap-3">
         <Icon className={`w-4 h-4 mt-0.5 ${config.color}`} />
         <div className="flex-1 min-w-0">
@@ -153,7 +153,7 @@ export function DashboardWidgets({ className }: DashboardWidgetsProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* System Status */}
-        <Card>
+        <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">System Status</CardTitle>
             <CardDescription>Current performance indicators</CardDescription>
@@ -200,7 +200,7 @@ export function DashboardWidgets({ className }: DashboardWidgetsProps) {
         </Card>
 
         {/* System Notifications */}
-        <Card>
+        <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">System Notifications</CardTitle>
             <CardDescription>Recent updates and alerts</CardDescription>
@@ -216,32 +216,32 @@ export function DashboardWidgets({ className }: DashboardWidgetsProps) {
       </div>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
           <CardDescription>Frequently used features</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-200 hover:shadow-soft group text-left">
+            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
               <MessageSquare className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">New Chat</p>
               <p className="text-xs text-muted-foreground">Start conversation</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-200 hover:shadow-soft group text-left">
+            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
               <Brain className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">AI Models</p>
               <p className="text-xs text-muted-foreground">Manage providers</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-200 hover:shadow-soft group text-left">
+            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
               <Users className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">Team</p>
               <p className="text-xs text-muted-foreground">Manage users</p>
             </button>
             
-            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-200 hover:shadow-soft group text-left">
+            <button className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group text-left">
               <Activity className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
               <p className="text-sm font-medium">Analytics</p>
               <p className="text-xs text-muted-foreground">View reports</p>

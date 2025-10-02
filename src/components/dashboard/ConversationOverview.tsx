@@ -100,7 +100,7 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
   const renderConversation = (conversation: Conversation) => (
     <div 
       key={conversation.id}
-      className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-200 hover:shadow-soft group"
+      className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-all duration-300 hover:translate-y-[-2px] hover:shadow-[0_12px_24px_-6px_rgba(0,0,0,0.15)] shadow-[0_4px_8px_-2px_rgba(0,0,0,0.05)] group"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -188,7 +188,7 @@ export function ConversationOverview({ className }: ConversationOverviewProps) {
   );
 
   return (
-    <Card className={className}>
+    <Card className={`${className} transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]`}>
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold">Recent Conversations</CardTitle>
         <CardDescription>

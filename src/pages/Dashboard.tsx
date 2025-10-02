@@ -57,7 +57,7 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div 
                   onClick={() => navigate('/analytics')}
-                  className="p-6 rounded-lg border bg-gradient-surface hover:shadow-medium transition-all duration-200 cursor-pointer group"
+                  className="p-6 rounded-lg border bg-gradient-surface hover:shadow-medium transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] cursor-pointer group"
                 >
                   <TrendingUp className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-foreground mb-2">Analytics Dashboard</h3>
@@ -68,7 +68,7 @@ export default function Dashboard() {
                 
                 <div 
                   onClick={() => navigate('/admin/users')}
-                  className="p-6 rounded-lg border bg-gradient-surface hover:shadow-medium transition-all duration-200 cursor-pointer group"
+                  className="p-6 rounded-lg border bg-gradient-surface hover:shadow-medium transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] cursor-pointer group"
                 >
                   <Users className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
                   <h3 className="font-semibold text-foreground mb-2">Team Management</h3>
@@ -84,7 +84,7 @@ export default function Dashboard() {
               <TaskManagement />
               
               {/* AI Insights Card */}
-              <div className="p-6 rounded-lg border bg-gradient-surface">
+              <div className="p-6 rounded-lg border bg-gradient-surface transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)]">
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-lg bg-primary/10">
                     <Brain className="w-6 h-6 text-primary" />
