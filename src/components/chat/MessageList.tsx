@@ -55,7 +55,7 @@ export const MessageList: React.FC<MessageListProps> = ({ messages }) => {
             }`}
           >
             <Card
-              className={`p-4 ${
+              className={`p-4 transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] ${
                 message.role === 'user'
                   ? 'bg-primary text-primary-foreground ml-auto'
                   : 'bg-card'
