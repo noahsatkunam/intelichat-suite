@@ -57,10 +57,8 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         citations: msg.metadata?.citations,
       }));
       setMessages(formattedMessages);
-    } else {
-      // Create new conversation
-      initializeConversation();
     }
+    // Don't create conversation on mount - wait for first message
     checkUserRole();
   }, [chatbotId, existingConversationId, existingMessages]);
 
@@ -91,10 +89,10 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
     return userRole === 'global_admin' || userRole === 'tenant_admin';
   };
 
-  const initializeConversation = async () => {
+  const createConversationWithMessage = async (userMessage: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -103,13 +101,18 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         .single();
 
       // Allow null tenant_id for global admins, but require it for other users
-      if (!profile) return;
-      if (profile.role !== 'global_admin' && !profile.tenant_id) return;
+      if (!profile) return null;
+      if (profile.role !== 'global_admin' && !profile.tenant_id) return null;
 
       // Pre-generate an ID so we don't need to SELECT (which can be blocked by RLS)
       const newConversationId = (window.crypto && 'randomUUID' in window.crypto)
         ? window.crypto.randomUUID()
         : `${user.id}-${Date.now()}`;
+
+      // Use first 50 chars of user message as title
+      const initialTitle = userMessage.length > 50 
+        ? userMessage.substring(0, 50) + '...' 
+        : userMessage;
 
       // Create a new conversation (no .select() to avoid SELECT RLS on return)
       const { error } = await supabase
@@ -119,18 +122,50 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
           user_id: user.id,
           tenant_id: profile.tenant_id ?? null, // Can be null for global admins
           chatbot_id: chatbotId,
-          title: `Chat with ${chatbotName}`,
+          title: initialTitle,
         });
 
       if (error) throw error;
-      setConversationId(newConversationId);
+      return newConversationId;
     } catch (error: any) {
-      console.error('Error initializing conversation:', error);
+      console.error('Error creating conversation:', error);
       toast({
         title: "Error",
-        description: "Failed to initialize conversation",
+        description: "Failed to create conversation",
         variant: "destructive"
       });
+      return null;
+    }
+  };
+
+  const generateConversationTitle = async (conversationId: string, messageHistory: Message[]) => {
+    try {
+      // Generate a better title after 3+ messages
+      if (messageHistory.length < 3) return;
+
+      const conversationText = messageHistory
+        .slice(0, 5) // Use first 5 messages
+        .map(m => `${m.role}: ${m.content}`)
+        .join('\n');
+
+      const { data, error } = await supabase.functions.invoke('generate-title', {
+        body: { conversation: conversationText }
+      });
+
+      if (error) throw error;
+
+      if (data?.title) {
+        await supabase
+          .from('conversations')
+          .update({ 
+            title: data.title,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', conversationId);
+      }
+    } catch (error) {
+      console.error('Error generating title:', error);
+      // Don't show toast - this is a background operation
     }
   };
 
@@ -193,17 +228,24 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() && attachments.length === 0) return;
-    if (!conversationId) {
-      toast({
-        title: "Error",
-        description: "Conversation not initialized",
-        variant: "destructive"
-      });
-      return;
-    }
 
     try {
       setIsLoading(true);
+
+      // Create conversation on first message if it doesn't exist
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        activeConversationId = await createConversationWithMessage(inputMessage);
+        if (!activeConversationId) {
+          toast({
+            title: "Error",
+            description: "Failed to create conversation",
+            variant: "destructive"
+          });
+          return;
+        }
+        setConversationId(activeConversationId);
+      }
 
       // Upload attachments first
       const uploadedFiles = await uploadAttachments();
@@ -223,7 +265,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
       // Save user message to database
       await supabase.from('messages').insert({
-        conversation_id: conversationId,
+        conversation_id: activeConversationId,
         user_id: (await supabase.auth.getUser()).data.user?.id,
         role: 'user',
         content: inputMessage,
@@ -235,7 +277,7 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         body: {
           chatbot_id: chatbotId,
           message: inputMessage,
-          conversation_id: conversationId,
+          conversation_id: activeConversationId,
           attachments: uploadedFiles
         }
       });
@@ -255,12 +297,18 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
 
       // Save assistant message to database
       await supabase.from('messages').insert({
-        conversation_id: conversationId,
+        conversation_id: activeConversationId,
         user_id: (await supabase.auth.getUser()).data.user?.id,
         role: 'assistant',
         content: data.response,
         metadata: { citations: data.citations || [] }
       });
+
+      // Generate better title after a few messages
+      const updatedMessages = [...messages, userMessage, assistantMessage];
+      if (updatedMessages.length >= 3 && updatedMessages.length <= 6) {
+        generateConversationTitle(activeConversationId, updatedMessages);
+      }
 
     } catch (error: any) {
       console.error('Error sending message:', error);
