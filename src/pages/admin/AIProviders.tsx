@@ -404,7 +404,7 @@ export default function AIProviders() {
             const isConfigured = provider?.api_key_encrypted;
             
             return (
-              <Card key={providerType.value} className="relative">
+              <Card key={providerType.value} className="relative overflow-hidden transition-all duration-300 hover:translate-y-[-4px] hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.25)] shadow-[0_8px_16px_-4px_rgba(0,0,0,0.1)] border-t-2 border-t-primary/20">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
