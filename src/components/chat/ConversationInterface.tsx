@@ -22,7 +22,6 @@ interface ConversationInterfaceProps {
   chatbotId: string;
   chatbotName: string;
   onBack: () => void;
-  onNewChat?: () => void;
   existingConversationId?: string | null;
   existingMessages?: any[];
 }
@@ -31,7 +30,6 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
   chatbotId,
   chatbotName,
   onBack,
-  onNewChat,
   existingConversationId,
   existingMessages,
 }) => {

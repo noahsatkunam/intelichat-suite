@@ -151,9 +151,21 @@ export default function Chat() {
   const handleSelectConversation = async (conversationId: string) => {
     try {
       const messages = await conversationService.fetchConversationMessages(conversationId);
+      
+      // Fetch the conversation to get chatbot info
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('chatbot_id, chatbots:chatbot_id(id, name, description, avatar_url, is_active, model_name)')
+        .eq('id', conversationId)
+        .single();
+      
       setConversationMessages(messages);
       setSelectedConversationId(conversationId);
-      setSelectedChatbot(null);
+      
+      // Keep the chatbot selected if we have one
+      if (conversation?.chatbots) {
+        setSelectedChatbot(conversation.chatbots as any);
+      }
     } catch (error: any) {
       console.error('Error loading conversation:', error);
       toast({
@@ -174,6 +186,10 @@ export default function Chat() {
     // Reset conversation but keep the selected chatbot
     setSelectedConversationId(null);
     setConversationMessages([]);
+    // Force a re-render by creating a new chatbot reference
+    if (selectedChatbot) {
+      setSelectedChatbot({ ...selectedChatbot });
+    }
   };
 
   const handleCustomAI = () => {
@@ -193,10 +209,12 @@ export default function Chat() {
         </div>
         <div className="flex-1">
           <ConversationInterface
+            key={selectedConversationId || 'new'} // Force re-render on conversation change
             chatbotId={selectedChatbot.id}
             chatbotName={selectedChatbot.name}
             onBack={handleNewChat}
-            onNewChat={handleNewChatSameChatbot}
+            existingConversationId={selectedConversationId}
+            existingMessages={conversationMessages}
           />
         </div>
       </div>
