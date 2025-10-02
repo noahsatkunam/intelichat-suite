@@ -7,8 +7,71 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to adapt messages for different provider formats
+function adaptMessagesForProvider(config: {
+  providerType: string;
+  systemPrompt: string;
+  userMessage: string;
+  history?: any[];
+  attachments?: any[];
+}) {
+  const { providerType, systemPrompt, userMessage, history = [], attachments = [] } = config;
+
+  switch (providerType) {
+    case 'openai':
+    case 'mistral':
+    case 'meta':
+    case 'xai':
+    case 'custom':
+      // OpenAI-compatible: system message in messages array
+      return {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...history,
+          { role: 'user', content: userMessage }
+        ]
+      };
+
+    case 'anthropic':
+      // Anthropic: system as top-level field, no system messages in array
+      return {
+        system: systemPrompt,
+        messages: [
+          ...history.filter((m: any) => m.role !== 'system'),
+          { role: 'user', content: userMessage }
+        ]
+      };
+
+    case 'google':
+      // Google Gemini: systemInstruction field + contents array
+      const contents = [
+        ...history.filter((m: any) => m.role !== 'system').map((m: any) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }]
+        })),
+        {
+          role: 'user',
+          parts: [{ text: userMessage }]
+        }
+      ];
+
+      // Add attachments if present (for multimodal)
+      if (attachments.length > 0) {
+        contents[contents.length - 1].parts.push(...attachments);
+      }
+
+      return {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents
+      };
+
+    default:
+      throw new Error(`Unsupported provider type: ${providerType}`);
+  }
+}
+
 // Helper function to call OpenAI API
-async function callOpenAI(apiKey: string, model: string, messages: any[], params: any) {
+async function callOpenAI(apiKey: string, model: string, adaptedPayload: any, params: any) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -17,7 +80,7 @@ async function callOpenAI(apiKey: string, model: string, messages: any[], params
     },
     body: JSON.stringify({
       model,
-      messages,
+      messages: adaptedPayload.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
       top_p: params.top_p,
@@ -39,7 +102,7 @@ async function callOpenAI(apiKey: string, model: string, messages: any[], params
 }
 
 // Helper function to call Anthropic API
-async function callAnthropic(apiKey: string, model: string, messages: any[], params: any) {
+async function callAnthropic(apiKey: string, model: string, adaptedPayload: any, params: any) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -49,8 +112,8 @@ async function callAnthropic(apiKey: string, model: string, messages: any[], par
     },
     body: JSON.stringify({
       model,
-      messages: messages.filter(m => m.role !== 'system'),
-      system: messages.find(m => m.role === 'system')?.content || '',
+      system: adaptedPayload.system,
+      messages: adaptedPayload.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
       top_p: params.top_p,
@@ -70,18 +133,15 @@ async function callAnthropic(apiKey: string, model: string, messages: any[], par
 }
 
 // Helper function to call Google Gemini API
-async function callGoogle(apiKey: string, model: string, messages: any[], params: any) {
-  const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
-  
+async function callGoogle(apiKey: string, model: string, adaptedPayload: any, params: any) {
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
+      systemInstruction: adaptedPayload.systemInstruction,
+      contents: adaptedPayload.contents,
       generationConfig: {
         temperature: params.temperature,
         topP: params.top_p,
@@ -103,7 +163,7 @@ async function callGoogle(apiKey: string, model: string, messages: any[], params
 }
 
 // Helper function to call Mistral API
-async function callMistral(apiKey: string, model: string, messages: any[], params: any) {
+async function callMistral(apiKey: string, model: string, adaptedPayload: any, params: any) {
   const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -112,7 +172,7 @@ async function callMistral(apiKey: string, model: string, messages: any[], param
     },
     body: JSON.stringify({
       model,
-      messages,
+      messages: adaptedPayload.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
       top_p: params.top_p,
@@ -132,7 +192,7 @@ async function callMistral(apiKey: string, model: string, messages: any[], param
 }
 
 // Helper function to call xAI API
-async function callXai(apiKey: string, model: string, messages: any[], params: any) {
+async function callXai(apiKey: string, model: string, adaptedPayload: any, params: any) {
   const response = await fetch('https://api.x.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -141,7 +201,7 @@ async function callXai(apiKey: string, model: string, messages: any[], params: a
     },
     body: JSON.stringify({
       model,
-      messages,
+      messages: adaptedPayload.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
     }),
@@ -160,7 +220,7 @@ async function callXai(apiKey: string, model: string, messages: any[], params: a
 }
 
 // Helper function to call custom provider
-async function callCustom(provider: any, model: string, messages: any[], params: any) {
+async function callCustom(provider: any, model: string, adaptedPayload: any, params: any) {
   const headers: any = {
     'Content-Type': 'application/json',
   };
@@ -178,7 +238,7 @@ async function callCustom(provider: any, model: string, messages: any[], params:
     headers,
     body: JSON.stringify({
       model,
-      messages,
+      messages: adaptedPayload.messages,
       max_tokens: params.max_tokens,
       temperature: params.temperature,
     }),
@@ -197,22 +257,22 @@ async function callCustom(provider: any, model: string, messages: any[], params:
 }
 
 // Main routing function
-async function callProvider(provider: any, model: string, messages: any[], params: any) {
+async function callProvider(provider: any, model: string, adaptedPayload: any, params: any) {
   console.log(`Routing to provider: ${provider.name} (${provider.type})`);
 
   switch (provider.type) {
     case 'openai':
-      return await callOpenAI(provider.api_key_encrypted, model, messages, params);
+      return await callOpenAI(provider.api_key_encrypted, model, adaptedPayload, params);
     case 'anthropic':
-      return await callAnthropic(provider.api_key_encrypted, model, messages, params);
+      return await callAnthropic(provider.api_key_encrypted, model, adaptedPayload, params);
     case 'google':
-      return await callGoogle(provider.api_key_encrypted, model, messages, params);
+      return await callGoogle(provider.api_key_encrypted, model, adaptedPayload, params);
     case 'mistral':
-      return await callMistral(provider.api_key_encrypted, model, messages, params);
+      return await callMistral(provider.api_key_encrypted, model, adaptedPayload, params);
     case 'xai':
-      return await callXai(provider.api_key_encrypted, model, messages, params);
+      return await callXai(provider.api_key_encrypted, model, adaptedPayload, params);
     case 'custom':
-      return await callCustom(provider, model, messages, params);
+      return await callCustom(provider, model, adaptedPayload, params);
     default:
       throw new Error(`Unsupported provider type: ${provider.type}`);
   }
@@ -313,12 +373,6 @@ serve(async (req) => {
     // Prepare system prompt with knowledge base
     const systemPrompt = `${chatbot.system_prompt || 'You are a helpful AI assistant.'}\n${knowledgeContext}`;
 
-    // Prepare messages
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: message }
-    ];
-
     // Prepare parameters
     const params = {
       max_tokens: chatbot.max_tokens || 1000,
@@ -338,7 +392,16 @@ serve(async (req) => {
     // Try primary provider first
     if (primaryProvider) {
       try {
-        const result = await callProvider(primaryProvider, model, messages, params);
+        // Adapt messages for the provider's expected format
+        const adaptedPayload = adaptMessagesForProvider({
+          providerType: primaryProvider.type,
+          systemPrompt,
+          userMessage: message,
+          history: [], // TODO: Add conversation history support
+          attachments: attachments || []
+        });
+
+        const result = await callProvider(primaryProvider, model, adaptedPayload, params);
         aiResponse = result.content;
         usedModel = result.model;
         usedProvider = primaryProvider;
@@ -350,7 +413,16 @@ serve(async (req) => {
         // Try fallback provider
         if (fallbackProvider) {
           try {
-            const result = await callProvider(fallbackProvider, chatbot.fallback_model_name || model, messages, params);
+            // Adapt messages for fallback provider's expected format
+            const adaptedPayload = adaptMessagesForProvider({
+              providerType: fallbackProvider.type,
+              systemPrompt,
+              userMessage: message,
+              history: [],
+              attachments: attachments || []
+            });
+
+            const result = await callProvider(fallbackProvider, chatbot.fallback_model_name || model, adaptedPayload, params);
             aiResponse = result.content;
             usedModel = result.model;
             usedProvider = fallbackProvider;
