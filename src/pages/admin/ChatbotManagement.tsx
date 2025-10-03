@@ -81,7 +81,10 @@ const chatbotSchema = z.object({
   model_name: z.string().min(1, 'Model is required'),
   fallback_model_name: z.string().optional(),
   temperature: z.number().min(0).max(2),
-  max_tokens: z.number().min(1).max(32000),
+  max_tokens: z.number().min(1).max(200000),
+  fallback_max_tokens: z.number().min(1).max(200000),
+  auto_max_tokens: z.boolean(),
+  auto_fallback_max_tokens: z.boolean(),
   top_p: z.number().min(0).max(1),
   frequency_penalty: z.number().min(0).max(2),
   presence_penalty: z.number().min(0).max(2),
@@ -112,6 +115,8 @@ export default function ChatbotManagement() {
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([]);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [primaryModelMaxTokens, setPrimaryModelMaxTokens] = useState<number>(8192);
+  const [fallbackModelMaxTokens, setFallbackModelMaxTokens] = useState<number>(8192);
 
   const form = useForm({
     resolver: zodResolver(chatbotSchema),
@@ -125,6 +130,9 @@ export default function ChatbotManagement() {
       fallback_model_name: '',
       temperature: 0.7,
       max_tokens: 1000,
+      fallback_max_tokens: 1000,
+      auto_max_tokens: false,
+      auto_fallback_max_tokens: false,
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
@@ -141,6 +149,66 @@ export default function ChatbotManagement() {
   
   const fallbackProviderType = providers.find(p => p.id === form.watch('fallback_ai_provider_id'))?.type;
   const modelsForFallbackProvider = availableModels.filter(m => m.provider_type === fallbackProviderType);
+
+  // Watch for model changes to update token limits
+  const selectedModelName = form.watch('model_name');
+  const selectedFallbackModelName = form.watch('fallback_model_name');
+  const autoMaxTokens = form.watch('auto_max_tokens');
+  const autoFallbackMaxTokens = form.watch('auto_fallback_max_tokens');
+
+  // Update primary model max tokens when model changes
+  useEffect(() => {
+    if (selectedModelName && selectedProviderType) {
+      const model = availableModels.find(
+        m => m.model_name === selectedModelName && m.provider_type === selectedProviderType
+      );
+      if (model?.max_context_length) {
+        setPrimaryModelMaxTokens(model.max_context_length);
+        
+        // If auto mode is enabled, update max_tokens to model max
+        if (autoMaxTokens) {
+          form.setValue('max_tokens', model.max_context_length);
+        } else {
+          // If manual mode and current value exceeds new model's max, reset to new max
+          const currentMaxTokens = form.getValues('max_tokens');
+          if (currentMaxTokens > model.max_context_length) {
+            form.setValue('max_tokens', model.max_context_length);
+            toast({
+              title: "Token Limit Adjusted",
+              description: `Max tokens reduced to ${model.max_context_length.toLocaleString()} to match the new model's limit.`,
+            });
+          }
+        }
+      }
+    }
+  }, [selectedModelName, selectedProviderType, autoMaxTokens, availableModels, form, toast]);
+
+  // Update fallback model max tokens when fallback model changes
+  useEffect(() => {
+    if (selectedFallbackModelName && fallbackProviderType) {
+      const model = availableModels.find(
+        m => m.model_name === selectedFallbackModelName && m.provider_type === fallbackProviderType
+      );
+      if (model?.max_context_length) {
+        setFallbackModelMaxTokens(model.max_context_length);
+        
+        // If auto mode is enabled, update fallback_max_tokens to model max
+        if (autoFallbackMaxTokens) {
+          form.setValue('fallback_max_tokens', model.max_context_length);
+        } else {
+          // If manual mode and current value exceeds new model's max, reset to new max
+          const currentMaxTokens = form.getValues('fallback_max_tokens');
+          if (currentMaxTokens > model.max_context_length) {
+            form.setValue('fallback_max_tokens', model.max_context_length);
+            toast({
+              title: "Fallback Token Limit Adjusted",
+              description: `Fallback max tokens reduced to ${model.max_context_length.toLocaleString()} to match the new model's limit.`,
+            });
+          }
+        }
+      }
+    }
+  }, [selectedFallbackModelName, fallbackProviderType, autoFallbackMaxTokens, availableModels, form, toast]);
 
   useEffect(() => {
     fetchChatbots();
@@ -261,6 +329,9 @@ export default function ChatbotManagement() {
       fallback_model_name: '',
       temperature: 0.7,
       max_tokens: 1000,
+      fallback_max_tokens: 1000,
+      auto_max_tokens: false,
+      auto_fallback_max_tokens: false,
       top_p: 1.0,
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
@@ -278,6 +349,8 @@ export default function ChatbotManagement() {
     setUploadedDocs([]);
     setAvatarFile(null);
     setAvatarPreview('');
+    setPrimaryModelMaxTokens(8192);
+    setFallbackModelMaxTokens(8192);
     setIsDialogOpen(true);
   };
 
@@ -304,6 +377,9 @@ export default function ChatbotManagement() {
       fallback_model_name: (chatbot as any).fallback_model_name || '',
       temperature: chatbot.temperature || 0.7,
       max_tokens: chatbot.max_tokens || 1000,
+      fallback_max_tokens: (chatbot as any).fallback_max_tokens || 1000,
+      auto_max_tokens: (chatbot as any).auto_max_tokens || false,
+      auto_fallback_max_tokens: (chatbot as any).auto_fallback_max_tokens || false,
       top_p: chatbot.top_p || 1.0,
       frequency_penalty: chatbot.frequency_penalty || 0.0,
       presence_penalty: chatbot.presence_penalty || 0.0,
@@ -552,6 +628,33 @@ export default function ChatbotManagement() {
         tenantId = profile.tenant_id;
       }
 
+      // Validate token limits against model capabilities
+      const primaryModel = availableModels.find(
+        m => m.model_name === data.model_name && m.provider_type === selectedProviderType
+      );
+      if (primaryModel && data.max_tokens > primaryModel.max_context_length) {
+        toast({
+          title: "Invalid Configuration",
+          description: `Max tokens (${data.max_tokens.toLocaleString()}) exceeds the primary model's limit of ${primaryModel.max_context_length.toLocaleString()} tokens.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data.fallback_ai_provider_id && data.fallback_model_name) {
+        const fallbackModel = availableModels.find(
+          m => m.model_name === data.fallback_model_name && m.provider_type === fallbackProviderType
+        );
+        if (fallbackModel && data.fallback_max_tokens > fallbackModel.max_context_length) {
+          toast({
+            title: "Invalid Configuration",
+            description: `Fallback max tokens (${data.fallback_max_tokens.toLocaleString()}) exceeds the fallback model's limit of ${fallbackModel.max_context_length.toLocaleString()} tokens.`,
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+
       const chatbotData = {
         name: data.name,
         description: data.description || null,
@@ -562,6 +665,9 @@ export default function ChatbotManagement() {
         fallback_model_name: data.fallback_model_name || null,
         temperature: data.temperature,
         max_tokens: data.max_tokens,
+        fallback_max_tokens: data.fallback_max_tokens,
+        auto_max_tokens: data.auto_max_tokens,
+        auto_fallback_max_tokens: data.auto_fallback_max_tokens,
         top_p: data.top_p,
         frequency_penalty: data.frequency_penalty,
         presence_penalty: data.presence_penalty,
@@ -1521,29 +1627,6 @@ export default function ChatbotManagement() {
                       
                       <FormField
                         control={form.control}
-                        name="max_tokens"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Max Tokens</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min={1} 
-                                max={32000}
-                                {...field} 
-                                onChange={(e) => field.onChange(parseInt(e.target.value))} 
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              Response length
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
                         name="top_p"
                         render={({ field }) => (
                           <FormItem>
@@ -1587,30 +1670,204 @@ export default function ChatbotManagement() {
                           </FormItem>
                         )}
                       />
+
+                      <FormField
+                        control={form.control}
+                        name="presence_penalty"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Presence Penalty: {field.value}</FormLabel>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                value={[field.value]}
+                                onValueChange={(values) => field.onChange(values[0])}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              Topic diversity
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="presence_penalty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Presence Penalty: {field.value}</FormLabel>
-                          <FormControl>
-                            <Slider
-                              min={0}
-                              max={2}
-                              step={0.1}
-                              value={[field.value]}
-                              onValueChange={(values) => field.onChange(values[0])}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Topic diversity
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {/* Primary Model Token Configuration */}
+                    <div className="space-y-4 border border-primary/20 rounded-lg p-4 bg-gradient-to-br from-primary/5 to-transparent">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <h4 className="text-sm font-semibold flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-primary" />
+                            Primary Model Token Limit
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            Configure maximum response length for the primary model
+                          </p>
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name="auto_max_tokens"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center gap-2 space-y-0">
+                              <FormLabel className="text-sm font-normal">Auto</FormLabel>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked);
+                                    if (checked) {
+                                      form.setValue('max_tokens', primaryModelMaxTokens);
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="max_tokens"
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className="flex items-center justify-between mb-2">
+                              <FormLabel className="text-sm">
+                                Max Tokens: {field.value.toLocaleString()} of {primaryModelMaxTokens.toLocaleString()}
+                              </FormLabel>
+                              {!autoMaxTokens && (
+                                <Input 
+                                  type="number" 
+                                  min={100} 
+                                  max={primaryModelMaxTokens}
+                                  value={field.value}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val >= 100 && val <= primaryModelMaxTokens) {
+                                      field.onChange(val);
+                                    }
+                                  }}
+                                  className="w-32 h-8 text-sm"
+                                />
+                              )}
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={100}
+                                max={primaryModelMaxTokens}
+                                step={100}
+                                value={[field.value]}
+                                onValueChange={(values) => {
+                                  if (!autoMaxTokens) {
+                                    field.onChange(values[0]);
+                                  }
+                                }}
+                                disabled={autoMaxTokens}
+                                className={autoMaxTokens ? 'opacity-50' : ''}
+                              />
+                            </FormControl>
+                            <FormDescription className="text-xs">
+                              {autoMaxTokens 
+                                ? `Automatically set to model maximum (${primaryModelMaxTokens.toLocaleString()} tokens)`
+                                : `Adjust the maximum number of tokens for responses (100 - ${primaryModelMaxTokens.toLocaleString()})`
+                              }
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Fallback Model Token Configuration */}
+                    {form.watch('fallback_ai_provider_id') && form.watch('fallback_model_name') && (
+                      <div className="space-y-4 border border-primary/20 rounded-lg p-4 bg-gradient-to-br from-primary/5 to-transparent">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <h4 className="text-sm font-semibold flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-amber-500" />
+                              Fallback Model Token Limit
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Configure maximum response length for the fallback model
+                            </p>
+                          </div>
+                          <FormField
+                            control={form.control}
+                            name="auto_fallback_max_tokens"
+                            render={({ field }) => (
+                              <FormItem className="flex items-center gap-2 space-y-0">
+                                <FormLabel className="text-sm font-normal">Auto</FormLabel>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={(checked) => {
+                                      field.onChange(checked);
+                                      if (checked) {
+                                        form.setValue('fallback_max_tokens', fallbackModelMaxTokens);
+                                      }
+                                    }}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="fallback_max_tokens"
+                          render={({ field }) => (
+                            <FormItem>
+                              <div className="flex items-center justify-between mb-2">
+                                <FormLabel className="text-sm">
+                                  Max Tokens: {field.value.toLocaleString()} of {fallbackModelMaxTokens.toLocaleString()}
+                                </FormLabel>
+                                {!autoFallbackMaxTokens && (
+                                  <Input 
+                                    type="number" 
+                                    min={100} 
+                                    max={fallbackModelMaxTokens}
+                                    value={field.value}
+                                    onChange={(e) => {
+                                      const val = parseInt(e.target.value);
+                                      if (!isNaN(val) && val >= 100 && val <= fallbackModelMaxTokens) {
+                                        field.onChange(val);
+                                      }
+                                    }}
+                                    className="w-32 h-8 text-sm"
+                                  />
+                                )}
+                              </div>
+                              <FormControl>
+                                <Slider
+                                  min={100}
+                                  max={fallbackModelMaxTokens}
+                                  step={100}
+                                  value={[field.value]}
+                                  onValueChange={(values) => {
+                                    if (!autoFallbackMaxTokens) {
+                                      field.onChange(values[0]);
+                                    }
+                                  }}
+                                  disabled={autoFallbackMaxTokens}
+                                  className={autoFallbackMaxTokens ? 'opacity-50' : ''}
+                                />
+                              </FormControl>
+                              <FormDescription className="text-xs">
+                                {autoFallbackMaxTokens 
+                                  ? `Automatically set to model maximum (${fallbackModelMaxTokens.toLocaleString()} tokens)`
+                                  : `Adjust the maximum number of tokens for fallback responses (100 - ${fallbackModelMaxTokens.toLocaleString()})`
+                                }
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
 
                     {/* Activation */}
                     <FormField

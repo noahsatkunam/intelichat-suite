@@ -283,12 +283,15 @@ export type Database = {
       }
       chatbots: {
         Row: {
+          auto_fallback_max_tokens: boolean | null
           auto_map_fallback_model: boolean | null
+          auto_max_tokens: boolean | null
           avatar_url: string | null
           created_at: string
           created_by: string | null
           description: string | null
           fallback_ai_provider_id: string | null
+          fallback_max_tokens: number | null
           fallback_model_name: string | null
           frequency_penalty: number | null
           id: string
@@ -305,12 +308,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_fallback_max_tokens?: boolean | null
           auto_map_fallback_model?: boolean | null
+          auto_max_tokens?: boolean | null
           avatar_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          fallback_max_tokens?: number | null
           fallback_model_name?: string | null
           frequency_penalty?: number | null
           id?: string
@@ -327,12 +333,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_fallback_max_tokens?: boolean | null
           auto_map_fallback_model?: boolean | null
+          auto_max_tokens?: boolean | null
           avatar_url?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           fallback_ai_provider_id?: string | null
+          fallback_max_tokens?: number | null
           fallback_model_name?: string | null
           frequency_penalty?: number | null
           id?: string
