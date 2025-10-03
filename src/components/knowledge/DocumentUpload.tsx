@@ -77,30 +77,49 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
 
   const uploadToSupabase = async (file: File, fileId: string) => {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('Authentication error:', authError);
         throw new Error('Not authenticated');
       }
 
-      // Get user's tenant_id
-      const { data: profile } = await supabase
+      // Try to get user's profile with tenant_id
+      let profileQuery = await supabase
         .from('profiles')
-        .select('tenant_id')
+        .select('tenant_id, id, email')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profile?.tenant_id) {
-        throw new Error('User tenant not found');
+      // If profile not found by ID, try by email as fallback
+      if (!profileQuery.data && user.email) {
+        console.warn(`Profile not found by ID ${user.id}, trying by email ${user.email}`);
+        profileQuery = await supabase
+          .from('profiles')
+          .select('tenant_id, id, email')
+          .eq('email', user.email)
+          .maybeSingle();
       }
+
+      if (!profileQuery.data?.tenant_id) {
+        console.error('Profile lookup failed:', { 
+          userId: user.id, 
+          email: user.email, 
+          profile: profileQuery.data,
+          error: profileQuery.error 
+        });
+        throw new Error('Unable to find user profile. Please refresh the page or contact support.');
+      }
+
+      const profile = profileQuery.data;
 
       // Show upload progress
       setUploadedFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, progress: 50 } : f
       ));
 
-      // Upload to storage
-      const filePath = `${profile.tenant_id}/${Date.now()}_${file.name}`;
+      // Upload to storage with proper folder structure
+      const filePath = `${profile.tenant_id}/${user.id}/${Date.now()}_${file.name}`;
       
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -118,7 +137,7 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
         f.id === fileId ? { ...f, status: 'processing', progress: 0 } : f
       ));
 
-      // Create document record
+      // Create document record with content field
       const { error: dbError } = await supabase
         .from('documents')
         .insert({
@@ -126,7 +145,8 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
           file_url: urlData.publicUrl,
           status: 'ready',
           uploaded_by: user.id,
-          tenant_id: profile.tenant_id
+          tenant_id: profile.tenant_id,
+          content: `Uploaded via knowledge base - ${file.name}`
         });
 
       if (dbError) throw dbError;

@@ -328,30 +328,51 @@ export default function ChatbotManagement() {
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Get authenticated user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error('Authentication error:', authError);
       toast({
-        title: "Error",
+        title: "Authentication Required",
         description: "You must be logged in to upload documents",
         variant: "destructive"
       });
       return;
     }
 
-    const { data: profile } = await supabase
+    // Try to get user's profile with tenant_id
+    let profileQuery = await supabase
       .from('profiles')
-      .select('tenant_id')
+      .select('tenant_id, id, email')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    if (!profile?.tenant_id) {
+    // If profile not found by ID, try by email as fallback
+    if (!profileQuery.data && user.email) {
+      console.warn(`Profile not found by ID ${user.id}, trying by email ${user.email}`);
+      profileQuery = await supabase
+        .from('profiles')
+        .select('tenant_id, id, email')
+        .eq('email', user.email)
+        .maybeSingle();
+    }
+
+    if (!profileQuery.data?.tenant_id) {
+      console.error('Profile lookup failed:', { 
+        userId: user.id, 
+        email: user.email, 
+        profile: profileQuery.data,
+        error: profileQuery.error 
+      });
       toast({
-        title: "Error",
-        description: "User profile not found",
+        title: "Profile Error",
+        description: "Unable to find user profile. Please refresh the page and try again, or contact support if the issue persists.",
         variant: "destructive"
       });
       return;
     }
+
+    const profile = profileQuery.data;
 
     for (const file of Array.from(files)) {
       const fileId = `${Date.now()}-${file.name}`;
