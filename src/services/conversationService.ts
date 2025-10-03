@@ -36,6 +36,7 @@ export const conversationService = {
         )
       `)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false });
 
     // Only filter by tenant_id if it's not null (for non-global admins)
@@ -54,6 +55,7 @@ export const conversationService = {
           .from('messages')
           .select('content, timestamp')
           .eq('conversation_id', conv.id)
+          .is('deleted_at', null)
           .order('timestamp', { ascending: false })
           .limit(1)
           .maybeSingle(); // Use maybeSingle() to handle 0 rows gracefully
@@ -84,18 +86,19 @@ export const conversationService = {
   },
 
   async deleteConversation(conversationId: string): Promise<void> {
-    // Delete messages first (due to foreign key)
+    // Soft delete: Set deleted_at timestamp for messages
     const { error: messagesError } = await supabase
       .from('messages')
-      .delete()
-      .eq('conversation_id', conversationId);
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .is('deleted_at', null);
 
     if (messagesError) throw messagesError;
 
-    // Then delete conversation
+    // Soft delete: Set deleted_at timestamp for conversation
     const { error } = await supabase
       .from('conversations')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', conversationId);
 
     if (error) throw error;
@@ -106,6 +109,7 @@ export const conversationService = {
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
+      .is('deleted_at', null)
       .order('timestamp', { ascending: true });
 
     if (error) throw error;

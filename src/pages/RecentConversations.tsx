@@ -127,6 +127,7 @@ export default function RecentConversations() {
             avatar_url
           )
         `)
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       // If not global admin, filter by current user

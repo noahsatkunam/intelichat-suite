@@ -376,6 +376,7 @@ export type Database = {
         Row: {
           chatbot_id: string | null
           created_at: string | null
+          deleted_at: string | null
           id: string
           tenant_id: string | null
           title: string
@@ -385,6 +386,7 @@ export type Database = {
         Insert: {
           chatbot_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           tenant_id?: string | null
           title: string
@@ -394,6 +396,7 @@ export type Database = {
         Update: {
           chatbot_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           tenant_id?: string | null
           title?: string
@@ -504,6 +507,7 @@ export type Database = {
         Row: {
           content: string
           conversation_id: string
+          deleted_at: string | null
           id: string
           metadata: Json | null
           role: string
@@ -513,6 +517,7 @@ export type Database = {
         Insert: {
           content: string
           conversation_id: string
+          deleted_at?: string | null
           id?: string
           metadata?: Json | null
           role: string
@@ -522,6 +527,7 @@ export type Database = {
         Update: {
           content?: string
           conversation_id?: string
+          deleted_at?: string | null
           id?: string
           metadata?: Json | null
           role?: string
