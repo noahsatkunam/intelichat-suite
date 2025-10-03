@@ -463,13 +463,6 @@ export default function ChatbotManagement() {
         }
       }
 
-      // Get current user's tenant_id
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('tenant_id')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
       // Handle avatar upload if a new file was selected
       let avatarUrl = data.avatar_url;
       if (avatarFile) {
@@ -489,6 +482,25 @@ export default function ChatbotManagement() {
         avatarUrl = publicUrl;
       }
 
+      // Determine tenant_id based on mode
+      let tenantId: string;
+      if (dialogMode === 'edit' && selectedChatbot) {
+        // Preserve existing tenant_id when editing
+        tenantId = selectedChatbot.tenant_id;
+      } else {
+        // Get current user's tenant_id for new chatbots
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('tenant_id')
+          .eq('id', (await supabase.auth.getUser()).data.user?.id)
+          .single();
+        
+        if (!profile?.tenant_id) {
+          throw new Error('User tenant not found');
+        }
+        tenantId = profile.tenant_id;
+      }
+
       const chatbotData = {
         name: data.name,
         description: data.description || null,
@@ -504,7 +516,7 @@ export default function ChatbotManagement() {
         presence_penalty: data.presence_penalty,
         is_active: data.is_active,
         auto_map_fallback_model: data.auto_map_fallback_model,
-        tenant_id: profile?.tenant_id,
+        tenant_id: tenantId,
         avatar_url: avatarUrl || null
       };
 
