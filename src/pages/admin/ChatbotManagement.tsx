@@ -328,7 +328,7 @@ export default function ChatbotManagement() {
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
-    // Get authenticated user
+    // Get user profile
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       console.error('Authentication error:', authError);
@@ -340,33 +340,28 @@ export default function ChatbotManagement() {
       return;
     }
 
-    // Try to get user's profile with tenant_id
+    // Get profile with role information
     let profileQuery = await supabase
       .from('profiles')
-      .select('tenant_id, id, email')
+      .select('tenant_id, id, email, role')
       .eq('id', user.id)
       .maybeSingle();
 
-    // If profile not found by ID, try by email as fallback
+    // Fallback to email lookup
     if (!profileQuery.data && user.email) {
       console.warn(`Profile not found by ID ${user.id}, trying by email ${user.email}`);
       profileQuery = await supabase
         .from('profiles')
-        .select('tenant_id, id, email')
+        .select('tenant_id, id, email, role')
         .eq('email', user.email)
         .maybeSingle();
     }
 
-    if (!profileQuery.data?.tenant_id) {
-      console.error('Profile lookup failed:', { 
-        userId: user.id, 
-        email: user.email, 
-        profile: profileQuery.data,
-        error: profileQuery.error 
-      });
+    if (!profileQuery.data) {
+      console.error('Profile not found:', { userId: user.id, email: user.email });
       toast({
-        title: "Profile Error",
-        description: "Unable to find user profile. Please refresh the page and try again, or contact support if the issue persists.",
+        title: "Profile Not Found",
+        description: "Unable to find your user profile. Please refresh and try again.",
         variant: "destructive"
       });
       return;
@@ -374,13 +369,48 @@ export default function ChatbotManagement() {
 
     const profile = profileQuery.data;
 
+    // For global_admin users, determine tenant from selected tenants
+    let effectiveTenantId = profile.tenant_id;
+    
+    if (profile.role === 'global_admin' && !profile.tenant_id) {
+      const selectedTenants = form.getValues('tenant_ids') || [];
+      
+      if (selectedTenants.length === 0) {
+        toast({
+          title: "Select Tenant",
+          description: "Please select at least one tenant before uploading documents.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (selectedTenants.length > 1) {
+        toast({
+          title: "Multiple Tenants Selected",
+          description: "Documents will be uploaded to the first selected tenant's context.",
+        });
+      }
+      
+      effectiveTenantId = selectedTenants[0];
+    }
+
+    if (!effectiveTenantId) {
+      console.error('No tenant context available');
+      toast({
+        title: "Tenant Required",
+        description: "Unable to determine tenant context for upload.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     for (const file of Array.from(files)) {
       const fileId = `${Date.now()}-${file.name}`;
       setUploadingFiles(prev => ({ ...prev, [fileId]: 50 }));
 
       try {
         // Upload to storage with correct folder structure: tenant_id/user_id/filename
-        const filePath = `${profile.tenant_id}/${user.id}/${fileId}`;
+        const filePath = `${effectiveTenantId}/${user.id}/${fileId}`;
         const { error: uploadError } = await supabase.storage
           .from('documents')
           .upload(filePath, file);
@@ -401,7 +431,7 @@ export default function ChatbotManagement() {
             filename: file.name,
             file_url: publicUrl,
             uploaded_by: user.id,
-            tenant_id: profile.tenant_id,
+            tenant_id: effectiveTenantId,
             status: 'ready',
             content: `Uploaded via chatbot configuration - ${file.name}`
           })

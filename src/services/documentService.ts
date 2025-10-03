@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { profileService } from './profileService';
 
 export interface Document {
   id: string;
@@ -30,44 +31,45 @@ class DocumentService {
     }
   }
 
-  async uploadDocument(file: File): Promise<Document | null> {
+  /**
+   * Upload a document to storage and create a database record
+   * @param file - The file to upload
+   * @param tenantId - Optional tenant ID (required for global_admin users)
+   */
+  async uploadDocument(file: File, tenantId?: string): Promise<Document | null> {
     try {
-      // Get authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Get user profile
+      const profile = await profileService.getCurrentUserProfile();
       
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        toast.error('You must be logged in to upload documents');
+      if (!profile) {
+        console.error('Unable to retrieve user profile');
+        toast.error('Authentication required. Please log in and try again.');
         return null;
       }
 
-      // Try to get user's profile with tenant_id
-      let profile = await supabase
-        .from('profiles')
-        .select('tenant_id, id, email')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      // If profile not found by ID, try by email as fallback
-      if (!profile.data && user.email) {
-        console.warn(`Profile not found by ID ${user.id}, trying by email ${user.email}`);
-        profile = await supabase
-          .from('profiles')
-          .select('tenant_id, id, email')
-          .eq('email', user.email)
-          .maybeSingle();
+      // Determine tenant_id for the upload
+      let effectiveTenantId = profile.tenant_id;
+      
+      // For global_admin users, tenant_id must be provided explicitly
+      if (profile.role === 'global_admin') {
+        if (!tenantId) {
+          console.error('Global admin must provide tenant_id for document upload');
+          toast.error('Please select a tenant context for this upload.');
+          return null;
+        }
+        effectiveTenantId = tenantId;
       }
 
-      if (!profile.data?.tenant_id) {
-        console.error('Profile lookup failed:', { userId: user.id, email: user.email, profile: profile.data });
-        toast.error('Unable to find user profile. Please refresh the page or contact support.');
+      if (!effectiveTenantId) {
+        console.error('No tenant context available for upload');
+        toast.error('Unable to determine tenant context. Please contact support.');
         return null;
       }
 
       // Upload file to storage with proper folder structure
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
-      const filePath = `${profile.data.tenant_id}/${user.id}/${fileName}`;
+      const filePath = `${effectiveTenantId}/${profile.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -84,11 +86,11 @@ class DocumentService {
       const { data, error } = await supabase
         .from('documents')
         .insert({
-          tenant_id: profile.data.tenant_id,
+          tenant_id: effectiveTenantId,
           filename: file.name,
           file_url: publicUrl,
           status: 'pending',
-          uploaded_by: user.id,
+          uploaded_by: profile.id,
           content: `Uploaded via document service - ${file.name}`
         })
         .select()

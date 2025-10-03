@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { profileService } from '@/services/profileService';
 
 interface DocumentUploadProps {
   isOpen: boolean;
@@ -77,41 +78,25 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
 
   const uploadToSupabase = async (file: File, fileId: string) => {
     try {
-      // Get authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        console.error('Authentication error:', authError);
-        throw new Error('Not authenticated');
+      // Get user profile
+      const profile = await profileService.getCurrentUserProfile();
+      
+      if (!profile) {
+        throw new Error('Authentication required. Please log in and try again.');
       }
 
-      // Try to get user's profile with tenant_id
-      let profileQuery = await supabase
-        .from('profiles')
-        .select('tenant_id, id, email')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      // If profile not found by ID, try by email as fallback
-      if (!profileQuery.data && user.email) {
-        console.warn(`Profile not found by ID ${user.id}, trying by email ${user.email}`);
-        profileQuery = await supabase
-          .from('profiles')
-          .select('tenant_id, id, email')
-          .eq('email', user.email)
-          .maybeSingle();
+      // For global_admin, we need a tenant context
+      // In this component, we should ideally receive tenantId as a prop
+      // For now, fail gracefully if no tenant_id
+      if (profile.role === 'global_admin' && !profile.tenant_id) {
+        throw new Error('Global admins must upload documents from a tenant-specific context (e.g., Chatbot Management with selected tenants).');
       }
 
-      if (!profileQuery.data?.tenant_id) {
-        console.error('Profile lookup failed:', { 
-          userId: user.id, 
-          email: user.email, 
-          profile: profileQuery.data,
-          error: profileQuery.error 
-        });
-        throw new Error('Unable to find user profile. Please refresh the page or contact support.');
+      const effectiveTenantId = profile.tenant_id;
+      
+      if (!effectiveTenantId) {
+        throw new Error('No tenant context available. Please contact support.');
       }
-
-      const profile = profileQuery.data;
 
       // Show upload progress
       setUploadedFiles(prev => prev.map(f => 
@@ -119,7 +104,7 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
       ));
 
       // Upload to storage with proper folder structure
-      const filePath = `${profile.tenant_id}/${user.id}/${Date.now()}_${file.name}`;
+      const filePath = `${effectiveTenantId}/${profile.id}/${Date.now()}_${file.name}`;
       
       const { error: uploadError } = await supabase.storage
         .from('documents')
@@ -144,8 +129,8 @@ export function DocumentUpload({ isOpen, onClose }: DocumentUploadProps) {
           filename: file.name,
           file_url: urlData.publicUrl,
           status: 'ready',
-          uploaded_by: user.id,
-          tenant_id: profile.tenant_id,
+          uploaded_by: profile.id,
+          tenant_id: effectiveTenantId,
           content: `Uploaded via knowledge base - ${file.name}`
         });
 
