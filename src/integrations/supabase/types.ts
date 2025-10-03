@@ -763,6 +763,7 @@ export type Database = {
           branding_config: Json | null
           created_at: string | null
           id: string
+          is_global: boolean
           name: string
           settings: Json | null
           subdomain: string
@@ -772,6 +773,7 @@ export type Database = {
           branding_config?: Json | null
           created_at?: string | null
           id?: string
+          is_global?: boolean
           name: string
           settings?: Json | null
           subdomain: string
@@ -781,6 +783,7 @@ export type Database = {
           branding_config?: Json | null
           created_at?: string | null
           id?: string
+          is_global?: boolean
           name?: string
           settings?: Json | null
           subdomain?: string
@@ -838,6 +841,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_global_tenant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       get_public_profiles: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -873,6 +880,10 @@ export type Database = {
         }[]
       }
       get_user_tenant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_user_tenant_id_or_global: {
         Args: Record<PropertyKey, never>
         Returns: string
       }

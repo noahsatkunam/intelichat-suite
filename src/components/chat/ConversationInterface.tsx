@@ -126,9 +126,18 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         .eq('id', user.id)
         .single();
 
-      // Allow null tenant_id for global admins, but require it for other users
+      // Require profile for all users
       if (!profile) return null;
+      
+      // For non-global admins, require a tenant_id
       if (profile.role !== 'global_admin' && !profile.tenant_id) return null;
+
+      // For global admins, get the global tenant ID
+      let conversationTenantId = profile.tenant_id;
+      if (profile.role === 'global_admin') {
+        const { data: globalTenantId } = await supabase.rpc('get_global_tenant_id');
+        conversationTenantId = globalTenantId;
+      }
 
       // Pre-generate an ID so we don't need to SELECT (which can be blocked by RLS)
       const newConversationId = (window.crypto && 'randomUUID' in window.crypto)
@@ -140,13 +149,13 @@ export const ConversationInterface: React.FC<ConversationInterfaceProps> = ({
         ? userMessage.substring(0, 50) + '...' 
         : userMessage;
 
-      // Create a new conversation (no .select() to avoid SELECT RLS on return)
+      // Create a new conversation with global tenant for global admins
       const { error } = await supabase
         .from('conversations')
         .insert({
           id: newConversationId,
           user_id: user.id,
-          tenant_id: profile.tenant_id ?? null, // Can be null for global admins
+          tenant_id: conversationTenantId,
           chatbot_id: chatbotId,
           title: initialTitle,
         });
